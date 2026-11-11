@@ -1,0 +1,28 @@
+cff-version: 1.2.0
+message: "If torux helped, cite it."
+type: software
+title: "torux: vacuum flux surfaces at the limit of double-precision arithmetic"
+abstract: "torux takes an external magnetic source for toroidal confinement (coils, permanent magnets) and returns the flux surface that encloses a requested toroidal flux, verified by an independent evaluator to the limit of double-precision arithmetic, or a certificate that no such surface exists. With its answers for all 371,701 coil sets of QUASR."
+authors:
+  - family-names: Bogdan
+    given-names: Philipp
+date-released: 2026-11-11
+version: 0.1.0
+url: "https://github.com/philippbogdan/torux"
+repository-code: "https://github.com/philippbogdan/torux"
+license: CC0-1.0
+keywords:
+  - stellarator
+  - plasma physics
+  - magnetic confinement fusion
+  - flux surfaces
+  - invariant tori
+references:
+  - type: dataset
+    title: "QUASR: the QUAsisymmetric Stellarator Repository (v4)"
+    authors:
+      - family-names: Giuliani
+        given-names: Andrew
+    year: 2024
+    doi: "10.5281/zenodo.13717741"
+    url: "https://quasr.flatironinstitute.org"

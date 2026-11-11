@@ -1,0 +1,373 @@
+{
+ "about": "The twelve sources of the picture 'any coil', in reading order (left to right, back row first). load is the call that reads the source from the files listed (their names as downloaded). For a surface: bn_solver is the solver's largest |B.n|/|B| on a grid it never solved on. bn_check is the independent evaluator's estimate of the largest value over the whole surface and bn_check_sampled its largest at check_points random points, measured on x86-64 on the source that load returns. flux_err is the relative error of the enclosed flux on six sections. traced_lines is the largest distance of two independently traced field lines from the surface over 40 field periods, relative to its minor radius. For a source without a surface: the verdict and the arguments it rests on (torux.nonstell).",
+ "sources": [
+  {
+   "key": "qa",
+   "name": "QUASR 0124533",
+   "kind": "quasi-axisymmetric stellarator",
+   "answer": "surface",
+   "credit": "QUASR v4, the QUAsisymmetric Stellarator Repository, by Andrew Giuliani",
+   "credit_url": "https://doi.org/10.5281/zenodo.13717741",
+   "licence": "MIT",
+   "files": [
+    {
+     "name": "serial0124533.json",
+     "sha256": "b6b8cb3aea59d1d79fa00f3c0ba6b2323e4e487641b3711eccba30892ef5e4c8",
+     "bytes": 385437,
+     "origin": "https://zenodo.org/api/records/13717741/files/QUASR_08072024.tar.gz/content",
+     "member": "QUASR_08072024/simsopt_serials/0124/serial0124533.json"
+    }
+   ],
+   "flux_Wb": 0.11033604565024917,
+   "iota": -0.29453282485561616,
+   "nfp": 1,
+   "M": 64,
+   "N": 80,
+   "bn_solver": 1.1151037335275482e-15,
+   "bn_check": 1.0489929826554578e-15,
+   "bn_check_sampled": 8.2286412440492255e-16,
+   "check_points": 4096,
+   "flux_err": 2.6413267055800586e-15,
+   "traced_lines": 4.4138100498611926e-14,
+   "load": "torux.load(\"serial0124533.json\")"
+  },
+  {
+   "key": "qh",
+   "name": "HSX",
+   "kind": "quasi-helically symmetric stellarator",
+   "answer": "surface",
+   "credit": "HSX coil set from simsopt 1.11 (hiddenSymmetries/simsopt), in torux's Fourier-filament form",
+   "credit_url": "https://github.com/hiddenSymmetries/simsopt",
+   "licence": "MIT",
+   "files": [
+    {
+     "name": "hsx.json",
+     "sha256": "558be58928c01fbc1ebcf636272f1faef2f2192e4a0d1932e231976cc1ec7762",
+     "bytes": 114453,
+     "origin": "the HSX coil set of simsopt 1.11 (simsopt.configs), written as Fourier filaments"
+    }
+   ],
+   "flux_Wb": 0.0359221439332229,
+   "iota": 1.0855079262677538,
+   "nfp": 4,
+   "M": 192,
+   "N": 96,
+   "bn_solver": 2.9827815543641774e-15,
+   "bn_check": 2.2112215349312943e-15,
+   "bn_check_sampled": 1.8535297152866452e-15,
+   "check_points": 4096,
+   "flux_err": 1.9316480432811065e-15,
+   "traced_lines": 1.0772991941351e-13,
+   "load": "torux.load(\"hsx.json\")",
+   "bundled_as": "examples/hsx.json"
+  },
+  {
+   "key": "qi",
+   "name": "Wendelstein 7-X",
+   "kind": "quasi-isodynamic stellarator",
+   "answer": "surface",
+   "credit": "Wendelstein 7-X coil set from simsopt 1.11 (hiddenSymmetries/simsopt), in torux's Fourier-filament form",
+   "credit_url": "https://github.com/hiddenSymmetries/simsopt",
+   "licence": "MIT",
+   "files": [
+    {
+     "name": "w7x.json",
+     "sha256": "4db829dec29fc4967e209b55f65c006cf9a90f759327dc7832e9a366f9750cf6",
+     "bytes": 485881,
+     "origin": "the Wendelstein 7-X coil set of simsopt 1.11 (simsopt.configs), written as Fourier filaments"
+    }
+   ],
+   "flux_Wb": 2.217430801869203,
+   "iota": 0.979426852359033,
+   "nfp": 5,
+   "M": 320,
+   "N": 80,
+   "bn_solver": 4.286050632209258e-15,
+   "bn_check": 3.781672250489648e-15,
+   "bn_check_sampled": 2.3377206607148957e-15,
+   "check_points": 4096,
+   "flux_err": 1.0013597932249198e-15,
+   "traced_lines": 1.349979879304056e-12,
+   "load": "torux.load(\"w7x.json\")",
+   "bundled_as": "examples/w7x.json"
+  },
+  {
+   "key": "heliotron",
+   "name": "LHD",
+   "kind": "heliotron",
+   "answer": "surface",
+   "credit": "LHD coil model (Y. Suzuki, 2017) from the FOCUS code's examples (PrincetonUniversity/FOCUS)",
+   "credit_url": "https://github.com/PrincetonUniversity/FOCUS",
+   "licence": "GPL-3.0",
+   "files": [
+    {
+     "name": "coils.lhd",
+     "sha256": "2691ba9bc4dc220db4ab397c943a6cdd8505fddb692233e8526c1e69e31ac387",
+     "bytes": 268755,
+     "origin": "https://raw.githubusercontent.com/PrincetonUniversity/FOCUS/e4bb49b0632c650e326616912e274feb7781a60d/examples/lhd/coils.lhd"
+    }
+   ],
+   "flux_Wb": 3.1859579935654128,
+   "iota": -1.3670776287644912,
+   "nfp": 10,
+   "M": 192,
+   "N": 40,
+   "bn_solver": 3.645444994166623e-15,
+   "bn_check": 2.8467663983913467e-15,
+   "bn_check_sampled": 1.9420474752289875e-15,
+   "check_points": 4096,
+   "flux_err": 8.363372224247339e-16,
+   "traced_lines": 2.5671016747506347e-13,
+   "load": "torux.load(\"coils.lhd\")"
+  },
+  {
+   "key": "interlinked",
+   "name": "CNT",
+   "kind": "interlinked-coil stellarator",
+   "answer": "surface",
+   "credit": "CNT coil set from \"Update on the design of the Columbia Stellarator eXperiment\" by A. Baillod, R. Lopez, A. Veksler, M. Campagna, D. Schmeling, E. Paul and A. Knyazev",
+   "credit_url": "https://doi.org/10.5281/zenodo.18115389",
+   "licence": "CC BY 4.0",
+   "files": [
+    {
+     "name": "biotsavart_cnt32_symm.json",
+     "sha256": "ddab1cffbc7037d13d3fb46e7722df26cd771a4a3181699df20f809f935fce4b",
+     "bytes": 29984,
+     "origin": "https://zenodo.org/api/records/18115389/files/zenodo.zip/content",
+     "member": "zenodo/configurations/CNT32/output_files/biotsavart_cnt32_symm.json"
+    }
+   ],
+   "flux_Wb": 0.022404959875832516,
+   "iota": -0.24464004677794005,
+   "nfp": 2,
+   "M": 320,
+   "N": 48,
+   "bn_solver": 1.7461850457589556e-15,
+   "bn_check": 1.2755628304167174e-15,
+   "bn_check_sampled": 9.157783002726214e-16,
+   "check_points": 4096,
+   "flux_err": 6.194069476010963e-16,
+   "traced_lines": 3.3659632860501115e-14,
+   "load": "torux.load(\"biotsavart_cnt32_symm.json\")"
+  },
+  {
+   "key": "lt",
+   "name": "STAR_Lite-A",
+   "kind": "stellarator with L and T coils",
+   "answer": "surface",
+   "credit": "STAR_Lite-A coil set (Harrer, Giuliani, Padidar, Davies, Naik and Lowe, 2026) shipped in simsopt's configs",
+   "credit_url": "https://github.com/hiddenSymmetries/simsopt",
+   "licence": "MIT",
+   "files": [
+    {
+     "name": "STAR_Lite-A.json",
+     "sha256": "e554e076b25a7b30cd78fae90fa6b266ed2c0aefe24ee6e63c9885d4fa35b435",
+     "bytes": 473539,
+     "origin": "https://raw.githubusercontent.com/hiddenSymmetries/simsopt/81436b4f7c655a4099eadadb168b7cc27923e555/src/simsopt/configs/STAR_Lite-A.json"
+    }
+   ],
+   "flux_Wb": 0.002466853394713512,
+   "iota": -0.10995684495593366,
+   "nfp": 2,
+   "M": 256,
+   "N": 48,
+   "bn_solver": 1.1993450001729325e-15,
+   "bn_check": 1.0269306318546848e-15,
+   "bn_check_sampled": 6.939626636724839e-16,
+   "check_points": 4096,
+   "flux_err": 1.582229340954048e-15,
+   "traced_lines": 6.96896698575222e-14,
+   "load": "torux.load(\"STAR_Lite-A.json\", which=\"BiotSavart1\")"
+  },
+  {
+   "key": "wireframe",
+   "name": "wireframe (RCLS)",
+   "kind": "wireframe stellarator",
+   "answer": "surface",
+   "credit": "wireframe from \"Data and code for A framework for discrete optimization of stellarator coils\" by Kenneth Hammond",
+   "credit_url": "https://doi.org/10.34770/6pbm-9981",
+   "licence": "CC BY 4.0",
+   "files": [
+    {
+     "name": "wf_data_fulltorus.csv",
+     "sha256": "0aec2bf74e24d8608c99f0387834eac9c786837c5e6bf59dc1acaa56587d2e1e",
+     "bytes": 200483,
+     "origin": "https://g-ef94ef.f0ad1.36fe.data.globus.org/10.34770/6pbm-9981/552/data.zip",
+     "member": "data/Figure_03/wf_data_fulltorus.csv"
+    },
+    {
+     "name": "wf_data_halfperiod.csv",
+     "sha256": "e5ed4eceae08936cfe11a15f35b44ecb72d1a6a34b8434a649d9266994e2028b",
+     "bytes": 49692,
+     "origin": "https://g-ef94ef.f0ad1.36fe.data.globus.org/10.34770/6pbm-9981/552/data.zip",
+     "member": "data/Figure_03/wf_data_halfperiod.csv"
+    },
+    {
+     "name": "input.LandremanPaul2021_QA",
+     "sha256": "4c6ba4bc391a69b5b6a5e84ff82df9b0ce92e20c42f2a47f89a9283fd5bc3458",
+     "bytes": 6628,
+     "origin": "https://g-ef94ef.f0ad1.36fe.data.globus.org/10.34770/6pbm-9981/552/data.zip",
+     "member": "data/Supporting_Files/input.LandremanPaul2021_QA"
+    }
+   ],
+   "flux_Wb": 0.13816387672720165,
+   "iota": 0.4053342881467036,
+   "nfp": 2,
+   "M": 320,
+   "N": 320,
+   "bn_solver": 1.777190427525021e-15,
+   "bn_check": 1.5306275138816353e-15,
+   "bn_check_sampled": 1.0107634451736135e-15,
+   "check_points": 4096,
+   "flux_err": 1.6071104125389328e-15,
+   "traced_lines": 6.759549613872928e-14,
+   "load": "torux.load(\"wf_data_fulltorus.csv\", nfp=2)"
+  },
+  {
+   "key": "magnets",
+   "name": "MUSE",
+   "kind": "permanent-magnet stellarator",
+   "answer": "surface",
+   "credit": "MUSE zot43 magnet and coil model from the \"QUADCOIL Quasi-single-stage Dataset\" by Lanke Fu",
+   "credit_url": "https://doi.org/10.5281/zenodo.19923438",
+   "licence": "CC BY 4.0",
+   "files": [
+    {
+     "name": "zot43-dipoles-clip.focus",
+     "sha256": "7a860068a8e042bc3ca0b6be7dd4571461ea5b7c932694d66a9fa78807095c63",
+     "bytes": 1877363,
+     "origin": "https://zenodo.org/api/records/19923438/files/quasi_single_stage.zip/content",
+     "member": "quasi_single_stage/PM/zot43-dipoles-clip.focus"
+    },
+    {
+     "name": "muse_original.coils",
+     "sha256": "3634b7f4c7186637d95f36349076719f1c8faa154af232d3e8325fcf66406c41",
+     "bytes": 1525578,
+     "origin": "https://zenodo.org/api/records/19923438/files/quasi_single_stage.zip/content",
+     "member": "quasi_single_stage/PM/muse_original.coils"
+    },
+    {
+     "name": "muse_original.input",
+     "sha256": "452def95f4f378878e009af753b3c8488e6e360c79c85277be869c1b9bf66ef0",
+     "bytes": 4544,
+     "origin": "https://zenodo.org/api/records/19923438/files/quasi_single_stage.zip/content",
+     "member": "quasi_single_stage/PM/muse_original.input"
+    }
+   ],
+   "flux_Wb": 0.0005897126018559198,
+   "iota": 0.19881195432546248,
+   "nfp": 2,
+   "M": 224,
+   "N": 192,
+   "bn_solver": 6.8441185945869105e-15,
+   "bn_check": 6.116355006868597e-15,
+   "bn_check_sampled": 4.420981651980026e-15,
+   "check_points": 4096,
+   "flux_err": 9.192631877573474e-16,
+   "traced_lines": 7.216674798408186e-14,
+   "load": "torux.load(\"muse_original.coils\", \"zot43-dipoles-clip.focus\", nfp=2)"
+  },
+  {
+   "key": "umbilic",
+   "name": "US131 (umbilic)",
+   "kind": "umbilic stellarator",
+   "answer": "surface",
+   "credit": "US131 coil set from \"Omnigenous umbilic stellarators: data and analysis files\" by Rahul Gaur",
+   "credit_url": "https://doi.org/10.5281/zenodo.15355215",
+   "licence": "MIT",
+   "files": [
+    {
+     "name": "optimized_coilset9.h5",
+     "sha256": "2bad9c57fc7159f5516f60f99fa7dc4846fd239b5fac7aac71ed8486e81687c9",
+     "bytes": 578784,
+     "origin": "https://zenodo.org/api/records/15355215/files/rahulgaur104/Omnigenous-umbilic-stellarators-v0.5.0.zip/content",
+     "member": "rahulgaur104-Omnigenous-umbilic-stellarators-1fbe5de/US131_coil_design/optimized_coilset9.h5"
+    }
+   ],
+   "flux_Wb": 0.06352820849725094,
+   "iota": 0.32576605992706165,
+   "nfp": 1,
+   "M": 320,
+   "N": 320,
+   "bn_solver": 1.638003723892245e-15,
+   "bn_check": 1.072689890169801e-15,
+   "bn_check_sampled": 9.374042992103205e-16,
+   "check_points": 4096,
+   "flux_err": 1.7476063797284623e-15,
+   "traced_lines": 1.0484818051281337e-13,
+   "load": "torux.load(\"optimized_coilset9.h5\")"
+  },
+  {
+   "key": "tokamak",
+   "name": "ITER",
+   "kind": "tokamak poloidal-field and central-solenoid set",
+   "answer": "no_surface",
+   "credit": "ITER coil geometry of the TokaMaker examples (OpenFUSIONToolkit)",
+   "credit_url": "https://github.com/OpenFUSIONToolkit/OpenFUSIONToolkit",
+   "licence": "LGPL-3.0",
+   "files": [
+    {
+     "name": "ITER_mesh.h5",
+     "sha256": "7f67f6b83770b6f92fb0afd94290870def0254163aaaa5f2e16b8ef79ac95c09",
+     "bytes": 235120,
+     "origin": "https://raw.githubusercontent.com/OpenFUSIONToolkit/OpenFUSIONToolkit/fc6912ecce61cb9d31fcd59bdf98d55f921dd164/src/examples/TokaMaker/ITER/ITER_mesh.h5"
+    }
+   ],
+   "verdict": "NO_TOROIDAL_FLUX_SURFACE",
+   "arguments": [
+    "NOTOR",
+    "AXI"
+   ],
+   "load": "torux.load(\"ITER_mesh.h5\")"
+  },
+  {
+   "key": "rmp",
+   "name": "DIII-D upper I-coils",
+   "kind": "tokamak 3D perturbation coils",
+   "answer": "no_surface",
+   "credit": "DIII-D upper I-coil geometry of the GPEC coil library (OpenFUSIONToolkit/GPEC)",
+   "credit_url": "https://github.com/OpenFUSIONToolkit/GPEC",
+   "licence": "MIT",
+   "files": [
+    {
+     "name": "d3d_iu.dat",
+     "sha256": "e7a5cae75aac1d01f28068fcb5e40be6259f4de09f9d1908264ff1c602fce255",
+     "bytes": 30264,
+     "origin": "https://raw.githubusercontent.com/OpenFUSIONToolkit/GPEC/9a25490c18b405a6ee94d34e79ad525e1a82d908/src/ForcingTerms/coil_geometries/d3d_iu.dat"
+    }
+   ],
+   "verdict": "NO_TOROIDAL_FLUX_SURFACE",
+   "arguments": [
+    "ANTISYM",
+    "AMP",
+    "SHADOW",
+    "EXC"
+   ],
+   "load": "torux.load(\"d3d_iu.dat\")",
+   "bundled_as": "examples/d3d_icoils_upper.dat"
+  },
+  {
+   "key": "dipole",
+   "name": "LDX-like dipole",
+   "kind": "levitated dipole",
+   "answer": "no_surface",
+   "credit": "LDX-like dipole of the TokaMaker examples (OpenFUSIONToolkit)",
+   "credit_url": "https://github.com/OpenFUSIONToolkit/OpenFUSIONToolkit",
+   "licence": "LGPL-3.0",
+   "files": [
+    {
+     "name": "coil_cross_sections.tsv",
+     "sha256": "d2b96cd31e462389ac5f636cf1232c1eab0747bb6e708571ac848b344ce570f4",
+     "bytes": 521,
+     "origin": "the coil cross-sections written out in TokaMaker's Dipole example (OpenFUSIONToolkit, src/examples/TokaMaker/Dipole/dipole_mesh_ex.ipynb)"
+    }
+   ],
+   "verdict": "DIPOLE_CLOSED_FIELD_LINES",
+   "arguments": [
+    "NOTOR",
+    "AXI",
+    "DIPOLE"
+   ]
+  }
+ ]
+}

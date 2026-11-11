@@ -1,0 +1,6 @@
+# DESC as the comparison ran it (run_desc.py), Python 3.12.14.  desc-opt resolves its other dependencies itself.
+desc-opt==0.17.3
+jax==0.9.2
+jaxlib==0.9.2
+numpy==2.4.6
+scipy==1.18.0

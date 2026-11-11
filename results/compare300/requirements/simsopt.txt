@@ -1,0 +1,7 @@
+# The SIMSOPT runs of the comparison (run_boozer_exact.py, run_boozer_ls.py, run_qfm.py): Python 3.12.14, then
+#   pip install -r requirements/simsopt.txt
+simsopt==1.11.1
+numpy==2.5.4
+scipy==1.18.1
+jax==0.12.0.1
+jaxlib==0.12.0.1

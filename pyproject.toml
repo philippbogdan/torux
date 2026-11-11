@@ -1,0 +1,41 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "torux"
+version = "0.1.0"
+description = "Vacuum magnetic field and flux surfaces of coils and magnets for toroidal confinement, at the limit of double-precision arithmetic."
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "CC0-1.0" }
+authors = [{ name = "Philipp Bogdan" }]
+keywords = ["stellarator", "plasma physics", "magnetic confinement", "flux surfaces", "fusion"]
+dependencies = [
+    "numpy>=2.4",
+    "scipy>=1.18",
+    "jax>=0.9",
+    "numba>=0.65",
+    "mpmath>=1.3",
+    "threadpoolctl>=3.1",
+]
+
+[project.optional-dependencies]
+hdf5 = ["h5py>=3.10"]
+plot = ["matplotlib>=3.9"]
+all = ["h5py>=3.10", "matplotlib>=3.9"]
+test = ["pytest>=8", "pandas>=2", "pyarrow>=15"]
+
+[project.urls]
+Repository = "https://github.com/philippbogdan/torux"
+
+[project.scripts]
+torux = "torux.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-m 'not slow'"
+markers = ["slow: takes minutes (the certificates); run with -m slow"]

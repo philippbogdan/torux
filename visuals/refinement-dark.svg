@@ -1,0 +1,228 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 838 340" width="838" height="340" font-family="-apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans', Helvetica, Arial, sans-serif">
+<rect x="84" y="259.4" width="736" height="24.6" fill="#161b22"/>
+<line x1="84" y1="259.4" x2="820" y2="259.4" stroke="#9198a1" stroke-width="1" stroke-dasharray="2 3"/>
+<text x="94" y="276.4" font-size="13" fill="#9198a1">the limit of double precision</text>
+<line x1="79" y1="49.5" x2="84" y2="49.5" stroke="#9198a1"/>
+<text x="74" y="54.0" font-size="13.5" fill="#9198a1" text-anchor="end">10<tspan dy="-5" font-size="10">−6</tspan></text>
+<line x1="79" y1="116.5" x2="84" y2="116.5" stroke="#9198a1"/>
+<text x="74" y="121.0" font-size="13.5" fill="#9198a1" text-anchor="end">10<tspan dy="-5" font-size="10">−9</tspan></text>
+<line x1="79" y1="183.5" x2="84" y2="183.5" stroke="#9198a1"/>
+<text x="74" y="188.0" font-size="13.5" fill="#9198a1" text-anchor="end">10<tspan dy="-5" font-size="10">−12</tspan></text>
+<line x1="79" y1="250.5" x2="84" y2="250.5" stroke="#9198a1"/>
+<text x="74" y="255.0" font-size="13.5" fill="#9198a1" text-anchor="end">10<tspan dy="-5" font-size="10">−15</tspan></text>
+<line x1="84.0" y1="284" x2="84.0" y2="289" stroke="#9198a1"/>
+<text x="84.0" y="305" font-size="13.5" fill="#9198a1" text-anchor="middle">1,000</text>
+<line x1="321.4" y1="284" x2="321.4" y2="289" stroke="#9198a1"/>
+<text x="321.4" y="305" font-size="13.5" fill="#9198a1" text-anchor="middle">10,000</text>
+<line x1="558.8" y1="284" x2="558.8" y2="289" stroke="#9198a1"/>
+<text x="558.8" y="305" font-size="13.5" fill="#9198a1" text-anchor="middle">100,000</text>
+<line x1="796.3" y1="284" x2="796.3" y2="289" stroke="#9198a1"/>
+<text x="796.3" y="305" font-size="13.5" fill="#9198a1" text-anchor="middle">1,000,000</text>
+<line x1="84" y1="16" x2="84" y2="284" stroke="#3d444d"/>
+<line x1="84" y1="284" x2="820" y2="284" stroke="#3d444d"/>
+<text x="452.0" y="328" font-size="14" fill="#9198a1" text-anchor="middle">numbers describing the surface</text>
+<text x="26" y="150.0" font-size="14" fill="#9198a1" text-anchor="middle" transform="rotate(-90 26 150.0)">field crossing the surface</text>
+<g fill="none" stroke="#1fe0b4" stroke-width="1" stroke-opacity="0.38" stroke-linejoin="round">
+<polyline points="226.2,62.1 326.1,88.7 419.9,174.7 454.6,248.7"/>
+<polyline points="174.4,138.8 278.0,250.7"/>
+<polyline points="174.4,122.0 296.6,249.6"/>
+<polyline points="174.4,146.3 296.6,254.5"/>
+<polyline points="226.2,151.7 326.0,253.4"/>
+<polyline points="174.4,223.8 203.5,254.5"/>
+<polyline points="174.4,32.3 260.3,104.1 331.3,244.3"/>
+<polyline points="203.5,160.4 289.7,249.0"/>
+<polyline points="289.6,145.8 401.8,248.7"/>
+<polyline points="326.1,123.5 445.0,230.4 509.5,245.4"/>
+<polyline points="260.5,119.0 383.3,209.0 438.7,247.9"/>
+<polyline points="297.0,157.1 397.3,250.9"/>
+<polyline points="174.4,178.3 273.9,254.0"/>
+<polyline points="174.4,122.6 296.6,232.2 367.4,249.3"/>
+<polyline points="174.4,157.0 296.6,252.9"/>
+<polyline points="174.4,132.6 296.6,252.3"/>
+<polyline points="174.4,131.8 296.6,250.2"/>
+<polyline points="454.1,155.8 539.0,240.6"/>
+<polyline points="278.0,177.7 360.3,251.6"/>
+<polyline points="232.6,151.5 330.9,246.7"/>
+<polyline points="174.4,63.1 315.1,99.1 386.1,218.2 415.6,253.1"/>
+<polyline points="174.4,174.0 260.3,247.9"/>
+<polyline points="226.2,126.6 326.1,247.8"/>
+<polyline points="174.4,225.5 219.1,252.2"/>
+<polyline points="226.2,138.3 348.8,246.9"/>
+<polyline points="297.0,121.5 438.5,204.9 488.9,239.2 525.4,247.0"/>
+<polyline points="260.5,164.7 331.3,245.7"/>
+<polyline points="162.7,124.5 255.3,244.2"/>
+<polyline points="174.4,223.6 226.2,249.2"/>
+<polyline points="297.0,137.2 397.3,239.9"/>
+<polyline points="297.0,194.0 360.6,241.9"/>
+<polyline points="297.0,109.8 419.9,190.6 454.6,243.8"/>
+<polyline points="226.2,148.0 326.1,244.0"/>
+<polyline points="174.4,209.7 226.2,252.9"/>
+<polyline points="331.5,81.2 454.6,137.3 525.9,238.9 597.0,240.2"/>
+<polyline points="260.5,126.1 360.6,245.7"/>
+<polyline points="203.5,157.9 296.6,254.8"/>
+<polyline points="203.5,165.5 315.1,251.4"/>
+<polyline points="174.4,161.1 278.0,253.6"/>
+<polyline points="297.0,119.3 419.9,241.8"/>
+<polyline points="203.5,134.3 330.9,241.9"/>
+<polyline points="174.4,161.0 296.6,250.0"/>
+<polyline points="174.4,195.0 255.3,255.2"/>
+<polyline points="232.6,160.7 330.9,250.4"/>
+<polyline points="255.3,101.5 396.8,246.2"/>
+<polyline points="255.3,141.9 367.4,253.5"/>
+<polyline points="383.1,151.9 467.9,244.1"/>
+<polyline points="383.1,187.2 438.3,234.8 502.4,248.3"/>
+<polyline points="174.4,235.2 203.5,253.0"/>
+<polyline points="189.9,122.2 276.1,247.0"/>
+<polyline points="297.0,186.4 397.0,243.9"/>
+<polyline points="260.5,168.0 367.5,249.4"/>
+<polyline points="203.5,74.8 303.3,132.1 374.3,250.5"/>
+<polyline points="289.6,71.3 383.3,72.4 488.9,170.3 525.6,190.2 562.1,243.5"/>
+<polyline points="203.5,37.0 326.0,105.6 415.6,219.9 438.5,248.4"/>
+<polyline points="260.5,143.3 347.1,241.9"/>
+<polyline points="226.2,52.2 348.8,96.3 419.9,174.5 454.6,208.4 491.3,245.7"/>
+<polyline points="255.3,119.8 367.4,241.5"/>
+<polyline points="174.4,127.8 296.6,250.3"/>
+<polyline points="174.4,137.6 296.6,256.9"/>
+<polyline points="232.6,119.8 360.3,254.2"/>
+<polyline points="383.1,176.2 454.1,252.2"/>
+<polyline points="260.5,142.8 360.6,244.8"/>
+<polyline points="260.5,133.7 360.6,229.5 438.7,247.5"/>
+<polyline points="203.5,40.1 326.0,99.0 397.0,191.4 419.9,239.0 454.6,251.2"/>
+<polyline points="260.5,120.4 383.3,197.5 454.6,250.0"/>
+<polyline points="203.5,133.7 289.7,249.0"/>
+<polyline points="286.2,82.0 438.5,231.6 473.0,240.1"/>
+<polyline points="226.2,79.6 367.4,82.0 454.3,183.9 488.9,196.2 525.4,242.1"/>
+<polyline points="289.6,134.8 417.6,248.4"/>
+<polyline points="226.2,127.2 348.8,249.2"/>
+<polyline points="383.1,105.0 502.4,239.6 561.9,244.6"/>
+<polyline points="174.4,209.3 255.3,249.8"/>
+<polyline points="174.4,217.2 255.3,249.8"/>
+<polyline points="174.4,153.6 296.6,250.6"/>
+<polyline points="312.3,143.1 415.5,248.7"/>
+<polyline points="232.6,151.1 344.5,252.8"/>
+<polyline points="232.6,139.9 346.6,248.2"/>
+<polyline points="232.6,135.0 346.6,249.9"/>
+<polyline points="289.6,168.5 383.1,249.8"/>
+<polyline points="226.2,149.2 326.1,247.8"/>
+<polyline points="260.5,160.5 360.6,248.3"/>
+<polyline points="203.5,124.5 326.0,246.5"/>
+<polyline points="203.5,118.5 344.5,232.8 367.4,255.4"/>
+<polyline points="185.4,131.5 297.0,249.5"/>
+<polyline points="260.5,137.2 383.3,248.0"/>
+<polyline points="189.9,65.1 330.9,71.7 401.8,172.8 431.4,232.6 454.3,249.3"/>
+<polyline points="174.4,141.3 296.6,252.2"/>
+<polyline points="289.6,173.2 386.1,249.7"/>
+<polyline points="226.2,74.0 348.8,113.2 419.9,245.3"/>
+<polyline points="360.6,132.9 431.9,230.5 491.3,241.6"/>
+<polyline points="226.2,58.8 367.4,93.5 438.5,215.8 473.1,243.3"/>
+<polyline points="174.4,179.6 278.0,155.9 348.8,248.7"/>
+<polyline points="260.5,119.7 383.3,219.8 438.5,247.7"/>
+<polyline points="260.5,148.0 383.3,248.6"/>
+<polyline points="174.4,180.8 226.2,254.6"/>
+<polyline points="203.5,126.0 312.3,237.6 346.6,244.1"/>
+<polyline points="260.5,143.8 367.5,244.0"/>
+<polyline points="203.5,160.1 276.1,248.7"/>
+<polyline points="226.2,121.5 367.4,242.1"/>
+<polyline points="226.2,140.5 348.8,248.1"/>
+<polyline points="226.2,129.7 367.4,246.4"/>
+<polyline points="255.3,145.6 344.5,244.5"/>
+<polyline points="431.3,160.3 509.5,243.5"/>
+<polyline points="260.5,146.6 367.5,246.8"/>
+<polyline points="296.6,76.3 438.3,186.9 544.0,240.8"/>
+<polyline points="360.6,124.9 473.0,244.9"/>
+<polyline points="174.4,116.9 260.3,247.1"/>
+<polyline points="274.1,136.6 367.5,241.0"/>
+<polyline points="274.1,164.9 344.8,211.7 415.5,243.7"/>
+<polyline points="174.4,125.2 273.9,246.6"/>
+<polyline points="203.5,124.1 303.3,189.6 373.9,242.0"/>
+<polyline points="278.0,168.8 346.6,238.1 396.8,239.2 431.3,241.3"/>
+<polyline points="226.2,160.2 326.0,243.8"/>
+<polyline points="226.2,135.1 344.5,244.3"/>
+<polyline points="226.2,132.8 344.5,244.8"/>
+<polyline points="226.2,158.3 326.0,245.2"/>
+<polyline points="255.3,141.1 360.3,244.5"/>
+<polyline points="255.3,135.5 360.3,243.4"/>
+<polyline points="255.3,151.0 346.6,243.4"/>
+<polyline points="431.4,119.9 525.4,242.6"/>
+<polyline points="278.0,149.5 373.9,242.0"/>
+<polyline points="346.6,129.5 457.0,239.9"/>
+<polyline points="431.3,122.9 557.7,240.9"/>
+<polyline points="383.3,150.2 467.9,242.3"/>
+<polyline points="296.6,139.7 396.8,240.5"/>
+<polyline points="467.9,81.2 596.6,228.3 667.9,240.9"/>
+<polyline points="383.1,138.6 472.8,231.7 502.4,237.2 539.0,235.7"/>
+<polyline points="203.5,130.2 289.7,248.6"/>
+<polyline points="226.2,171.2 289.7,250.2"/>
+<polyline points="174.4,133.2 315.1,244.1"/>
+<polyline points="255.3,149.1 344.5,244.8"/>
+<polyline points="226.2,120.3 367.4,245.5"/>
+<polyline points="255.3,137.5 360.3,248.1"/>
+<polyline points="226.2,121.4 367.4,244.5"/>
+<polyline points="226.2,178.4 312.3,245.6"/>
+<polyline points="445.0,141.8 528.2,238.5 544.0,236.0 580.7,237.7"/>
+<polyline points="289.6,174.5 383.1,244.0"/>
+<polyline points="454.1,122.5 539.0,227.7 580.7,239.4 610.3,238.7 633.2,237.0"/>
+<polyline points="383.3,111.7 490.8,241.4"/>
+<polyline points="383.1,163.3 509.5,241.5"/>
+<polyline points="226.2,186.3 289.6,247.2"/>
+<polyline points="203.5,144.7 312.3,246.4"/>
+<polyline points="226.2,102.9 367.4,141.0 454.3,240.8"/>
+<polyline points="189.9,117.7 289.6,200.5 360.3,244.9"/>
+<polyline points="226.2,182.3 276.1,231.6 346.6,215.9 383.1,227.2"/>
+<polyline points="174.4,125.0 296.6,224.3 344.5,243.5"/>
+<polyline points="189.9,123.6 276.1,240.4"/>
+<polyline points="226.2,136.7 326.1,199.3 396.8,237.2 419.6,231.6 454.1,229.8"/>
+<polyline points="312.3,49.1 454.1,99.9 561.9,183.1 596.5,198.0 631.1,205.1 667.8,236.9 704.5,235.9 723.3,236.6"/>
+<polyline points="348.8,99.2 490.8,242.2"/>
+<polyline points="289.6,147.1 396.8,244.3"/>
+<polyline points="255.3,163.2 346.6,244.8"/>
+<polyline points="226.2,118.3 367.4,243.0"/>
+<polyline points="383.1,182.8 454.1,240.5"/>
+<polyline points="226.2,136.6 344.5,247.1"/>
+<polyline points="189.9,135.8 296.6,243.2"/>
+<polyline points="289.6,149.0 396.8,241.8"/>
+<polyline points="488.7,183.6 561.9,240.7"/>
+<polyline points="396.8,152.3 509.5,240.7"/>
+<polyline points="396.8,121.6 525.3,239.6 544.0,237.7 573.6,236.9"/>
+<polyline points="326.0,132.8 415.5,239.9"/>
+<polyline points="312.3,141.8 396.8,241.7"/>
+<polyline points="386.0,60.0 525.3,239.4 544.0,239.7 573.6,242.1"/>
+<polyline points="255.3,46.9 360.3,169.2 417.6,240.9"/>
+<polyline points="312.3,124.0 417.6,227.8 454.3,241.4"/>
+<polyline points="431.3,116.6 544.0,237.2 557.7,236.9 580.7,237.7"/>
+<polyline points="502.4,91.1 629.0,134.4 771.7,236.0 794.7,237.4 820.0,235.3"/>
+<polyline points="226.2,123.2 312.6,241.8"/>
+<polyline points="260.5,186.8 326.1,241.3"/>
+<polyline points="226.2,118.9 348.8,240.1"/>
+<polyline points="396.8,78.6 516.1,219.5 561.9,238.1 596.5,233.6 667.8,236.4"/>
+<polyline points="244.7,153.7 348.8,240.7"/>
+<polyline points="260.5,137.6 386.1,243.1"/>
+<polyline points="297.0,164.4 401.9,245.9"/>
+<polyline points="326.1,185.7 401.9,244.5"/>
+<polyline points="467.9,93.1 557.8,240.0"/>
+<polyline points="226.2,134.5 312.6,237.0 383.1,249.2"/>
+<polyline points="226.2,130.8 326.1,247.8"/>
+<polyline points="260.5,168.4 331.3,247.6"/>
+<polyline points="226.2,130.0 348.8,249.8"/>
+<polyline points="326.0,140.2 431.3,247.3"/>
+<polyline points="312.3,90.1 454.1,238.4 509.5,239.9"/>
+<polyline points="174.4,124.4 260.3,247.2"/>
+<polyline points="226.2,184.2 312.3,231.7 383.1,245.8"/>
+<polyline points="226.2,184.6 312.3,246.7"/>
+<polyline points="226.2,185.2 289.6,248.4"/>
+<polyline points="278.0,143.0 396.8,245.7"/>
+<polyline points="226.2,149.0 326.0,245.9"/>
+<polyline points="289.6,160.3 383.1,245.1"/>
+<polyline points="260.5,144.9 367.5,246.0"/>
+<polyline points="278.0,128.2 419.6,245.4"/>
+<polyline points="289.6,164.1 396.8,246.1"/>
+<polyline points="348.8,137.3 467.9,240.8"/>
+<polyline points="296.6,135.3 383.1,242.0"/>
+<polyline points="278.0,120.8 419.6,244.0"/>
+<polyline points="346.6,119.5 457.0,241.9"/>
+<polyline points="226.2,142.9 326.0,230.0 360.3,226.2 396.8,232.2"/>
+</g>
+<g fill="#1fe0b4" fill-opacity="0.85"><circle cx="454.6" cy="248.7" r="2"/><circle cx="278.0" cy="250.7" r="2"/><circle cx="296.6" cy="249.6" r="2"/><circle cx="296.6" cy="254.5" r="2"/><circle cx="326.0" cy="253.4" r="2"/><circle cx="203.5" cy="254.5" r="2"/><circle cx="331.3" cy="244.3" r="2"/><circle cx="289.7" cy="249.0" r="2"/><circle cx="401.8" cy="248.7" r="2"/><circle cx="509.5" cy="245.4" r="2"/><circle cx="438.7" cy="247.9" r="2"/><circle cx="397.3" cy="250.9" r="2"/><circle cx="273.9" cy="254.0" r="2"/><circle cx="367.4" cy="249.3" r="2"/><circle cx="296.6" cy="252.9" r="2"/><circle cx="296.6" cy="252.3" r="2"/><circle cx="296.6" cy="250.2" r="2"/><circle cx="539.0" cy="240.6" r="2"/><circle cx="360.3" cy="251.6" r="2"/><circle cx="330.9" cy="246.7" r="2"/><circle cx="415.6" cy="253.1" r="2"/><circle cx="260.3" cy="247.9" r="2"/><circle cx="326.1" cy="247.8" r="2"/><circle cx="219.1" cy="252.2" r="2"/><circle cx="348.8" cy="246.9" r="2"/><circle cx="525.4" cy="247.0" r="2"/><circle cx="331.3" cy="245.7" r="2"/><circle cx="255.3" cy="244.2" r="2"/><circle cx="226.2" cy="249.2" r="2"/><circle cx="397.3" cy="239.9" r="2"/><circle cx="360.6" cy="241.9" r="2"/><circle cx="454.6" cy="243.8" r="2"/><circle cx="326.1" cy="244.0" r="2"/><circle cx="226.2" cy="252.9" r="2"/><circle cx="597.0" cy="240.2" r="2"/><circle cx="360.6" cy="245.7" r="2"/><circle cx="296.6" cy="254.8" r="2"/><circle cx="315.1" cy="251.4" r="2"/><circle cx="278.0" cy="253.6" r="2"/><circle cx="174.4" cy="249.2" r="2"/><circle cx="419.9" cy="241.8" r="2"/><circle cx="330.9" cy="241.9" r="2"/><circle cx="296.6" cy="250.0" r="2"/><circle cx="255.3" cy="255.2" r="2"/><circle cx="330.9" cy="250.4" r="2"/><circle cx="396.8" cy="246.2" r="2"/><circle cx="367.4" cy="253.5" r="2"/><circle cx="467.9" cy="244.1" r="2"/><circle cx="502.4" cy="248.3" r="2"/><circle cx="203.5" cy="253.0" r="2"/><circle cx="276.1" cy="247.0" r="2"/><circle cx="397.0" cy="243.9" r="2"/><circle cx="367.5" cy="249.4" r="2"/><circle cx="374.3" cy="250.5" r="2"/><circle cx="562.1" cy="243.5" r="2"/><circle cx="438.5" cy="248.4" r="2"/><circle cx="347.1" cy="241.9" r="2"/><circle cx="491.3" cy="245.7" r="2"/><circle cx="367.4" cy="241.5" r="2"/><circle cx="296.6" cy="250.3" r="2"/><circle cx="296.6" cy="256.9" r="2"/><circle cx="360.3" cy="254.2" r="2"/><circle cx="454.1" cy="252.2" r="2"/><circle cx="174.4" cy="252.1" r="2"/><circle cx="360.6" cy="244.8" r="2"/><circle cx="438.7" cy="247.5" r="2"/><circle cx="454.6" cy="251.2" r="2"/><circle cx="454.6" cy="250.0" r="2"/><circle cx="289.7" cy="249.0" r="2"/><circle cx="473.0" cy="240.1" r="2"/><circle cx="525.4" cy="242.1" r="2"/><circle cx="417.6" cy="248.4" r="2"/><circle cx="348.8" cy="249.2" r="2"/><circle cx="561.9" cy="244.6" r="2"/><circle cx="255.3" cy="249.8" r="2"/><circle cx="255.3" cy="249.8" r="2"/><circle cx="296.6" cy="250.6" r="2"/><circle cx="415.5" cy="248.7" r="2"/><circle cx="344.5" cy="252.8" r="2"/><circle cx="346.6" cy="248.2" r="2"/><circle cx="346.6" cy="249.9" r="2"/><circle cx="383.1" cy="249.8" r="2"/><circle cx="326.1" cy="247.8" r="2"/><circle cx="360.6" cy="248.3" r="2"/><circle cx="326.0" cy="246.5" r="2"/><circle cx="367.4" cy="255.4" r="2"/><circle cx="297.0" cy="249.5" r="2"/><circle cx="383.3" cy="248.0" r="2"/><circle cx="454.3" cy="249.3" r="2"/><circle cx="296.6" cy="252.2" r="2"/><circle cx="386.1" cy="249.7" r="2"/><circle cx="419.9" cy="245.3" r="2"/><circle cx="174.4" cy="252.5" r="2"/><circle cx="491.3" cy="241.6" r="2"/><circle cx="473.1" cy="243.3" r="2"/><circle cx="348.8" cy="248.7" r="2"/><circle cx="438.5" cy="247.7" r="2"/><circle cx="383.3" cy="248.6" r="2"/><circle cx="226.2" cy="254.6" r="2"/><circle cx="346.6" cy="244.1" r="2"/><circle cx="367.5" cy="244.0" r="2"/><circle cx="276.1" cy="248.7" r="2"/><circle cx="367.4" cy="242.1" r="2"/><circle cx="348.8" cy="248.1" r="2"/><circle cx="367.4" cy="246.4" r="2"/><circle cx="344.5" cy="244.5" r="2"/><circle cx="509.5" cy="243.5" r="2"/><circle cx="367.5" cy="246.8" r="2"/><circle cx="544.0" cy="240.8" r="2"/><circle cx="473.0" cy="244.9" r="2"/><circle cx="260.3" cy="247.1" r="2"/><circle cx="367.5" cy="241.0" r="2"/><circle cx="415.5" cy="243.7" r="2"/><circle cx="273.9" cy="246.6" r="2"/><circle cx="373.9" cy="242.0" r="2"/><circle cx="431.3" cy="241.3" r="2"/><circle cx="326.0" cy="243.8" r="2"/><circle cx="344.5" cy="244.3" r="2"/><circle cx="344.5" cy="244.8" r="2"/><circle cx="326.0" cy="245.2" r="2"/><circle cx="360.3" cy="244.5" r="2"/><circle cx="360.3" cy="243.4" r="2"/><circle cx="346.6" cy="243.4" r="2"/><circle cx="525.4" cy="242.6" r="2"/><circle cx="373.9" cy="242.0" r="2"/><circle cx="457.0" cy="239.9" r="2"/><circle cx="557.7" cy="240.9" r="2"/><circle cx="467.9" cy="242.3" r="2"/><circle cx="396.8" cy="240.5" r="2"/><circle cx="667.9" cy="240.9" r="2"/><circle cx="539.0" cy="235.7" r="2"/><circle cx="289.7" cy="248.6" r="2"/><circle cx="289.7" cy="250.2" r="2"/><circle cx="315.1" cy="244.1" r="2"/><circle cx="344.5" cy="244.8" r="2"/><circle cx="367.4" cy="245.5" r="2"/><circle cx="360.3" cy="248.1" r="2"/><circle cx="367.4" cy="244.5" r="2"/><circle cx="312.3" cy="245.6" r="2"/><circle cx="580.7" cy="237.7" r="2"/><circle cx="383.1" cy="244.0" r="2"/><circle cx="633.2" cy="237.0" r="2"/><circle cx="490.8" cy="241.4" r="2"/><circle cx="509.5" cy="241.5" r="2"/><circle cx="289.6" cy="247.2" r="2"/><circle cx="312.3" cy="246.4" r="2"/><circle cx="454.3" cy="240.8" r="2"/><circle cx="360.3" cy="244.9" r="2"/><circle cx="383.1" cy="227.2" r="2"/><circle cx="344.5" cy="243.5" r="2"/><circle cx="276.1" cy="240.4" r="2"/><circle cx="454.1" cy="229.8" r="2"/><circle cx="723.3" cy="236.6" r="2"/><circle cx="490.8" cy="242.2" r="2"/><circle cx="396.8" cy="244.3" r="2"/><circle cx="346.6" cy="244.8" r="2"/><circle cx="367.4" cy="243.0" r="2"/><circle cx="454.1" cy="240.5" r="2"/><circle cx="344.5" cy="247.1" r="2"/><circle cx="296.6" cy="243.2" r="2"/><circle cx="396.8" cy="241.8" r="2"/><circle cx="561.9" cy="240.7" r="2"/><circle cx="509.5" cy="240.7" r="2"/><circle cx="573.6" cy="236.9" r="2"/><circle cx="415.5" cy="239.9" r="2"/><circle cx="396.8" cy="241.7" r="2"/><circle cx="573.6" cy="242.1" r="2"/><circle cx="417.6" cy="240.9" r="2"/><circle cx="454.3" cy="241.4" r="2"/><circle cx="580.7" cy="237.7" r="2"/><circle cx="820.0" cy="235.3" r="2"/><circle cx="312.6" cy="241.8" r="2"/><circle cx="326.1" cy="241.3" r="2"/><circle cx="348.8" cy="240.1" r="2"/><circle cx="667.8" cy="236.4" r="2"/><circle cx="348.8" cy="240.7" r="2"/><circle cx="386.1" cy="243.1" r="2"/><circle cx="401.9" cy="245.9" r="2"/><circle cx="401.9" cy="244.5" r="2"/><circle cx="557.8" cy="240.0" r="2"/><circle cx="383.1" cy="249.2" r="2"/><circle cx="326.1" cy="247.8" r="2"/><circle cx="331.3" cy="247.6" r="2"/><circle cx="348.8" cy="249.8" r="2"/><circle cx="431.3" cy="247.3" r="2"/><circle cx="509.5" cy="239.9" r="2"/><circle cx="260.3" cy="247.2" r="2"/><circle cx="383.1" cy="245.8" r="2"/><circle cx="312.3" cy="246.7" r="2"/><circle cx="289.6" cy="248.4" r="2"/><circle cx="396.8" cy="245.7" r="2"/><circle cx="326.0" cy="245.9" r="2"/><circle cx="383.1" cy="245.1" r="2"/><circle cx="367.5" cy="246.0" r="2"/><circle cx="419.6" cy="245.4" r="2"/><circle cx="396.8" cy="246.1" r="2"/><circle cx="467.9" cy="240.8" r="2"/><circle cx="383.1" cy="242.0" r="2"/><circle cx="419.6" cy="244.0" r="2"/><circle cx="457.0" cy="241.9" r="2"/><circle cx="396.8" cy="232.2" r="2"/></g>
+<text x="812" y="38" font-size="14" fill="#f0f6fc" text-anchor="end">each line is one coil set,</text>
+<text x="812" y="57" font-size="14" fill="#f0f6fc" text-anchor="end">refined until the digits run out</text>
+</svg>

@@ -1,0 +1,5 @@
+source,flux_Wb,budget_s,outcome,seconds
+examples/quasr_0000954.json,0.4149547200467205,306.6,surface,198.4
+examples/quasr_0000954.json,0.4149547200467205,306.6,undetermined,263
+examples/quasr_1100073.json,0.06949573998008302,3300,no_surface,116
+examples/quasr_1100073.json,0.0695,3300,undetermined,1914

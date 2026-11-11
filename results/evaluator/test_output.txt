@@ -1,0 +1,10 @@
+float64 tier
+  loop field vs exact (float64): B 4.2e-16, A 4.8e-16 (relative)
+  torus: |rc_M| 3.6e-41, |zs_M| 4.9e-41 (spectral tail)
+  exact torus (float64): max |B.n|/|B| 2.85e-15, median 3.5e-16, nodes [512]
+  (SIMSOPT not installed here: conversion check skipped)
+precise tier
+  loop field vs exact (float128): B 1.2e-19, A 1.6e-19 (relative)
+  torus: |rc_M| 3.6e-41, |zs_M| 4.9e-41 (spectral tail)
+  exact torus (float128): max |B.n|/|B| 3.89e-16, median 2.9e-16, nodes [512]
+all passed

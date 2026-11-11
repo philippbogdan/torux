@@ -1,0 +1,91 @@
+{
+ "about": "The animation 'one field line' (one-line-light.gif, one-line-dark.gif): one field line of the vacuum field of Wendelstein 7-X's coils, traced independently of the solver, and the surface torux computed at the same toroidal flux. What each number is and how it was measured.",
+ "source": {
+  "name": "Wendelstein 7-X",
+  "credit": "Wendelstein 7-X coil set from simsopt 1.11 (hiddenSymmetries/simsopt), in torux's Fourier-filament form",
+  "credit_url": "https://github.com/hiddenSymmetries/simsopt",
+  "licence": "MIT",
+  "files": [
+   {
+    "name": "w7x.json",
+    "sha256": "4db829dec29fc4967e209b55f65c006cf9a90f759327dc7832e9a366f9750cf6",
+    "bytes": 485881,
+    "origin": "the Wendelstein 7-X coil set of simsopt 1.11 (simsopt.configs), written as Fourier filaments"
+   }
+  ]
+ },
+ "numbers": {
+  "laps followed": {
+   "value": "200",
+   "how": "one field line, started at the verified torus's point theta = 0, phi = 0 (R = 6.20430527914295 m, Z = 0), traced by torux's independent reference tracer (torux.reference.trace: Biot-Savart of the coils' Fourier filaments in float64 with compensated sums, a 6-stage Gauss-Legendre implicit Runge-Kutta method in the toroidal angle, Kahan-compensated update, sharing no code with the solver's field engine), 128 samples a lap, 25,601 samples in all"
+  },
+  "length of line followed": {
+   "value": "7.3 km",
+   "how": "the length of the smooth curve through every sample (7,255 m, where the straight chords between consecutive samples give 7,253 m)"
+  },
+  "farthest the line strays from the surface": {
+   "value": "1.1 x 10^-13 m",
+   "how": "the largest, over all 25,601 samples, of the distance from the sample to torux's torus, measured in the plane of the sample's own toroidal angle (an upper bound on the distance in space) by code written for this picture (the cross-section as a Fourier series in theta, Newton's method on the squared distance, compensated sums). 2.1e-13 of the surface's minor radius (0.503 m), 1.9e-14 of its major radius (5.49 m)"
+  },
+  "typical distance (median)": {
+   "value": "5.0 x 10^-15 m",
+   "how": "the median of the same distances"
+  },
+  "no drift over the laps": {
+   "value": "2.6 x 10^-14 m in the first ten laps, 3.9 x 10^-14 m in the last ten",
+   "how": "the largest distance in the first and in the last ten laps. In between it rises and falls with where on the surface the line is (the largest of all is in lap 141 of 200)"
+  },
+  "the reference tracer's own estimate of its error": {
+   "value": "2.0 x 10^-9 m",
+   "how": "every lap is integrated twice, with steps of 2 pi / 128 and 2 pi / 256 in the toroidal angle, and the drawn samples are the finer run's. This is the largest difference between the two runs at any sample. It lies along the line (where along the line the sample falls), not off the surface. For a 12th-order method the finer run's own error is this divided by 2^12 - 1, 4.9 x 10^-13 m"
+  },
+  "a second tracer, sharing no code with torux": {
+   "value": "1.8 x 10^-13 m from the surface over 100 laps, 3.1 x 10^-11 m from the reference line",
+   "how": "code written for this picture: its own reading of the coil file, Biot-Savart by the trapezoidal rule at 512 points a coil with compensated sums (agreeing with the reference field to 2e-16 relative at points of the surface), its own 6-stage Gauss-Legendre collocation method (coefficients in 40-digit arithmetic, 2 steps from one sample to the next, Kahan-compensated update), for its first 100 laps. The same start and sample angles: its largest distance from torux's torus, and its largest distance from the reference tracer's sample at the same angle, a difference along the surface (where on the line the sample falls), not off it"
+  },
+  "the surface: the solver's own check": {
+   "value": "3.6 x 10^-15",
+   "how": "|B.n|/|B| off the solver's grid, as torux reported it for this torus (Fourier sizes M = 448, N = 112). Its bar is 1e-14"
+  },
+  "the surface: the independent check": {
+   "value": "2.7 x 10^-15 at 4,096 random points, 2.9 x 10^-15 at the worst point found",
+   "how": "torux's independent reference evaluator (torux.verify, sharing no code with its field engine): |B.n|/|B| at random points of the torus and the largest found by local maximisation. The enclosed flux on six random cross-sections agrees with the requested 2.2174 Wb to 1.2 x 10^-15 (relative). Passed: True"
+  },
+  "laps drawn": {
+   "value": "97 (and part of the next)",
+   "how": "the animation draws the first 97 laps of the same traced line (every sample, joined by a Catmull-Rom curve through them). At 97 laps the line's turns lie evenly round the surface (97 is a continued-fraction denominator of the rotational transform, iota = 0.9794268523590)"
+  }
+ },
+ "values": {
+  "laps": 200,
+  "length_m": 7255.34401628199,
+  "chord_m": 7252.790818341247,
+  "R_major_m": 5.489836791385838,
+  "a_minor_m": 0.5025567166467532,
+  "dist_max_m": 1.0555880013644903e-13,
+  "dist_median_m": 4.950948210312815e-15,
+  "dist_max_rel_minor": 2.1004355655770939e-13,
+  "dist_max_rel_major": 1.9228039766515915e-14,
+  "iota": 0.9794268523590333,
+  "flux_Wb": 2.217430801869203,
+  "solver_bn_off": 3.594036456052651e-15,
+  "ref_bn_max": 2.7342128762226312e-15,
+  "ref_bn_sup": 2.8733626355207008e-15,
+  "laps_drawn": 97,
+  "second_tracer_dist_max_m": 1.7900940795050214e-13,
+  "second_tracer_vs_ref_max_m": 3.140066347726467e-11
+ },
+ "reproduced": {
+  "command": "torux solve examples/w7x.json --flux 2.217430801869203 --budget 3600",
+  "status": "surface",
+  "seconds": 464.0,
+  "threads": 4,
+  "cpu": "2012 Intel Xeon E5-4650",
+  "M": 448,
+  "N": 112,
+  "identical_to_drawn": true,
+  "bn_solver": 3.594036456052651e-15,
+  "bn_check": 2.8733626355207008e-15,
+  "flux_err": 1.2016317518699037e-15
+ }
+}

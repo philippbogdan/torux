@@ -1,0 +1,111 @@
+{
+ "field": {
+  "kind": "function"
+ },
+ "field_tol": 1e-14,
+ "field_test_scales": [
+  0.85,
+  1.0,
+  1.15
+ ],
+ "phiedge_sign_vs_bphi": 1,
+ "start_order": [
+  "namelist",
+  "fixed+namelist",
+  "fixed+namelist_m3_s0.8",
+  "fixed+namelist_m2_s0.6",
+  "namelist@only_coils",
+  "fixed+namelist_m3_s0.8@only_coils"
+ ],
+ "fixed_ftol": 1e-12,
+ "common": {
+  "free_boundary_method": "nestor",
+  "nvacskip": 1,
+  "nzeta": 36,
+  "nstep": 500
+ },
+ "write_margin_s": 30,
+ "levels": [
+  {
+   "ns": 16,
+   "mpol": 11,
+   "ntor": 10,
+   "ftol": 1e-10,
+   "niter": 12000
+  },
+  {
+   "ns": 51,
+   "mpol": 11,
+   "ntor": 10,
+   "ftol": 1e-11,
+   "niter": 40000
+  },
+  {
+   "ns": 101,
+   "mpol": 13,
+   "ntor": 12,
+   "ftol": 1e-11,
+   "niter": 50000
+  },
+  {
+   "ns": 201,
+   "ftol": 1e-11,
+   "niter": 60000,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ns": 201,
+   "ftol": 1e-12,
+   "niter": 60000,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ns": 201,
+   "ftol": 1e-13,
+   "niter": 60000,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ns": 201,
+   "ftol": 1e-14,
+   "niter": 80000,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ns": 201,
+   "ftol": 1e-15,
+   "niter": 80000,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ns": 201,
+   "ftol": 1e-16,
+   "niter": 100000,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ftol": 1e-17,
+   "niter": 120000,
+   "ns": 201,
+   "mpol": 15,
+   "ntor": 14
+  },
+  {
+   "ftol": 1e-18,
+   "niter": 150000,
+   "ns": 201,
+   "mpol": 15,
+   "ntor": 14
+  }
+ ],
+ "method_fallback": {
+  "nestor": "only_coils",
+  "only_coils": "nestor"
+ }
+}
