@@ -16,9 +16,9 @@
 
 <p align="center"><sub>(The aspiration. torux is in development, and vacuum only for now: no finite pressure.)</sub></p>
 
-**Give torux the coils of a stellarator. Three seconds later you have the magnetic surface they make, right to the fifteenth digit: the last one a computer holds.**
+**Coils in, vacuum flux surface out: max |B·n|/|B| of 10⁻¹⁵, in seconds, with nothing to tune.**
 
-It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org), a public database of stellarator designs, in a median of three seconds each. A second evaluator, sharing no code with the solver, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after less than a minute's work.
+It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org), in a median of three seconds each. A second evaluator, sharing no code with the solver, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after less than a minute's work.
 
 Above: twelve kinds of magnet, one solver. Nine carry the surface torux verified for them, drawn as light. The other three (a tokamak's poloidal coils, its perturbation coils, a levitated dipole) carry none, and that is an answer too: their field lines, the thin grey ones, close round the coils and never go round the machine, so no surface can enclose toroidal flux, and torux proves it. (A tokamak's surfaces need the current in its plasma, and a dipole holds its plasma on the closed lines themselves.) [Each one, close up.](visuals/README.md)
 
@@ -29,11 +29,11 @@ Above: twelve kinds of magnet, one solver. Nine carry the surface torux verified
   <img src="visuals/accuracy-light.svg" width="838" alt="One row of dots for each tool on a logarithmic axis of the field crossing a surface, from 10 to the minus 15 up to 1. torux: 201 dots between 3 times 10 to the minus 16 and 7 times 10 to the minus 15, median 1 times 10 to the minus 15. SIMSOPT BoozerLS: 283 dots between 2 times 10 to the minus 15 and 4 times 10 to the minus 2, median 2 times 10 to the minus 8. SIMSOPT BoozerExact: 288 dots between 5 times 10 to the minus 15 and 2 times 10 to the minus 1, median 3 times 10 to the minus 8. SIMSOPT QFM: 297 dots between 5 times 10 to the minus 14 and 1, median 3 times 10 to the minus 7. VMEC++: 252 dots between 2 times 10 to the minus 6 and 2 times 10 to the minus 1, median 9 times 10 to the minus 4. DESC: 199 dots between 3 times 10 to the minus 8 and 2 times 10 to the minus 1, median 3 times 10 to the minus 3. QUASR's stored surface: 300 dots between 8 times 10 to the minus 9 and 2 times 10 to the minus 1, median 9 times 10 to the minus 4.">
 </picture>
 
-Three hundred coil sets drawn at random from QUASR. Every tool gets the same coils, the same requested flux and an hour on four threads for each. The other five need settings, and we chose them: the route each tool's documentation recommends, pushed wherever that paid on six coil sets outside the 300. torux has no settings to choose. One judge: an evaluator that shares no code with any of them, working in extended precision at 4,000 random points of each surface. A dot is a coil set. Its place is how much of the field leaks through the surface. [How each tool was run, and how to run a row again.](results/compare300/README.md)
+Three hundred coil sets drawn at random from QUASR. Every tool gets the same coils, the same requested flux and an hour on four threads for each. The other five need settings, and we chose them: the route each tool's documentation recommends, pushed wherever that paid on six coil sets outside the 300. torux has no settings to choose. One judge: an evaluator that shares no code with any of them, working in extended precision at 4,000 random points of each surface. A dot is a coil set, placed at the largest |B·n|/|B| on its surface. [How each tool was run, and how to run a row again.](results/compare300/README.md)
 
-torux's surfaces leak 1.1 × 10⁻¹⁵, within 2.9 times the least that a surface written in double precision can leak. The worst of its 201 leaks 6.8 × 10⁻¹⁵. On the 199 coil sets both solved, the closest tool, SIMSOPT BoozerExact, leaks 700,000 times more: 5 orders of magnitude. The surfaces the designs are stored with, where every solve starts, leak 8.9 × 10⁻⁴: they are coarse, a few hundred Fourier terms each, where torux's take thousands. [Every dot is a row of `results/compare300.csv`.](results/compare300.csv)
+torux's surfaces have a median max |B·n|/|B| of 1.1 × 10⁻¹⁵, within 2.9 times the least a surface written in double precision can have. The worst of its 201 is at 6.8 × 10⁻¹⁵. On the 199 coil sets both solved, the closest tool, SIMSOPT BoozerExact, is 700,000 times higher: 5 orders of magnitude. The surfaces the designs are stored with, where every solve starts, are at 8.9 × 10⁻⁴: they are coarse, a few hundred Fourier terms each, where torux's take thousands. [Every dot is a row of `results/compare300.csv`.](results/compare300.csv)
 
-| | surfaces returned | median leak | within 10⁻¹² | median seconds |
+| | surfaces returned | median max \|B·n\|/\|B\| | within 10⁻¹² | median seconds |
 |---|---:|---:|---:|---:|
 | **torux** | 201 of 300 | 1.1 × 10⁻¹⁵ | 201 | 4.2 |
 | SIMSOPT BoozerLS | 283 of 300 | 2.4 × 10⁻⁸ | 38 | 824 |
@@ -62,25 +62,14 @@ The same 300 coil sets on one processor (AMD EPYC 7742), four threads each. A do
 
 ## How it works
 
-A stellarator is a fusion machine. Coils wind a magnetic field into a twisted ring, and the field holds a plasma hotter than the centre of the Sun. Follow one line of that field and it goes round and round the ring. If it never leaves one closed surface, that surface is a wall that holds the plasma in. Whether a set of coils makes such walls, and exactly where, is the first question of every design.
-
-<p align="center">
-  <picture>
-    <source media="(prefers-color-scheme: dark)" srcset="visuals/one-line-dark.gif">
-    <img src="visuals/one-line-light.gif" width="838" alt="Animation. The coils of the Wendelstein 7-X stellarator, cut away at the front. One magnetic field line, drawn as a point of green light, runs round inside them lap after lap, faster and faster, and its trail weaves a twisted, ring-shaped surface of fine fibres that lights the coils from inside: the magnetic surface torux computed, which the line never leaves.">
-  </picture>
-</p>
-
-<p align="center"><sub>One field line of Wendelstein 7-X, followed for 200 laps (7.3 km): it never strays more than 1.1 × 10⁻¹³ m from the surface torux computed. <a href="visuals/README.md#one-field-line">How that was measured.</a></sub></p>
-
-torux does not follow the line. It writes the surface as a sum of smooth waves and asks one thing of it: that the field crosses it nowhere. Newton's method finds the waves. Each refinement takes orders of magnitude off the error, until the digits of a 64-bit number run out:
+torux does not trace field lines. It solves the invariance equation of a torus of the field, (∂φ + ι ∂θ) X = V(X), for the Fourier coefficients of R and Z and for ι, in straight-field-line angles, by Newton's method. Each refinement takes orders of magnitude off |B·n|/|B|, down to the rounding floor of double precision:
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="visuals/refinement-dark.svg">
   <img src="visuals/refinement-light.svg" width="838" alt="For 201 coil sets, the field crossing the surface against the number of coefficients describing it. Every line falls steeply, from between 10 to the minus 6 and 10 to the minus 12, and ends just above the limit of double precision near 10 to the minus 15.">
 </picture>
 
-Then a second program, written apart from the first and sharing none of its code, measures the leak at 4,096 random points. Only if both agree is the answer "surface".
+Then a second program, written apart from the first and sharing none of its code, measures |B·n|/|B| at 4,096 random points. Only if both agree is the answer "surface".
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="visuals/answers-dark.svg">
