@@ -7,7 +7,7 @@ pip install .          # Python 3.12 or later. ".[plot]" adds the picture, ".[hd
 
 Two verbs and one answer: `solve` finds the flux surface of a coil set, `check` measures a surface another code gave you. There is nothing to tune: no resolution, no tolerance, no starting guess.
 
-## A surface
+## Solving for a flux surface
 
 ```sh
 torux solve examples/quasr_0000954.json
@@ -62,7 +62,7 @@ Which surface you want is said in one of four ways:
 
 With none of them, a source that carries its own request is asked for that (a QUASR download asks for the flux of its outermost stored surface), and any other source is asked for its largest surface. A size is reached by solving at fluxes until the surface has it: no surface is ever scaled or interpolated.
 
-## The answer
+## The result: status and quantities
 
 `print(s)` says what was found and how it was checked, or why there is no surface. `s.status` is one word:
 
@@ -90,7 +90,7 @@ s.evidence                                       # both checks in full, or the c
 
 Without a verified surface the numbers, the section and the points raise a `ValueError` naming the status. `profile`, `field` and `evidence` are there whatever the answer. `theta` and `phi` may be arrays of any one shape, and the points keep it. θ runs counter-clockwise in the (R, Z) plane, so ι has the sign VMEC gives it: the opposite of the sign QUASR quotes for the same coils.
 
-## How much the coils hold
+## The outermost flux surface
 
 ```sh
 torux solve examples/hsx.json --budget 900
@@ -120,7 +120,7 @@ time                   891 s
 
 The largest surface is searched for by requests at fluxes: first the family of surfaces from the magnetic axis outward, then direct requests at the fluxes that family reached, one far beyond them all for a certificate, and then between the last verified flux and the first that failed. The answer is the largest surface verified, with what stands beyond it: a certified bound, so that the coils hold at least this and at most that, or else the flux at which torux could not decide in the time it had. A larger budget can find more: without one torux states a budget from the size of the source, half an hour or more. The command line says each request as it ends (`range` is the family from the axis, with the outermost surface verified in it). In Python the call is silent, and the same lines go to the logger `torux`: `logging.basicConfig(level=logging.INFO)` shows them.
 
-## Why there is no surface
+## No-surface certificates: islands and the last surface
 
 ```python
 print(torux.solve("examples/quasr_1100073.json", budget_s=3300))
@@ -166,7 +166,7 @@ time                   4.9 s
 
 With a budget this short the first word is sometimes `timeout`: the last step ended a tenth of a second past it.
 
-## A surface from another code
+## Checking a surface from another code
 
 ```python
 c = torux.check("examples/quasr_0000954.json", "examples/quasr_0000954.json")   # the coils, then a surface: here the one QUASR stores with them
@@ -194,7 +194,7 @@ The first row of numbers is the leak: the largest |B·n|/|B| at 4,096 random poi
 
 `check` takes the coils and a surface and measures, with the independent evaluator alone, how much of the field crosses the surface and how much flux it encloses. It pronounces no verdict. The surface is a VMEC or VMEC++ `wout` file, a VMEC input file, a SIMSOPT or QUASR JSON file, a saved torux answer, or a live object: a SIMSOPT `SurfaceRZFourier` or `SurfaceXYZTensorFourier`, a DESC `FourierRZToroidalSurface` or `Equilibrium`, a VMEC++ output, a torux answer ([formats](formats.md)). From the shell: `torux check coils.json wout_mine.nc`.
 
-## Hand it on
+## Export: VMEC input, JSON, VTK
 
 ```python
 s = torux.solve("examples/quasr_0000954.json")
@@ -217,7 +217,7 @@ The file is exact unless you cut it, and a cut file says in its first line how f
 
 There is no object for another code in an answer: the file is the route, and the other codes read it with their own calls: `SurfaceRZFourier.from_vmec_input("input.q954")` in SIMSOPT, `vmecpp.VmecInput.from_file("input.q954")` in VMEC++, `FourierRZToroidalSurface.from_input_file("input.q954")` in DESC. SIMSOPT reads the whole file to 6 × 10⁻¹⁵ m and VMEC++ to 1 × 10⁻¹⁵ m. DESC's reader of VMEC inputs keeps eight decimals, 9 × 10⁻¹⁰ m here, and turns the poloidal angle round. VMEC++ 0.9.3 run on the cut file above converges to an edge rotational transform of -0.09757 where torux has -0.09752.
 
-## A picture
+## Plotting
 
 ```python
 s.plot("q954.png")          # .png, .pdf or .svg, and dark=True for a dark page
@@ -230,7 +230,7 @@ s.plot("q954.png")          # .png, .pdf or .svg, and dark=True for a dark page
 
 The surface coloured by field strength inside its coils, three cross-sections, and one line of what it is.
 
-## The Boozer spectrum
+## Boozer spectrum and quasisymmetry
 
 ```python
 b = s.boozer()
@@ -262,7 +262,7 @@ g["d_iota_d_flux"]        # dι/dΨ, per weber
 
 The derivative of ι in every parameter of the source and in the flux, by the adjoint method. They are saved with the answer's JSON.
 
-## Many designs
+## Batch runs
 
 ```sh
 torux many designs/*.json --table answers.csv --save answers/
@@ -278,7 +278,7 @@ no_surface    designs/quasr_0219457.json   99.1 s
 
 Each design is solved in a process of its own, as many at once as the machine has cores for. The table gets one row a design as it finishes: the design's name, the [columns](../results/README.md) of `results/quasr.parquet`, then the surface's minor radius and volume. Run the same command again and it carries on where it stopped: a design with a row is not solved again, unless its row says `error`. A design is known by its file, however you spell the path from the folder you run in. A table holds the answers to one question, the last column says which, and `many` refuses to continue it with another. `note` says what an outcome's word does not, and for a size the coils were not shown to hold, that `flux_Wb` is the flux the size would need. `--save` keeps every answer as JSON. `many` asks every design the question `solve` would: `--flux`, `--minor-radius`, `--volume` or `--largest`, or each design's own. Each design gets the budget torux states for it, five minutes or so: `--budget 3300` gives each the room a certificate can need. In Python: `answers = torux.many(files, table="answers.csv", save="answers/")`, the answers in the order given. On a later run a design already in the table comes back as the answer saved for it, or as `None` where none was saved.
 
-## Sources
+## Coil and magnet sources
 
 ```python
 torux.solve("examples/hsx.json", flux=0.0359)      # a file: the format is read from the file itself
@@ -303,7 +303,7 @@ s = torux.solve(src, flux=0.05)
 
 Parts: `FourierCurves`, `PolylineCurves`, `Segments`, `Dipoles`, `Rings`, `AxisymPolygons`, `ToroidalField`. Units are SI throughout: metres, amperes, A m², tesla, webers. A symmetry you claim (`nfp`, `stellsym`) is yours to guarantee, and the loaders verify it on the parts before using it. torux takes μ₀ = 4π × 10⁻⁷ H/m, as SIMSOPT and VMEC do. DESC takes CODATA's value, so the same coils' field is 1.3 parts in 10¹⁰ larger here than in DESC.
 
-## From the shell
+## Command line
 
 ```text
 torux solve SOURCE [SOURCE ...] [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S] [--nfp N]
@@ -316,7 +316,7 @@ torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --vo
 
 `solve` prints the answer on standard output and says on standard error what it is asking and, in a search, each request as it ends. It exits with 0 for a surface or a certified or proved no-surface, 2 for anything undetermined and nothing else, 1 for an error, a command line it cannot read included.
 
-## Time and settings
+## Budget, memory and threads
 
 - `budget_s`: seconds for the whole question (in `many`, for each design's). The call returns within it, up to one last step, and as soon as it has its answer. By default torux states a budget from the size of the source: at least five minutes for a flux, fifteen for a size, half an hour for the largest surface. A surface takes seconds when the file brings a surface to start from, as QUASR's do, seconds to minutes from the coils alone, and a certificate takes minutes.
 - Near the edge of what the coils hold, an outcome can depend on the clock: the solver shares its budget among its stages by the time each takes, so the same request can come back undetermined on a slower or busier machine. Asked twice for the surface of `examples/quasr_0000954.json` that encloses 0.41495 Wb, six times its design flux, torux verified it in 198 s and came back `undetermined` after 263 s in the next process. Asked for 0.0695 Wb of `examples/quasr_1100073.json`, a hair more than the file's own 0.06949574 Wb, it gave up after 1,914 s, where the file's own request gets its certificate in 116 s ([`results/edge_requests.csv`](../results/edge_requests.csv)). A surface that is returned is verified either way.
