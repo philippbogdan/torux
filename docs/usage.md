@@ -1,8 +1,8 @@
 # Usage
 
 ```sh
-git clone https://github.com/philippbogdan/torux && cd torux
-pip install .          # Python 3.12 or later. ".[plot]" adds the picture, ".[hdf5]" the .h5 formats, ".[all]" both
+pip install torux      # Python 3.12 or later. "torux[plot]" adds the picture, "torux[hdf5]" the .h5 formats, "torux[all]" both
+git clone https://github.com/philippbogdan/torux && cd torux    # only for the example files used below
 ```
 
 Two verbs and one answer: `solve` finds the flux surface of a coil set, `check` measures a surface another code gave you. There is nothing to tune: no resolution, no tolerance, no starting guess.

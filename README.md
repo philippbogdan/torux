@@ -94,9 +94,8 @@ When Newton fails, the surface may not be there. Near a resonance the field line
 ## Use it
 
 ```sh
-git clone https://github.com/philippbogdan/torux && cd torux
-pip install .
-torux solve examples/quasr_0000954.json
+pip install torux
+torux solve quasr:954
 ```
 
 ```
