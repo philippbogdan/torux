@@ -251,7 +251,7 @@ time                   0.3 s
 
 |B| on the surface in Boozer angles, harmonic by harmonic, and how far it is from quasi-symmetry, by the measure SIMSOPT optimises and QUASR reports.
 
-## Which way to move the coils
+## Gradients
 
 ```python
 g = torux.solve("examples/quasr_0000954.json", gradients=True).gradients
