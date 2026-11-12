@@ -18,7 +18,7 @@
 
 **Coils in, vacuum flux surface out: max |B·n|/|B| of 10⁻¹⁵, in seconds, with nothing to tune.**
 
-It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org), in a median of three seconds each. A second evaluator, sharing no code with the solver, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after less than a minute's work.
+It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org). A second evaluator, sharing no code with the solver, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after less than a minute's work.
 
 Above: twelve kinds of magnet, one solver. Nine carry the surface torux verified for them, drawn as light. The other three (a tokamak's poloidal coils, its perturbation coils, a levitated dipole) carry none, and that is an answer too: their field lines, the thin grey ones, close round the coils and never go round the machine, so no surface can enclose toroidal flux, and torux proves it. (A tokamak's surfaces need the current in its plasma, and a dipole holds its plasma on the closed lines themselves.) [Each one, close up.](visuals/README.md)
 

@@ -40,8 +40,8 @@ def test_readme_numbers_are_the_tables():
         f"the other {q['undetermined']:,} it calls undetermined": "QUASR undetermined",
         f"the {q['island_bands']:,} island bands rest on an exact symmetry": "island-band certificates",
         f"the {q['edge_barriers']:,} weaker ones are edge barriers": "edge-barrier certificates",
-        f"leak {sci(t['bn_median'])}": "torux's median in the comparison",
-        f"worst of its {t['surfaces']} leaks {sci(t['bn_max'])}": "torux's worst in the comparison",
+        f"median max |B·n|/|B| of {sci(t['bn_median'])}": "torux's median in the comparison",
+        f"worst of its {t['surfaces']} is at {sci(t['bn_max'])}": "torux's worst in the comparison",
         f"certify: {t['island_bands']} of these {t['designs']}, and {t['edge_barriers']} more by its weaker kind":
             "certificates in the comparison, by kind",
         f"The other {t['undetermined']} were still undetermined after their hour": "undetermined in the comparison",
@@ -49,7 +49,6 @@ def test_readme_numbers_are_the_tables():
     missing = [f"{what}: {frag!r}" for frag, what in claims.items() if frag not in text]
     assert not missing, missing
     # the rounded statements
-    assert round(q["solve_s_median"]) == 3                                                 # "three seconds", over QUASR
     assert 0.5e-3 < stored["bn_median"] < 2e-3                                             # "about a thousandth"
     assert round(math.log10(stored["bn_median"] / t["bn_median"])) == 12                   # "twelve orders of magnitude"
     assert t["bn_median"] / floor <= 3.0                                                   # "within three times the least"
@@ -119,10 +118,10 @@ def test_picture_numbers_are_the_records():
     with open(os.path.join(V, "one-line.json"), encoding="utf-8") as fh:
         one = json.load(fh)["values"]
     e = math.floor(math.log10(one["dist_max_m"]))
-    bound = math.ceil(one["dist_max_m"] / 10 ** (e - 1)) / 10            # "never strays more than": rounded up
+    bound = math.ceil(one["dist_max_m"] / 10 ** (e - 1)) / 10            # "stays within": rounded up
     sup = str(e).translate(str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹"))
-    assert f"followed for {one['laps']} laps ({one['length_m'] / 1000:.1f} km)" in readme
-    assert f"never strays more than {bound:.1f} × 10{sup} m" in readme and bound < 10
+    assert f"followed for {one['laps']} laps ({one['length_m'] / 1000:.1f} km)" in atlas
+    assert f"stays within {bound:.1f} × 10{sup} m of the surface" in atlas and bound < 10
     assert one["solver_bn_off"] <= 1e-14 and one["ref_bn_sup"] < 2e-14
 
 
