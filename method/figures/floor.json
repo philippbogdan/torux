@@ -1,0 +1,223 @@
+{
+ "figure": "Figure 3 of the method page, method/figures/floor-light.svg and floor-dark.svg, drawn by method/figures/floor.py from method/figures/data/floor.json",
+ "example": {
+  "source": "examples/quasr_0000954.json",
+  "flux_Wb": 0.3109810761628689,
+  "own_flux_Wb": 0.06910690581397087,
+  "factor": 4.5,
+  "call": [
+   "src = torux.load('examples/quasr_0000954.json')",
+   "torux.solve(src, flux=4.5 * src.request['flux_Wb'])"
+  ],
+  "what": "QUASR 954 at 4.5 times the toroidal flux its file asks for: a surface outside the design's own boundary, verified",
+  "why": "HSX at 0.0359221439332229 Wb, the surface of the other figures, refines in two levels (112, 48 at 1.3e-9, then 192, 96 at 3.0e-15), and so does QUASR 954 at its own request (24, 24 at 1.9e-11, then 48, 32 at 1.1e-15), each solved separately by the same torux.solve. At 4.5 times its request QUASR 954 refines in three, spread down the spectrum."
+ },
+ "surface": {
+  "status": "surface",
+  "M": 224,
+  "N": 40,
+  "nfp": 2,
+  "iota": -0.08202677232538584,
+  "flux_Wb": 0.3109810761628689,
+  "R00_m": 1.0126068713801095,
+  "minor_radius_m": 0.3224260609154318,
+  "a1_m": 0.5105245985277822,
+  "a1_is": "the largest sqrt(R_mn^2 + Z_mn^2) with m >= 1, reached at m = 1: the spectrum is drawn relative to it",
+  "call": "answer.surface (rc, zs), answer.iota"
+ },
+ "spectrum": {
+  "what": "for each m the largest sqrt(R_mn^2 + Z_mn^2) over n, relative to a1: the heavy curve, m = 1 to M",
+  "decades_per_m_from_m_10_to_where_it_reaches_the_floor": -0.06751830865172705,
+  "first_m_below_the_floor_edge": 182,
+  "first_m_below_1e_17": 214,
+  "at_M": 6.819662057008986e-18,
+  "smallest": 6.819662057008986e-18,
+  "spikes": [
+   {
+    "resonance_m": 24.4,
+    "n": 1,
+    "largest_nearby_m": 25
+   },
+   {
+    "resonance_m": 48.8,
+    "n": 2,
+    "largest_nearby_m": 48
+   },
+   {
+    "resonance_m": 73.1,
+    "n": 3,
+    "largest_nearby_m": 74
+   },
+   {
+    "resonance_m": 97.5,
+    "n": 4,
+    "largest_nearby_m": 97
+   },
+   {
+    "resonance_m": 121.9,
+    "n": 5,
+    "largest_nearby_m": 121
+   },
+   {
+    "resonance_m": 146.3,
+    "n": 6,
+    "largest_nearby_m": 147
+   },
+   {
+    "resonance_m": 170.7,
+    "n": 7,
+    "largest_nearby_m": 170
+   },
+   {
+    "resonance_m": 195.1,
+    "n": 8,
+    "largest_nearby_m": 196
+   },
+   {
+    "resonance_m": 219.4,
+    "n": 9,
+    "largest_nearby_m": 219
+   }
+  ],
+  "spikes_are": "the harmonics nearest resonance, where m iota is closest to a multiple n N_fp of N_fp: every N_fp / |iota| = 24.4 in m",
+  "n_side": {
+   "what": "the same over m, for each |n|: not drawn",
+   "decades_per_n_from_n_4_to_32": -0.45097703814399376,
+   "at_N": 5.7691420700535e-19
+  }
+ },
+ "refinement": {
+  "levels": [
+   {
+    "M": 80,
+    "N": 24,
+    "bn": 1.2729329041498857e-08
+   },
+   {
+    "M": 160,
+    "N": 40,
+    "bn": 2.2508190160675297e-14
+   },
+   {
+    "M": 224,
+    "N": 40,
+    "bn": 1.5988225631687526e-15
+   }
+  ],
+  "bn_is": "the largest |B.n|/|B| the solver measured at that level on a grid shifted half a cell from the one it solved on: the circles",
+  "target": 3e-15,
+  "stop": "target",
+  "call": "answer.evidence['solver']['refine_hist']"
+ },
+ "prediction": [
+  {
+   "read_at": {
+    "M": 80,
+    "N": 24,
+    "bn": 1.2729329041498857e-08
+   },
+   "fit_m": [
+    40,
+    80
+   ],
+   "decades_per_m": -0.05811978137263038,
+   "meets_floor_at_m": 228.8853292174923,
+   "M_plus_two": 231,
+   "M_within_maxfac": 160,
+   "fit_n": [
+    12,
+    24
+   ],
+   "decades_per_n": -0.43911662980384936,
+   "meets_floor_at_n": 34.76463171566702,
+   "N_plus_two": 37,
+   "N_within_maxfac": 37,
+   "recomputed": [
+    160,
+    40
+   ],
+   "solver_went_to": [
+    160,
+    40
+   ],
+   "agrees": true
+  },
+  {
+   "read_at": {
+    "M": 160,
+    "N": 40,
+    "bn": 2.2508190160675297e-14
+   },
+   "fit_m": [
+    80,
+    160
+   ],
+   "decades_per_m": -0.06029587684733063,
+   "meets_floor_at_m": 217.7037046178136,
+   "M_plus_two": 220,
+   "M_within_maxfac": 220,
+   "fit_n": [
+    20,
+    40
+   ],
+   "decades_per_n": -0.3978375724043113,
+   "meets_floor_at_n": 35.78062749874593,
+   "N_plus_two": 38,
+   "N_within_maxfac": 40,
+   "recomputed": [
+    224,
+    40
+   ],
+   "solver_went_to": [
+    224,
+    40
+   ],
+   "agrees": true
+  }
+ ],
+ "prediction_rule": {
+  "floor": 1e-17,
+  "maxfac": 2.0,
+  "rule": "torux.family.predict_resolution fits a straight line to the log of the spectrum over its last half. The next M is where that line meets floor, plus 2, at most maxfac times the current M, raised to the next value of torux.family.LADDER. N likewise. The dashed line is the first of these fits, drawn from m = fit_m[0] to meets_floor_at_m"
+ },
+ "floor": {
+  "upper_edge": 3.89e-16,
+  "source": "results/evaluator/test_output.txt: the largest |B.n|/|B| that the independent evaluator, in extended precision, reads on an exact invariant torus written as a double-precision series. results/README.md rounds it to 3.9e-16"
+ },
+ "leak_against_spectrum": [
+  {
+   "M": 80,
+   "N": 24,
+   "bn": 1.2729329041498857e-08,
+   "first_missing_m": 3.1246840091931497e-09,
+   "bn_over_first_missing_m": 4.073797223670563,
+   "bn_of_the_surface_cut_to_M_N": 1.4402930079738392e-08,
+   "bn_over_that": 0.8838013495188798
+  },
+  {
+   "M": 160,
+   "N": 40,
+   "bn": 2.2508190160675297e-14,
+   "first_missing_m": 9.205032798421528e-15,
+   "bn_over_first_missing_m": 2.4452047758629374,
+   "bn_of_the_surface_cut_to_M_N": 3.357019370941342e-14,
+   "bn_over_that": 0.6704813905903609
+  }
+ ],
+ "verification": {
+  "solver_bn_off": 1.5988225631687526e-15,
+  "quad_err_half": 2.3683802658003616e-12,
+  "guard_ok": true,
+  "independent_ok": true,
+  "independent_bn_max": 3.2500019198417592e-15,
+  "independent_bn_sup": 4.098442724232496e-15,
+  "independent_npts": 4096,
+  "flux_rel_err": 7.140132372837399e-16,
+  "call": "answer.evidence['solver'] and answer.evidence['independent']"
+ },
+ "run": {
+  "torux_version": "0.1.3",
+  "wall_s": 2.9228549003601074,
+  "budget_s": 306.6
+ }
+}

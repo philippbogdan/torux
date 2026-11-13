@@ -1,0 +1,125 @@
+{
+ "example": "examples/hsx.json: HSX, the Helically Symmetric eXperiment, its 48 modular coils",
+ "call": "torux.solve('examples/hsx.json', flux=0.0359221439332229, budget_s=900), as examples/any_source.py",
+ "status": "surface",
+ "flux_Wb": {
+  "value": 0.0359221439332229,
+  "what": "toroidal flux enclosed by the surface (Answer.flux)"
+ },
+ "iota": {
+  "value": 1.0855079262677538,
+  "what": "rotational transform of the surface, VMEC's sign (Answer.iota): the slope of the line in the square"
+ },
+ "M": {
+  "value": 192,
+  "what": "poloidal modes of the series (Answer.surface.M)"
+ },
+ "N": {
+  "value": 96,
+  "what": "toroidal modes of the series, per field period (Answer.surface.N)"
+ },
+ "nfp": {
+  "value": 4,
+  "what": "field periods (Answer.nfp)"
+ },
+ "major_radius_m": {
+  "value": 1.2130562674627625,
+  "what": "Answer.major_radius"
+ },
+ "minor_radius_m": {
+  "value": 0.11604165150671421,
+  "what": "Answer.minor_radius"
+ },
+ "volume_m3": {
+  "value": 0.3224322613767028,
+  "what": "Answer.volume"
+ },
+ "bn_solver": {
+  "value": 2.9827815543641774e-15,
+  "what": "largest |B.n|/|B| on the grid shifted half a cell, the solver's own check (Answer.evidence['solver']['bn_off'])"
+ },
+ "bn_independent": {
+  "value": 8.010555991897691e-15,
+  "what": "largest |B.n|/|B| the independent evaluator finds, climbing from the worst of 4,096 random points to the local maximum (Answer.evidence['independent']['bn_sup'])"
+ },
+ "solve_s": {
+  "value": 27.3,
+  "what": "wall time of torux.solve here (seconds)"
+ },
+ "series_kept": {
+  "value": 4663,
+  "of": 37249,
+  "what": "coefficients of R and Z with |rc| or |zs| >= 1e-12 m, which the drawing uses"
+ },
+ "series_dropped_sum_m": {
+  "value": 7.930968265701314e-10,
+  "what": "sum of |rc| + |zs| over the coefficients the drawing leaves out: a bound on how far any drawn point moves"
+ },
+ "line_vs_reference_trace_m": {
+  "value": 3.828358248229503e-15,
+  "what": "largest distance, at equal phi over the length drawn on the solid (phi from 0 to phi_end), between the drawn line (the series at theta0 + iota phi, by Answer.points) and the field line from the same start traced by torux.reference.trace.poincare (order-12 Gauss-Legendre in the independent evaluator's field, which shares no code with the solver)",
+  "over_whole_turn": 3.828358248229503e-15,
+  "tracer_step_doubling_m": 0.0,
+  "tracer_step_doubling_what": "the tracer's own estimate: the largest difference between its runs at steps h and h / 2",
+  "points_per_turn": 2880,
+  "trace_s": 9.9
+ },
+ "line_vs_own_field_m": {
+  "value": 5.212565085074762e-14,
+  "what": "the same distance to the line integrated in the solver's own field, Answer.field, by scipy's DOP853 (rtol 1e-13, atol 1e-15 m): the integrator's tolerance, not the surface, sets it",
+  "over_whole_turn": 5.212565085074762e-14,
+  "trace_s": 22.5
+ },
+ "drawing_series_vs_torux_m": {
+  "value": 7.129914334469772e-11,
+  "what": "largest distance along the line between the drawing's evaluation of the kept coefficients and torux's own of the whole series (Answer.points)"
+ },
+ "line_start": {
+  "theta0": 1.5707963267948966,
+  "phi": 0.0,
+  "R_m": 1.4022931611492409,
+  "Z_m": 0.2231410213344126
+ },
+ "line_phi_end": 5.759586531581287,
+ "drawing": {
+  "theta0_rad": {
+   "value": 1.5707963267948966,
+   "what": "where the line starts, at phi = 0: the node of the net at the top of the section, lettered theta_0 in the square"
+  },
+  "phi_end_rad": {
+   "value": 5.759586531581287,
+   "what": "the far cut: the solid is drawn for phi from 0 to here and the sector from here to 2 pi is cut away"
+  },
+  "line_end_theta_rad": {
+   "value": 1.5396878516717978,
+   "what": "theta where the line meets the far cut, in both halves"
+  },
+  "line_turns": {
+   "toroidal": 0.9166666666666666,
+   "poloidal": 0.9950489324121076,
+   "what": "how far the drawn line goes round the machine and round the section"
+  },
+  "net": {
+   "theta": 12,
+   "phi": 12,
+   "what": "curves of constant theta and of constant phi, every 2 pi / 12: the net on the solid and the grid of the square"
+  },
+  "slope_triangle_rad": {
+   "run": 1.0,
+   "rise": 1.0855079262677538,
+   "what": "lettered 1 and iota in the square"
+  },
+  "lettered": "0 and 2 pi at the ends of both angles, theta_0 = pi / 2, the run 1 of the slope triangle and its rise iota",
+  "camera": {
+   "azimuth_deg": -100.0,
+   "elevation_deg": 32.0,
+   "distance_m": 8.0,
+   "target_m": [
+    0.15,
+    0.0,
+    0.0
+   ],
+   "what": "a pinhole camera at that azimuth and elevation from the target, which it looks at"
+  }
+ }
+}

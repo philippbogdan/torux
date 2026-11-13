@@ -1,0 +1,156 @@
+{
+ "figure": "surface-b: figure 1 of method/README.md, one field period of HSX's surface in perspective, its angle net and two field lines",
+ "example": {
+  "value": "examples/hsx.json",
+  "what": "HSX, the Helically Symmetric eXperiment: 48 modular coils, 4 field periods (simsopt 1.11's coil set). The file carries no surface, so torux starts from the magnetic axis"
+ },
+ "request": {
+  "flux_Wb": 0.0359221439332229,
+  "call": "torux.solve('examples/hsx.json', flux=0.0359221439332229, budget_s=900)",
+  "what": "the request of examples/any_source.py, run with torux 0.1.3"
+ },
+ "answer": {
+  "status": "surface",
+  "iota": 1.0855079262677538,
+  "flux_Wb": 0.0359221439332229,
+  "M": 192,
+  "N": 96,
+  "nfp": 4,
+  "phi0": 0.0,
+  "major_radius_m": 1.2130562674627625,
+  "minor_radius_m": 0.11604165150671421,
+  "volume_m3": 0.3224322613767028,
+  "bn_solver": 2.9827815543641774e-15,
+  "bn_independent": 8.010555991897691e-15,
+  "flux_rel_err_independent": 2.317977651937328e-15,
+  "solve_s": 36.70175313949585,
+  "what": "the verified surface whose series is drawn, every coefficient of it: R = sum rc[m, n + N] cos(m theta - n nfp phi), Z = sum zs[m, n + N] sin(m theta - n nfp phi). bn_solver is the largest |B.n|/|B| on the grid shifted half a cell from the solve's, bn_independent the same by torux's independent evaluator at 4,096 points, flux_rel_err_independent its flux through six sections against the request. Radii by VMEC's and SIMSOPT's definitions",
+  "from": "torux.solve: answer.surface (rc, zs), answer.iota, answer.evidence['solver']['bn_off'], answer.evidence['independent'] (bn_sup, flux_rel_err), answer.major_radius, answer.minor_radius, answer.volume"
+ },
+ "period": {
+  "phi_from": 0.0,
+  "phi_to": 1.5707963267948966,
+  "cut_R_m": [
+   1.3856061033131046,
+   1.5120811307330544
+  ],
+  "cut_Z_m": [
+   -0.22366747077598995,
+   0.22366747077598995
+  ],
+  "what": "the tube is cut by the planes phi = 0 and phi = pi / 2, one field period of four. The two cuts are the same curve in their (R, Z) planes (field-period symmetry), R and Z its extent there, from the series"
+ },
+ "net": {
+  "n_theta": 11,
+  "n_phi": 3,
+  "dtheta_rad": 0.5711986642890533,
+  "dphi_rad": 0.5235987755982988,
+  "theta_cells_per_phi_cell": 0.9950489324121076,
+  "drift_over_period_cells": -0.014853202763677409,
+  "what": "the fine curves theta = 2 pi k / 11 and phi = (pi / 2) j / 3 on the tube (j = 0 and 3 are the cuts). The steps are chosen so that a field line crosses iota dphi / dtheta = 0.995 cells of theta for every cell of phi: from a corner of the net it passes the next corners within this fraction of a cell, too little to see"
+ },
+ "field_lines": {
+  "k": [
+   3,
+   4
+  ],
+  "theta0_rad": [
+   1.7135959928671598,
+   2.284794657156213
+  ],
+  "theta0_deg": [
+   98.18181818181817,
+   130.9090909090909
+  ],
+  "theta_exit_rad": [
+   3.418707856155293,
+   3.9899065204443462
+  ],
+  "theta_exit_deg": [
+   195.877531545916,
+   228.60480427318876
+  ],
+  "advance_rad": 1.705111863288133,
+  "advance_deg": 97.69571336409784,
+  "advance_theta_steps": 2.9851467972363226,
+  "fraction_in_sight": [
+   1.0,
+   1.0
+  ],
+  "lettered_k": 4,
+  "what": "the heavy curves theta = theta0 + iota phi on the tube, from the corners theta0 = 2 pi k / 11 of the net on the cut phi = 0. The advance iota pi / 2 is lettered at the end of the line from k = 4, whose ends are dotted"
+ },
+ "check": {
+  "lines_traced": 11,
+  "points_per_line": 64,
+  "largest_distance_m": 2.0126889440718465e-15,
+  "largest_distance_drawn_m": 1.6504651808933464e-15,
+  "largest_distance_over_minor_radius": 1.7344538947339885e-14,
+  "tracer_error_estimate_m": 2.9504581591051765e-16,
+  "tracer_step_rad": 0.006135923151542565,
+  "what": "a field line traced from every corner of the net on the cut phi = 0 to phi = pi / 2 in the coils' field, compared with the series' line theta0 + iota phi at the same phi, 64 points a line: the largest distance between the two, all eleven lines and the two drawn. The tracer is torux's independent one (Gauss-Legendre collocation of order 12 on its own field evaluator, which shares no code with the solver), and its step-doubling estimate of its own error",
+  "from": "torux.reference.trace.poincare(torux.reference.fast64.Field(torux.load(source)), R0, Z0, phis, 1, h=2 pi / 1024), answer.points"
+ },
+ "ticks": {
+  "arc_between_m": [
+   0.11796581643375391,
+   0.09309775616508047,
+   0.055411522924829676,
+   0.0650253981090465,
+   0.09425664513979537,
+   0.128237307298058,
+   0.09425664513979537,
+   0.06502539810904673,
+   0.05541152292482876,
+   0.09309775616507976,
+   0.11796581643375437
+  ],
+  "largest_over_smallest": 2.3142714823417623,
+  "geometric_angle_deg": [
+   0.0,
+   66.5789906728015,
+   89.52233233455419,
+   101.06918585503568,
+   107.19038844356633,
+   129.83524245556566,
+   230.16475754443954,
+   252.80961155643743,
+   258.93081414496794,
+   270.4776676654492,
+   293.4210093272011
+  ],
+  "what": "the ticks of theta on a cut, at the net's steps 2 pi / 11: the arc length between successive ticks, from theta = 0, and the geometric angle of each about the cut's centroid. Even in theta, uneven in both: theta is neither"
+ },
+ "hidden_lines": {
+  "mesh": [
+   720,
+   360
+  ],
+  "triangles": 519840,
+  "mesh_stray_m": 2.1205079536748835e-05,
+  "what": "the solid against which rays from the eye are cast: the series on a grid of 720 by 360 in (theta, phi), two triangles a cell, and a fan across each cut. mesh_stray_m is the largest distance from the series of a cell's centre or an edge's midpoint"
+ },
+ "view": {
+  "azimuth": 45.0,
+  "elevation": 8.0,
+  "distance": 6.0,
+  "target": [
+   0.72,
+   0.72,
+   0.0
+  ],
+  "eye_m": [
+   -3.4813515995980238,
+   -3.4813515995980238,
+   0.8350386057603927
+  ],
+  "what": "the eye, in perspective: azimuth and elevation of the line from the target to it reversed, degrees, and its distance (m). From inside the torus, the only side from which both cuts are seen: phi increases from right to left"
+ },
+ "lettered": {
+  "theta": "theta on each cut, with an arrow along the rim from theta = 0 upward",
+  "zero": "0, at theta = 0 on each cut, its longest tick",
+  "R, Z": "the directions R and Z in the plane of the cut phi = 0",
+  "phi": "phi = 0 and phi = pi / 2 at the ends of an arc of constant R and Z from cut to cut, its arrow the sense of phi",
+  "theta0": "theta0 and theta0 + iota pi / 2: where the line from the corner theta0 = 2 pi k / 11, k = 4, enters and leaves (dotted), iota pi / 2 = 1.7051 rad"
+ }
+}

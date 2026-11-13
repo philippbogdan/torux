@@ -1,0 +1,222 @@
+{
+ "figure": "start: figure 2 of method/README.md, the half-plane phi = 0 of HSX at true scale",
+ "example": {
+  "value": "examples/hsx.json",
+  "what": "HSX, the Helically Symmetric eXperiment: 48 modular coils, 4 field periods (simsopt 1.11's coil set). The file carries no surface, so torux starts from the magnetic axis"
+ },
+ "request": {
+  "flux_Wb": 0.0359221439332229,
+  "call": "torux.solve('examples/hsx.json', flux=0.0359221439332229, budget_s=900)",
+  "what": "the request of examples/any_source.py, run with torux 0.1.3"
+ },
+ "lettered": {
+  "Psi0": "0.0359 Wb",
+  "start_circle": "0.004 R0",
+  "magnification": 10,
+  "what": "the numbers lettered in the figure: the flux of the heavy curve, the radius of the dashed circle and the factor of the inset"
+ },
+ "Psi0_Wb": {
+  "value": 0.0359221439332229,
+  "s_Wb_half": 0.18953137981142568,
+  "what": "the flux asked for, and s = sqrt(Psi) there, to which the s of every ring is referred"
+ },
+ "answer": {
+  "status": "surface",
+  "iota": 1.0855079262677538,
+  "M": 192,
+  "N": 96,
+  "refinement": [
+   [
+    112,
+    48,
+    1.3463107230071882e-09
+   ],
+   [
+    192,
+    96,
+    2.9827815543641774e-15
+   ]
+  ],
+  "bn_off_solver": 2.9827815543641774e-15,
+  "bn_max_independent": 6.0963550759865175e-15,
+  "flux_rel_err_independent": 2.317977651937328e-15,
+  "minor_radius_m": 0.11455960735950899,
+  "what": "the surface asked for, refined and verified: the heavy curve. refinement is (M, N, off-grid |B.n|/|B|) from the continuation's torus to the refined one (torux.family.refine_to_limit). bn_off_solver is the largest |B.n|/|B| on the grid shifted half a cell, bn_max_independent the same at 4,096 random points by torux.reference (torux.verify.verify_torus)",
+  "from": "torux.solve: Result.surface, Result.evidence"
+ },
+ "axis": {
+  "R_m": 1.446384104225726,
+  "Z_m": 0.0,
+  "R0_m": 1.2211687346474271,
+  "iota": 1.0418902782436665,
+  "residue": 0.5328768106913488,
+  "what": "the magnetic axis where it crosses phi = 0 (the dot). R0 is the axis's mean major radius, the constant term of its R series, the R0 of the start circle's 0.004 R0. iota and Greene's residue from its monodromy",
+  "from": "torux.analysis.find_axes, the axis passed to torux.family.Continuation.start"
+ },
+ "start_circle": {
+  "radius_m": 0.004884674938589709,
+  "radius_over_R0": 0.004,
+  "flux_Wb": 6.394474263293401e-05,
+  "what": "the circle the solver begins from (dashed, in the inset): torux.family.axis_torus_start with eps = 0.004 R0, and the flux it encloses, at which the first surface is solved",
+  "smaller_circles_tried": false
+ },
+ "first_surface": {
+  "newton_iterations": 5,
+  "M": 6,
+  "N": 48,
+  "flux_Wb": 6.394474263293401e-05,
+  "s_over_s_request": 0.04219114363404774,
+  "iota": 1.04190022952366,
+  "bn_off": 5.907012723286476e-12,
+  "height_m": 0.017991502120803287,
+  "width_m": 0.005186453932422452,
+  "elongation": 3.4689408901005976,
+  "what": "the torus Newton's method made of the circle at its flux (the ellipse in the inset): height and width of its section at phi = 0 and their ratio",
+  "from": "torux.family.Continuation.start"
+ },
+ "family": {
+  "count": 8,
+  "s_over_s_request": [
+   0.04219114363404774,
+   0.09219114363404775,
+   0.16719114363404775,
+   0.27969114363404773,
+   0.4484411436340478,
+   0.6484411436340478,
+   0.8484411436340478,
+   1.0
+  ],
+  "flux_Wb": [
+   6.394474263293401e-05,
+   0.0003053097358989457,
+   0.0010041273251719276,
+   0.002810086432672822,
+   0.0072239237220048606,
+   0.015104396402214315,
+   0.025858640597081598,
+   0.0359221439332229
+  ],
+  "iota": [
+   1.04190022952366,
+   1.041939745081988,
+   1.0420716271550037,
+   1.042533745950755,
+   1.044413337464112,
+   1.0505158353102926,
+   1.0648777996407668,
+   1.085507926267752
+  ],
+  "M": [
+   6,
+   6,
+   8,
+   10,
+   16,
+   20,
+   40,
+   112
+  ],
+  "N": [
+   48,
+   48,
+   48,
+   48,
+   48,
+   48,
+   48,
+   48
+  ],
+  "newton_iterations": [
+   5,
+   3,
+   2,
+   2,
+   2,
+   2,
+   2,
+   2
+  ],
+  "bn_off": [
+   5.907012723286476e-12,
+   1.3799096113057567e-10,
+   4.3897838714120446e-11,
+   8.408716536599347e-11,
+   3.768199541787847e-11,
+   8.103479521667326e-10,
+   2.8347363427552685e-10,
+   1.3463107230071882e-09
+  ],
+  "steps_tried": 7,
+  "steps_failed": 0,
+  "steps_s_over_s_request": [
+   0.05000000000000001,
+   0.07499999999999998,
+   0.11250000000000002,
+   0.16875000000000007,
+   0.19999999999999998,
+   0.19999999999999998,
+   0.15155885636595223
+  ],
+  "chains_met": [],
+  "jumps": [],
+  "stop": "reached",
+  "resonances_crossed": [
+   {
+    "m": 15,
+    "n": 4,
+    "iota": 1.0666666666666667,
+    "between": [
+     6,
+     7
+    ]
+   },
+   {
+    "m": 19,
+    "n": 5,
+    "iota": 1.0526315789473684,
+    "between": [
+     5,
+     6
+    ]
+   },
+   {
+    "m": 23,
+    "n": 6,
+    "iota": 1.0434782608695652,
+    "between": [
+     3,
+     4
+    ]
+   },
+   {
+    "m": 26,
+    "n": 7,
+    "iota": 1.0769230769230769,
+    "between": [
+     6,
+     7
+    ]
+   }
+  ],
+  "what": "every torus the continuation accepted, the start first, at s = sqrt(Psi): the thin rings, the last of them, at the request, drawn as the refined surface. The step in s starts at 0.05 of the request's s, grows 1.5 times per accepted step up to 0.2, halves on a failure, and the last is cut to end at the request. resonances_crossed: the rational iota = n N_fp / m, m <= 30, that lie between two consecutive tori (between: their indices), each crossed by an accepted step with no failure, so no chain stopped the continuation and none was jumped",
+  "from": "torux.family.Continuation._run (FamilyResult.tori, .log), driven by torux.analysis.analyse"
+ },
+ "inset": {
+  "magnification": 10,
+  "region_m": [
+   0.016,
+   0.021
+  ],
+  "what": "the inset is the region of the dot outlined in the main drawing (width and height in R and Z), magnified this many times, line weights unchanged"
+ },
+ "check": {
+  "what": "the drawn sections measured by torux.reference, which shares no code with the solver: the flux each encloses (minus the loop integral of A along it) against the torus's own, and field lines started on each, traced one turn, against the section, at every field period",
+  "flux_rel_diff_max": 1.8666867195855628e-11,
+  "return_distance_max_m": 7.137585441154568e-10,
+  "returns_per_curve": 8,
+  "axis_return_distance_m": 5.376323787451775e-14,
+  "section_vs_torus_geometry_m": 2.664616573022579e-15,
+  "family_vs_answer_profile_max_diff": 0.0,
+  "family_at_request_vs_refined_m": 1.2179802022310876e-11
+ }
+}

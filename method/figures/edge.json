@@ -1,0 +1,574 @@
+{
+ "figure": "Fig. 5 of method/README.md: the edge barrier of QUASR 1100073 at its own request, in the half plane phi = 0",
+ "request": {
+  "source": "examples/quasr_1100073.json",
+  "call": "torux.solve('examples/quasr_1100073.json', budget_s=3300)",
+  "flux_Wb": 0.06949573998008302,
+  "provenance": "the flux enclosed by the file's outermost stored surface (loop integral of A at its own quadrature points)",
+  "what": "the requested flux, the full toroidal flux the file's outermost stored surface encloses"
+ },
+ "torux_version": "0.1.3",
+ "answer": {
+  "status": "no_surface",
+  "wall_s": 85.9614610671997,
+  "text": "no surface             certified: the flux asked for lies beyond the last surface these coils make\nrequested flux         0.06949574 Wb\nupper bound            0.0611262057 Wb: no surface encloses more (the largest may enclose less: ask largest=True)\nrests on               curves no surface crosses, from an X line of period 11, with some error terms strict bounds and\n                       some validated models: the weakest kind of certificate torux gives\ntime                   85.2 s",
+  "note": "wall time of this run, the printed time of the answer included"
+ },
+ "route": {
+  "edge_bound_first_stage": "torux.edgebound (the lost-curve bound): not run, TORUX_EDGEBOUND is unset and torux.analysis.EDGEBOUND is False",
+  "edge_bound_second_stage": "torux.barrier.edge_barrier: the certificate",
+  "edge_barrier_options": {
+   "request": 0.06949573998008302,
+   "verbose": false,
+   "try_ring": false,
+   "extra_qs": [
+    11
+   ],
+   "q_max": 24
+  },
+  "certificate": "manifold",
+  "curve_class": "B",
+  "what": "certificate 'manifold': hyperbolic closed line, manifold arcs closed by certified crossing boxes (class B), Lemma B by a lost point and the boxes. The lost ring was not tried (try_ring=False), and the reversible closing gave no closed family (closed_families empty)"
+ },
+ "certificate": {
+  "F_up_Wb": 0.06112620574475185,
+  "margin_rel": 0.12043233495649965,
+  "holds_request": true,
+  "F_last_Wb": 0.051160118625838996,
+  "iota_last": -0.38194625824847117,
+  "plane_phi": 0.0,
+  "note": "no torus found beyond the -1/11 chain",
+  "axis_point_m": [
+   0.997704262141045,
+   -2.071649744473791e-13
+  ],
+  "axis_residue": 0.1186311170145753,
+  "orbit": {
+   "q": 11,
+   "p": -1,
+   "residue": -0.2953021378045506,
+   "lam": 2.827543932763238,
+   "e_X_m": 2.7358430068480685e-06,
+   "points_m": [
+    [
+     0.9483253054299422,
+     -1.4105239956300832e-10
+    ],
+    [
+     0.9293425069875094,
+     0.21362685462889033
+    ],
+    [
+     0.9971713998961599,
+     0.2145820010007879
+    ],
+    [
+     1.061861885212731,
+     0.16999764956093108
+    ],
+    [
+     1.1052387729174065,
+     0.10733844759133776
+    ],
+    [
+     1.1266376415855899,
+     0.036562337027706976
+    ],
+    [
+     1.1266376415923416,
+     -0.0365623369795145
+    ],
+    [
+     1.1052387729379485,
+     -0.10733844754616319
+    ],
+    [
+     1.0618618852476118,
+     -0.1699976495231044
+    ],
+    [
+     0.9971713999436453,
+     -0.2145820009785313
+    ],
+    [
+     0.9293425070165379,
+     -0.21362685465434464
+    ]
+   ],
+   "closure_reference": {
+    "ok": true,
+    "closure": 1.579184571658954e-09,
+    "e_X_reference": 2.020334249747806e-07,
+    "tolerance": 2.7358430068480683e-05,
+    "ref_err": 1.9951726875206964e-16
+   }
+  },
+  "crossings": [
+   {
+    "gap": [
+     0,
+     1
+    ],
+    "h_m": [
+     0.9390633447555767,
+     0.1123264569653971
+    ],
+    "angle_rad": 0.006275049189133205,
+    "box_diam_m": 0.0005376878468402298,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     1,
+     2
+    ],
+    "h_m": [
+     0.9528739538451089,
+     0.20992934348031436
+    ],
+    "angle_rad": 0.12197075834908418,
+    "box_diam_m": 4.1242623103554914e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     2,
+     3
+    ],
+    "h_m": [
+     1.0194911139379017,
+     0.1894869121371073
+    ],
+    "angle_rad": 0.08472889553130204,
+    "box_diam_m": 6.908366975011442e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     3,
+     4
+    ],
+    "h_m": [
+     1.073227173833654,
+     0.1371551909634839
+    ],
+    "angle_rad": 0.08843549148161582,
+    "box_diam_m": 7.155829013266297e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     4,
+     5
+    ],
+    "h_m": [
+     1.105529711646119,
+     0.0712828463096475
+    ],
+    "angle_rad": 0.0936547164564885,
+    "box_diam_m": 7.107030392303035e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     5,
+     6
+    ],
+    "h_m": [
+     1.1162143914819973,
+     9.54328304748897e-16
+    ],
+    "angle_rad": 0.09570201546622753,
+    "box_diam_m": 7.071972531793927e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     6,
+     7
+    ],
+    "h_m": [
+     1.1055297116461176,
+     -0.07128284630965144
+    ],
+    "angle_rad": 0.09365471646119823,
+    "box_diam_m": 7.102209144764846e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     7,
+     8
+    ],
+    "h_m": [
+     1.0732271738336527,
+     -0.13715519096348608
+    ],
+    "angle_rad": 0.08843549147971953,
+    "box_diam_m": 7.14561783838258e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     8,
+     9
+    ],
+    "h_m": [
+     1.0194911139379081,
+     -0.18948691213710347
+    ],
+    "angle_rad": 0.08472889552547361,
+    "box_diam_m": 6.892380585315008e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     9,
+     10
+    ],
+    "h_m": [
+     0.952873953845111,
+     -0.20992934348031483
+    ],
+    "angle_rad": 0.12197075834579885,
+    "box_diam_m": 4.1094506360283866e-05,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   },
+   {
+    "gap": [
+     10,
+     0
+    ],
+    "h_m": [
+     0.939063344755577,
+     -0.11232645696539434
+    ],
+    "angle_rad": 0.006275049187598486,
+    "box_diam_m": 0.0005340913115362022,
+    "u_curve": "u+",
+    "s_curve": "Su+"
+   }
+  ],
+  "error_budget": {
+   "eps_max": 0.0005376878468402298,
+   "eps_median": 2.026394968940394e-07,
+   "tube": 7.218959598837217e-06,
+   "quad_err": 0.0,
+   "e_X": 2.7358430068480685e-06,
+   "delta0": 3.7233683391296306e-12,
+   "density_lower_bound": 0.8623677491277664,
+   "junction_err_max": null
+  },
+  "excluded": [
+   "Su+",
+   "u+",
+   "u-"
+  ],
+  "lemma_B": true,
+  "lost_point": {
+   "point": [
+    0.5614975870853328,
+    -0.33716525542544695
+   ],
+   "curve": "u-",
+   "steps_from_X": 201,
+   "direction": 1,
+   "radius": 1.545175712700847e-07,
+   "err": 7.25009325174261e-08,
+   "arc_length": 0.27299999999999996,
+   "beta": 0.05,
+   "end_ratio": -0.14418777447408124,
+   "upper_bound_f": -0.14418520408585692,
+   "lipschitz": 15.261072168973786,
+   "nonlinearity": 2.8076143947533843e-13,
+   "integration_err": 4.592238923495528e-13,
+   "reference": {
+    "ok": true,
+    "end_point_diff": 4.592238923495528e-13,
+    "end_ratio_ref": -0.14418777447747516,
+    "nfev": 194
+   }
+  },
+  "flux_reference": {
+   "ok": true,
+   "flux_engine": 0.06111898678515302,
+   "flux_reference": 0.06111898678515301,
+   "rel_diff": 1.1353090535186717e-16
+  },
+  "growth": {
+   "u+": {
+    "levels": 98,
+    "points": 4648,
+    "stop": null
+   },
+   "u-": {
+    "levels": 98,
+    "points": 2682,
+    "stop": null
+   }
+  },
+  "start_error": {
+   "u": {
+    "s0": 1.639418254262963e-05,
+    "delta0": 3.7233683391296306e-12,
+    "defect_max": 4.605581956861573e-12
+   }
+  },
+  "timings_s": {
+   "search0": 1.2423689365386963,
+   "screen0": 1.8329029083251953,
+   "total": 21.63840889930725
+  }
+ },
+ "drawn": {
+  "bounding_curve": {
+   "what": "the certificate's polygon C_c, as its record keeps it: 11 arcs of unstable branches (generating curve u+, X_k to the crossing h_k, solid) and 11 of stable ones (its mirror Su+, h_k to X_k+1, dashed), split at the X points and crossings, which are vertices of the polygon",
+   "vertices": 8304,
+   "perimeter_m": 1.117592605889882,
+   "flux_Wb": 0.06111898678515302,
+   "quadrature_error_Wb": 0.0,
+   "tube_Wb": 7.218959598837217e-06,
+   "bound_Wb": 0.06112620574475185,
+   "bound_minus_certificate_Wb": 0.0,
+   "flux_reference_field_Wb": 0.06111898678515301,
+   "flux_rel_diff_reference": 1.1353090535186717e-16,
+   "how": "FieldSection.flux of the certificate's own section (loop integral of A, Gauss-Legendre 5 points a side, the 3-point rule's difference its error), plus the tube term of the record, is the bound F_up. flux_reference_field_Wb is the same integral on torux.reference.fast64"
+  },
+  "x_points": {
+   "n": 11,
+   "on_curve": "every X point and every crossing h_k is a vertex of the polygon (exact match)",
+   "polygon_index": [
+    8303,
+    7553,
+    6797,
+    6041,
+    5285,
+    4529,
+    3773,
+    3017,
+    2261,
+    1505,
+    749
+   ],
+   "crossing_index": [
+    7941,
+    7175,
+    6419,
+    5663,
+    4907,
+    4151,
+    3395,
+    2639,
+    1883,
+    1127,
+    361
+   ]
+  },
+  "surfaces": {
+   "drawn": [
+    {
+     "role": "a torus of the solve",
+     "flux": 0.008370869239063019,
+     "iota": -0.4363288639302643,
+     "M": 24,
+     "N": 24,
+     "bn_off": 1.592026466012439e-12,
+     "converged": true,
+     "flux_reference": 0.008370869239063014,
+     "flux_rel_diff": 6.217001220906591e-16,
+     "inside_curve": true,
+     "min_distance_to_curve_m": 0.025141285391166675
+    },
+    {
+     "role": "a torus of the solve",
+     "flux": 0.015486560613281838,
+     "iota": -0.42673304907179277,
+     "M": 24,
+     "N": 24,
+     "bn_off": 7.459959143168023e-10,
+     "converged": true,
+     "flux_reference": 0.015486560613281821,
+     "flux_rel_diff": 1.1201476682234047e-15,
+     "inside_curve": true,
+     "min_distance_to_curve_m": 0.018401077549394258
+    },
+    {
+     "role": "a torus of the solve",
+     "flux": 0.02374752215267162,
+     "iota": -0.4158072805368472,
+     "M": 40,
+     "N": 24,
+     "bn_off": 2.0615359873957148e-11,
+     "converged": true,
+     "flux_reference": 0.023747522152671584,
+     "flux_rel_diff": 1.46097219307712e-15,
+     "inside_curve": true,
+     "min_distance_to_curve_m": 0.013106410329973122
+    },
+    {
+     "role": "the outermost surface torux verifies: torux.solve('examples/quasr_1100073.json', 0.05060264005627385, budget_s=600)",
+     "flux": 0.05060264005627385,
+     "iota": -0.3828356063706837,
+     "M": 640,
+     "N": 56,
+     "bn_off": 3.288515253373845e-15,
+     "converged": true,
+     "flux_reference": 0.05060264005627379,
+     "flux_rel_diff": 1.234126224752622e-15,
+     "inside_curve": true,
+     "min_distance_to_curve_m": 0.0026003916532742625,
+     "independent_bn_sup": 8.995132159224902e-15,
+     "independent_flux_rel_err": 9.598759525853728e-16
+    }
+   ],
+   "certificate_start": {
+    "role": "the torus the certificate started from (F_last)",
+    "flux": 0.051160118625838996,
+    "iota": -0.38194625824847117,
+    "M": 128,
+    "N": 24,
+    "bn_off": 1.6793843029076284e-06,
+    "converged": true,
+    "flux_reference": 0.05116011862771316,
+    "flux_rel_diff": 3.66332330595742e-11,
+    "inside_curve": true,
+    "min_distance_to_curve_m": 0.0023418847280726376
+   },
+   "outermost_requests": [
+    {
+     "flux_Wb": 0.051160118625838996,
+     "status": "surface_unverified",
+     "wall_s": 454.04557609558105,
+     "text": "surface unverified     a torus was found and not verified: it is not an answer\nrequested flux         0.0511601186 Wb\nwhy                    the solver's own acceptance refused it: its field across reached only 4.9e-11 of |B|, short of\n                       1e-14\nfound                  a torus at 0.0511601186 Wb (answer.surface), not verified\ntried                  Newton from the file's own surface (it did not converge), other starting tori, following the\n                       surfaces out from the axis, an island band round the chain at the request\nnext                   a slightly smaller flux, away from what spoilt this torus\ntime                   454 s",
+     "call": "torux.solve('examples/quasr_1100073.json', 0.051160118625838996, budget_s=600)"
+    },
+    {
+     "flux_Wb": 0.05060264005627385,
+     "status": "surface",
+     "wall_s": 34.95374917984009,
+     "text": "surface                verified: the solver's check and an independent evaluator agree\ntoroidal flux          0.0506026400563 Wb\nrotational transform   -0.382835606371\nradii                  major 0.987638437 m, minor 0.127162672 m, aspect ratio 7.76673\nvolume                 0.315244133 m^3\nFourier series         M, N = 640, 56, with 4 field periods\nfield across it        3.3e-15 of |B| (the solver's own check)\nindependent check      9.0e-15 of |B| across it, and the same flux to within 1e-15\ntime                   34.7 s",
+     "call": "torux.solve('examples/quasr_1100073.json', 0.05060264005627385, budget_s=600)"
+    }
+   ],
+   "outermost_note": "the torus the certificate started from (F_last) is the solver's own check only unless its request comes back verified: the outermost ring drawn is the first of these requests that did",
+   "recorded": [
+    {
+     "flux_Wb": 0.008370869,
+     "iota": -0.4363288639302643,
+     "bn_off": 1.592026466012439e-12,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.010956537,
+     "iota": -0.4328278523131697,
+     "bn_off": 1.3664159371350929e-11,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.015486561,
+     "iota": -0.42673304907179277,
+     "bn_off": 7.459959143168023e-10,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.023747522,
+     "iota": -0.4158072805368472,
+     "bn_off": 2.0615359873957148e-11,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.032498654,
+     "iota": -0.4363288639302643,
+     "bn_off": NaN,
+     "converged": false
+    },
+    {
+     "flux_Wb": 0.039437297,
+     "iota": -0.3960919863151344,
+     "bn_off": 4.0646356937413156e-10,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.05060264,
+     "iota": -0.3828356061336517,
+     "bn_off": 1.8974986811907492e-07,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.051160119,
+     "iota": -0.38194625824847117,
+     "bn_off": 1.6793843029076284e-06,
+     "converged": true
+    },
+    {
+     "flux_Wb": 0.06949574,
+     "iota": -0.4363288639302643,
+     "bn_off": NaN,
+     "converged": false
+    }
+   ],
+   "how": "tori torux.analysis recorded during the solve (torus_record), their sections at phi = 0 from their series, flux_reference minus the loop integral of A of torux.reference.fast64 round the drawn section (2048-point trapezoid)",
+   "note": "for the three inner tori bn_off is the largest |B.n|/|B| of the solve's own acceptance: tori of its continuation, not answers refined to 3e-15 and checked independently. The outermost is such an answer"
+  },
+  "design_surface": {
+   "section_flux_Wb": 0.06949508248407643,
+   "section_flux_reference_Wb": 0.06949508248407642,
+   "request_Wb": 0.06949573998008302,
+   "angle_error_rad": 4.440892098500626e-16,
+   "inside_curve_fraction": 0.0,
+   "distance_to_curve_m": [
+    0.0004932319541102539,
+    0.01577688394588475
+   ],
+   "what": "the file's outermost stored surface (the request is its flux, by QUASR's definition: the loop integral of A round its own theta curve at phi_s = 0), cut at cylindrical phi = 0 by torux.design.planar_section, drawn dashed, on a channel of paper and over the curve's own, so that it reads as one closed curve all round"
+  },
+  "branches": {
+   "what": "generating curve u- of the certificate, regrown from its own fundamental domain by torux.barrier.grow_step on the certificate's section without its cut, and its mirror image Su-, the stable branch (stellarator symmetry): unstable solid, stable dashed, drawn in the small view of the whole plane only",
+   "certificate_growth_levels": 98,
+   "certificate_cut_m": 0.44859675697946394,
+   "certificate_dmax_m": 0.001545175712700847,
+   "certificate_amax_rad": 0.25,
+   "regrown_dmax_m": 0.0006180702850803388,
+   "regrown_amax_rad": 0.15,
+   "regrown_levels": 145,
+   "regrown_points": 267712,
+   "regrown_s": 158.8794710636139,
+   "resolved_to_level": 137,
+   "max_distance_to_certificate_curve_m": 4.3424100664774944e-07,
+   "certificate_curve_error_bound_max_m": 9.547615955369501e-07,
+   "levels_inset": 145,
+   "tolerance_inset_m": 0.0001,
+   "note": "the regrown pieces above resolved_to_level keep the regrown spacing but not the turning limit at the narrowest lobe tips (the refinement's parameter floor), well below what the inset can show"
+  },
+  "lost_point_reproduced": {
+   "steps": 201,
+   "curve": "u-",
+   "difference_m": 0.0,
+   "next_period_stopped": true,
+   "start_m": [
+    0.9483247770621931,
+    -3.221491926292202e-05
+   ],
+   "what": "the certificate's lost line, from its start on the fundamental domain of its branch, one period map at a time (FieldSection.step, the certificate's map): its last point is the lost point, and the next period stops (the line turns, B_phi changes sign)"
+  },
+  "scale": {
+   "main_units_per_m": 1420.0,
+   "inset_units_per_m": 274.8387096774194,
+   "note": "page units: the figure is 838 wide, shown at 838 px on a laptop and 324 px on a phone"
+  }
+ },
+ "compute": {
+  "wall_s": 738.5837650299072,
+  "note": "the solve, the regrowth and the checks"
+ }
+}
