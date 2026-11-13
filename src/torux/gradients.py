@@ -566,7 +566,7 @@ def _action(source, M, s, tol=1e-8):
         P = [parts[ip] for ip in ips]
         if kind == "fourier":
             coils = [(k, i) for k in range(len(P)) for i in range(P[k].n)]
-            scale = max(max(float(np.abs(p.coef).max()) for p in P), 1e-300)
+            scale = max(max(float(np.abs(p.coef).max(initial=0.0)) for p in P), 1e-300)   # a part may hold no coil
             Iscale = max(max(float(np.abs(p.current).max(initial=0.0)) for p in P), 1e-300)
             used, maps = set(), []
             for k, i in coils:

@@ -5,6 +5,7 @@ import numpy as np
 import pytest
 
 import torux
+from conftest import QUASR_954
 from torux.family import Continuation
 from torux.field import FieldEngine
 from torux.gradients import adjoint_gradient, adjoint_gradient_general, iota_gradients, symmetric_average
@@ -322,3 +323,15 @@ def test_three_periods_without_stellarator_symmetry_against_solves_without_symme
     assert abs(fd - g["d_iota_d_current"][0]) <= TOL_219457 * abs(fd)
     fd = _alone(src, f, "coef", (1, 0, 2), 1e-4)
     assert abs(fd - g["d_iota_d_coef"][1, 0, 2]) <= TOL_219457 * abs(fd)
+
+
+def test_a_fourier_part_of_no_coil(quasr_954):
+    """A source of QUASR 954's coils and a Fourier part holding none: torux 0.1.4 failed in the symmetric average
+    (a reduction of no element), and the gradients were an error, dι/dΨ lost with the rest."""
+    p = quasr_954.parts[0]
+    none = torux.FourierCurves(np.zeros((0,) + p.coef.shape[1:]), np.zeros(0))
+    src = torux.Source("954 and a part of no coil", [p, none], nfp=2, stellsym=True)
+    g = torux.solve(src, flux=QUASR_954["flux_Wb"], gradients=True).gradients
+    assert "error" not in g and "per_coil" not in g
+    assert np.isfinite(g["d_iota_d_flux"]) and g["d_iota_d_current"].shape == (4,)
+    assert g["parts"][1]["d_current"].shape == (0,)
