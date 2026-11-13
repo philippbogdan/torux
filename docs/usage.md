@@ -277,6 +277,19 @@ The two pieces an adjoint needs, as SIMSOPT's `BoozerSurface` objectives use the
 
 `d["coef"]` (ncoil, 3, 2K+1), in `CurveXYZFourier`'s order, and `d["current"]` are the coils in the order of the source, for a `BiotSavart` that of `bs.coils`. `d["d_coef"]`, `d["d_current"]` and `d["d_flux"]` are λᵀ∂F/∂coef, λᵀ∂F/∂I and λᵀ∂F/∂Ψ₀. A coil of zero current is kept, with its true derivatives: zero in its coefficients, as its field is, and the derivative of F in its current. Both calls need the source and a surface, so an answer read from a file or settled by proof raises a `ValueError`, and `vjp` takes Fourier coils alone.
 
+Without stellarator symmetry:
+
+```python
+F, J = s.system_general(rc, rs, zc, zs, iota)   # a surface without stellarator symmetry, and the Jacobian
+d = s.vjp_general(rc, rs, zc, zs, iota, lam)    # λᵀ ∂F/∂(coils, flux)
+```
+
+`rc`, `rs`, `zc` and `zs` (M+1, 2N+1) are a surface in the series of a `SurfaceRZFourier`, R = Σ rc[m, n+N] cos(mθ − n·nfp·φ) + rs[m, n+N] sin(mθ − n·nfp·φ) and Z the same with zc and zs, φ the cylindrical angle. The unknowns u are its dofs without stellarator symmetry in SIMSOPT's order, then ι: 2(2M+1)(2N+1) + 1 of them, which SIMSOPT's adjoint takes as it takes the symmetric ones. `s` may hold a stellarator-symmetric surface or not.
+
+Without the symmetry two things are free that it fixes: the origin of θ, and one equation, which the others imply up to the truncation because the flux of B out of any closed surface is zero. torux's solver carries a multiplier for that equation as one more unknown, and here it is solved for. F holds the projections G of R_φ + ι R_θ − R B_R/B_φ and of Z_φ + ι Z_θ − R B_Z/B_φ on cos and sin(mθ − n·nfp·φ), indexed like rc, rs, zc and zs in u, each less its share of the pivot's: G − (Pν/Pν[p]) G[p], where Pν are the projections of ν = (−Z_θ, R_θ)/(R_θ² + Z_θ²) on a reference surface and p is the entry of the largest |Pν|. These vanish exactly where G is a multiple of Pν, as the solver's own equations say. In the pivot's place, which they leave zero on any surface, F holds the phase condition ⟨X − X_ref, ∂X_ref/∂θ⟩/|∂X_ref/∂θ| = 0, and last the flux row of `system`. The reference is `s.surface` cut or padded to M, N. J = ∂F/∂u, with the flux row of `system`, and `d` is what `vjp` gives, for this F.
+
+For QUASR 954 with the mirrored copy of its coil at 3% more current, F is 6 × 10⁻¹⁶ on the surface torux finds, M, N = 32, 32. J matches central differences to 4 × 10⁻¹² of its largest entry in all 199 columns at M = 5, N = 4, its flux row to 8 × 10⁻⁷ of the row, and `d` matches them to 2 × 10⁻⁹ in the currents, the coefficients and the flux. At those 8,451 unknowns `system_general` takes 0.7 s and the 571 MB of J, and `vjp_general` 1.0 s and 30 MB, on an M4 Mac mini with four threads.
+
 ## Batch runs
 
 ```sh

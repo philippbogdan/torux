@@ -7,6 +7,8 @@
     s.section(phi=0.0)                         # R, Z of the cross-section at a cylindrical angle
     F, J = s.system(rc, zs, iota)              # torux's equations at any surface, and their Jacobian
     s.vjp(rc, zs, iota, lam)                   # lam^T dF / d(coils, flux)
+    s.system_general(rc, rs, zc, zs, iota)     # the same without stellarator symmetry
+    s.vjp_general(rc, rs, zc, zs, iota, lam)
     s.save("input.mine")                       # VMEC input (VMEC, VMEC++, DESC, SIMSOPT). Also *.json, *.vtk
     torux.Answer.read("answer.json")           # an answer saved as JSON, back
 
@@ -253,6 +255,54 @@ class Answer(Result):
         d_flux = float(lam[-1] * (-scale - math.copysign(1.0, flux) * last / max(abs(flux), 1e-300)))
         return dict(coef=coef, current=current, d_coef=d_coef, d_current=d_current, d_flux=d_flux)
 
+    def system_general(self, rc, rs, zc, zs, iota):
+        """answer.system for a surface without stellarator symmetry: the residual F and Jacobian J of torux's
+        equations for a flux surface of the source, at any surface.
+
+        rc, rs, zc, zs (M+1, 2N+1), M >= 1, N >= 0: R = sum rc[m, n+N] cos(m theta - n nfp phi) + rs[m, n+N]
+        sin(m theta - n nfp phi), Z the same with zc and zs, phi the cylindrical angle, and iota its rotational
+        transform.  The unknowns u are a SurfaceRZFourier's dofs without stellarator symmetry in SIMSOPT's order,
+        then iota: rc[0, n >= 0], rc[m >= 1, every n] row by row, then rs, zc and zs the same way except that rs and
+        zs start at n >= 1, then iota.  rc[0, n < 0], rs[0, n <= 0], zc[0, n < 0] and zs[0, n <= 0] are not unknowns
+        and are ignored.  The answer's surface may have stellarator symmetry or not.
+
+        F (len(u),): G - (Pnu / Pnu[p]) G[p], G the projections of R_phi + iota R_theta - R B_R / B_phi and of
+        Z_phi + iota Z_theta - R B_Z / B_phi on cos and sin(m theta - n nfp phi), indexed like rc, rs, zc, zs in u
+        (twice the mean over a field period, the mean itself for the cosine at m = n = 0), Pnu those of
+        nu = (-Z_theta, R_theta) / (R_theta^2 + Z_theta^2) on the reference, p the pivot, the entry of the largest
+        |Pnu|.  At p, which G - (Pnu / Pnu[p]) G[p] leaves zero, F holds the phase condition
+        <X - X_ref, X_ref,theta> / |X_ref,theta|_rms (X = (R, Z), the mean over the grid), and last the flux row
+        (Psi(u) - Psi0) rc[0, N] / |Psi0| of answer.system.  The reference X_ref is answer.surface cut or padded to
+        M, N.  F = 0 on a flux surface of that flux whose theta has the reference's origin: G = lambda Pnu there, a
+        multiple of Pnu that is zero in the continuum and the size of the truncation in the projections.
+
+        J (len(u), len(u)), dense: dF/du.  Its flux row is answer.system's (rc[0, N] / |Psi0| held fixed, the flux
+        differentiated as the integral of B_phi over the cross-section).  The other rows are the derivative of F."""
+        eq, u, flux, scale = self._equations_general(rc, rs, zc, zs, iota, "answer.system_general")
+        return eq.system(u, flux, scale)
+
+    def vjp_general(self, rc, rs, zc, zs, iota, lam):
+        """lam^T dF/dp for F = answer.system_general(rc, rs, zc, zs, iota)[0], p the coils and the flux, at fixed
+        rc, rs, zc, zs and iota.  Returns the dict answer.vjp returns, with its conventions."""
+        eq, u, flux, scale = self._equations_general(rc, rs, zc, zs, iota, "answer.vjp_general")
+        lam = np.asarray(lam, dtype=np.float64)
+        if lam.shape != u.shape:
+            raise ValueError(f"lam has shape {lam.shape}: it needs one entry per equation, {u.shape}")
+        parts = self._fourier_parts("answer.vjp_general")
+        from .gradients import _vjp_source_general
+        out = _vjp_source_general(self._engine, eq, u, flux, scale, lam)
+        coef = np.concatenate([p.coef for p in parts])
+        current = np.concatenate([p.current for p in parts])
+        d_coef = -np.concatenate([g["d_coef"] for g in out["parts"]])
+        d_current = -np.concatenate([g["d_current"] for g in out["parts"]])
+        zero = np.flatnonzero(current == 0.0)
+        if zero.size:
+            d_current[zero] = _unit_current_vjp_general(self._engine, eq, u, flux, scale, lam, coef[zero])
+        # the flux row (Psi(u) - Psi0) rc[0, N] / |Psi0| has d/dPsi0 = -rc[0, N] / |Psi0| - sign(Psi0) F[-1] / |Psi0|
+        last = (eq.flux_of(u) - flux) * scale
+        d_flux = float(lam[-1] * (-scale - math.copysign(1.0, flux) * last / max(abs(flux), 1e-300)))
+        return dict(coef=coef, current=current, d_coef=d_coef, d_current=d_current, d_flux=d_flux)
+
     def plot(self, path=None, *, dark=False):
         """The surface inside its coils, coloured by |B| in tesla, beside three cross-sections in metres: the
         matplotlib figure, or with ``path`` (.png, .pdf, .svg) the file, whose path is returned. ``dark=True`` for
@@ -358,6 +408,39 @@ class Answer(Result):
         flux = float(t.flux)
         return prob, u, flux, float(rc[0, N]) / max(abs(flux), 1e-300)
 
+    def _equations_general(self, rc, rs, zc, zs, iota, what):
+        """(equations, u, Psi0, rc[0, N] / |Psi0|) of system_general and vjp_general at the surface rc, rs, zc, zs,
+        iota (torux.torus_general.GeneralEquations, the reference answer.surface in the series of phi itself)."""
+        if self._engine is None:
+            raise ValueError(f"{what} needs the source, which this answer does not hold (it was read from a file or "
+                             f"settled by proof): solve the source again")
+        t = self.surface
+        if t is None:
+            raise ValueError(f"{what} needs a surface, and this answer holds none: the status is {self.status!r}")
+        a = [np.asarray(x, dtype=np.float64) for x in (rc, rs, zc, zs)]
+        if a[0].ndim != 2 or any(x.shape != a[0].shape for x in a) or a[0].shape[0] < 2 or a[0].shape[1] % 2 != 1:
+            raise ValueError(f"rc, rs, zc and zs need one shape (M+1, 2N+1) with M >= 1 and N >= 0: they have "
+                             f"{', '.join(str(x.shape) for x in a)}")
+        M, N = a[0].shape[0] - 1, (a[0].shape[1] - 1) // 2
+        from .torus_general import GeneralEquations, general_arrays
+        eq = GeneralEquations(self._engine, t.nfp, M, N, general_arrays(t))
+        u = eq.pack(*a, float(iota))
+        flux = float(t.flux)
+        return eq, u, flux, float(a[0][0, N]) / max(abs(flux), 1e-300)
+
+    def _fourier_parts(self, what):
+        """The source's parts, when they are Fourier coils of one order alone (what the product in the coils
+        takes)."""
+        parts = list(self._engine.source.parts)
+        other = sorted({p.kind for p in parts if p.kind != "fourier"}) + (["analytic"] if self._engine.analytic else [])
+        if other or not parts:
+            raise ValueError(f"{what} takes its derivatives in Fourier coils alone, and this source holds "
+                             f"{', '.join(other) + ' parts' if other else 'no parts'}")
+        if len({p.order for p in parts}) > 1:
+            raise ValueError(f"the source holds Fourier coils of orders {sorted({p.order for p in parts})} in separate "
+                             f"parts: give them as one part of one order")
+        return parts
+
     def _geometry(self):
         self._need()
         g = self.__dict__.get("_geo")
@@ -399,6 +482,23 @@ def _unit_current_vjp(engine, prob, u, flux, scale, lam, coefs):
     _, pull = jax.vjp(lambda B, A: _residual_from_field(prob.c, uj, B, A, flux, scale, prob.symmetric),
                       jnp.asarray(o["B"]), jnp.asarray(o["A"]))
     gB, gA = (np.asarray(g) for g in pull(jnp.asarray(lam)))
+    out = []
+    for c in coefs:
+        one = FieldEngine(Source("unit current", [FourierCurves(c[None], np.ones(1))]), dmin=engine.dmin)
+        q = one.evaluate(x, grad=False, A=True)
+        out.append(float(np.sum(gB * np.asarray(q["B"])) + np.sum(gA * np.asarray(q["A"]))))
+    return np.array(out)
+
+
+def _unit_current_vjp_general(engine, eq, u, flux, scale, lam, coefs):
+    """_unit_current_vjp for the general equations (torux.torus_general.GeneralEquations)."""
+    from .field import FieldEngine
+    from .gradients import _field_cotangents_general
+    from .source import FourierCurves, Source
+    x = np.ascontiguousarray(eq.points_of(u), dtype=np.float64)
+    o = engine.evaluate(x, grad=False, A=True)
+    gB, gA, _ = _field_cotangents_general(eq, u, np.asarray(o["B"]), np.asarray(o["A"]), flux, scale,
+                                          eq.cotangent(lam))
     out = []
     for c in coefs:
         one = FieldEngine(Source("unit current", [FourierCurves(c[None], np.ones(1))]), dmin=engine.dmin)

@@ -23,3 +23,24 @@ def quasr_954():
 def solved_954(quasr_954):
     import torux
     return torux.solve(quasr_954)
+
+
+@pytest.fixture(scope="session")
+def quasr_954_mirrored(quasr_954):
+    """QUASR 954 with the mirrored copy of its coil at 3% more current: two field periods, no stellarator symmetry."""
+    import numpy as np
+    import torux
+    from torux.io._stellcommon import apply_verified_symmetry
+    p = quasr_954.parts[0]
+    nb = p.n // (2 * quasr_954.nfp)                       # the coils of one half period, then their mirror images
+    current = np.array([c * (1.03 if (k // nb) % 2 else 1.0) for k, c in enumerate(p.current)])
+    src = torux.Source("quasr/954 mirrored at +3%", [torux.FourierCurves(p.coef, current)])
+    apply_verified_symmetry(src, [quasr_954.nfp])
+    assert src.nfp == 2 and not src.stellsym
+    return src
+
+
+@pytest.fixture(scope="session")
+def solved_954_mirrored(quasr_954_mirrored):
+    import torux
+    return torux.solve(quasr_954_mirrored, flux=0.05)

@@ -56,6 +56,10 @@ grid FFTs of the four coefficient functions (Toeplitz + Hankel, all four parity 
 Field: grid points in one jitted function, ``engine.evaluate(x, grad=True, A=True)`` on
 concrete points (numba kernels on CPUs), F and J in a second jitted function (shapes static:
 the programs are shared by every source).
+
+The equations at any surface (GeneralEquations: answer.system_general, answer.vjp_general, the
+adjoint): the same equations with the unknowns of a SIMSOPT SurfaceRZFourier and iota alone, lambda
+solved for from one of them, on the host.
 """
 from __future__ import annotations
 
@@ -816,3 +820,260 @@ def resonance_guard(engine, torus: GeneralTorus, shear, mmax=None, bn=None):
             out.update(h=float(h), worst=(m, n, d, e), x_over_w=float(0.5 / np.sqrt(h)) if h > 0 else np.inf)
     out["ok"] = bool(out["h"] <= H_MAX)
     return out
+
+
+# ============================================================================ the equations at any surface
+def general_arrays(t):
+    """rc, rs, zc, zs of a torus, general or stellarator symmetric, in the series of the cylindrical angle itself:
+    R = sum rc cos(m theta - n nfp phi) + rs sin(m theta - n nfp phi), Z likewise (phi0 moved into the coefficients,
+    the series of a SIMSOPT SurfaceRZFourier)."""
+    rc, zs = np.array(t.rc, float), np.array(t.zs, float)
+    rs = np.array(t.rs, float) if hasattr(t, "rs") else np.zeros_like(rc)
+    zc = np.array(t.zc, float) if hasattr(t, "zc") else np.zeros_like(rc)
+    phi0 = float(getattr(t, "phi0", 0.0))
+    if phi0 == 0.0:
+        return rc, rs, zc, zs
+    N = (rc.shape[1] - 1) // 2
+    n = np.arange(-N, N + 1)[None, :]
+    k = float(t.nfp) * phi0 / np.pi
+    if abs(k - round(k)) <= 1e-12 * max(1.0, abs(k)):
+        # a symmetry plane at a multiple of pi / nfp: cos(n nfp phi0) = +-1 and sin(n nfp phi0) = 0, exactly
+        sg = np.where((n * int(round(k))) % 2 == 0, 1.0, -1.0)
+        return rc * sg, rs * sg, zc * sg, zs * sg
+    # cos(A + d) = cos A cos d - sin A sin d, sin(A + d) = sin A cos d + cos A sin d, d = n nfp phi0
+    cd, sd = np.cos(n * float(t.nfp) * phi0), np.sin(n * float(t.nfp) * phi0)
+    return rc * cd + rs * sd, rs * cd - rc * sd, zc * cd + zs * sd, zs * cd - zc * sd
+
+
+def _cut(a, M, N):
+    """An (m, 2n + 1) coefficient array cut or padded with zeros to (M + 1, 2N + 1)."""
+    a = np.asarray(a, float)
+    out = np.zeros((M + 1, 2 * N + 1))
+    n0 = (a.shape[1] - 1) // 2
+    m, n = min(M, a.shape[0] - 1), min(N, n0)
+    out[:m + 1, N - n:N + n + 1] = a[:m + 1, n0 - n:n0 + n + 1]
+    return out
+
+
+class GeneralEquations:
+    """torux's equations for a flux surface without stellarator symmetry, at any surface of one resolution: what
+    answer.system_general and answer.vjp_general give and the general adjoint solves.  On the host, as torux.torus
+    is on CPUs (scipy's FFTs, numba's gathers into one preallocated matrix), so that the dense Jacobian is the one
+    large array.
+
+    The basis is GeneralBasis's with phi0 = 0: phi is the cylindrical angle and the coefficients are those of a
+    SIMSOPT SurfaceRZFourier without stellarator symmetry.  The unknowns u = [rc, rs, zc, zs, iota] are its dofs in
+    SIMSOPT's order (each array masked as GeneralBasis masks it, row by row), then iota.  As many equations:
+
+    * G - (Pnu / Pnu[p]) G[p], G the Galerkin projections of E = (d_phi + iota d_theta) X - V(X) on the basis,
+      indexed like the coefficients in u, and Pnu those of nu = (-Z_theta, R_theta) / (R_theta^2 + Z_theta^2) on
+      the reference torus, p the pivot, where |Pnu| is largest.  They vanish exactly when G = lambda Pnu for some
+      lambda: the unfolded equations of the module's docstring, with the multiplier lambda = G[p] / Pnu[p] solved
+      for instead of carried as an unknown.  The pivot's own row is then identically zero, the redundant equation.
+    * In the pivot's place, the phase condition <X - X_ref, X_ref,theta> / |X_ref,theta|_rms = 0 (phase_row).
+    * Last, the flux equation (Psi(u) - Psi0) rc[0, N] / |Psi0|, as torux.torus writes it.
+
+    The reference fixes the origin of theta and nu.  nu holds no field and no unknown, so that F is a function of u
+    and the source alone and J its derivative (the flux row as torux.torus takes it), and the derivative of F in
+    the source has no part from nu.  <Omega(X_theta, nu)> = <B_phi> on the reference, never zero, so the system is
+    regular where the unfolded one is."""
+
+    SLAB = 256          # rows of J folded at once: no copy of J
+
+    def __init__(self, engine, nfp, M, N, ref, oversample=2.5):
+        self.engine = engine
+        self.key, c = _consts(nfp, M, N, oversample, 0.0)
+        b = self.basis = c.basis
+        self.nfp, self.M, self.N = b.nfp, b.M, b.N
+        self.ntheta, self.nphi = b.ntheta, b.nphi
+        self.ic, self.is_, self.nc, self.ns, self.nco = b.ic, b.is_, b.nc, b.ns, b.nco
+        self.size = 2 * b.nco + 1
+        m = np.arange(self.M + 1)[:, None]
+        self._m = m.astype(float)
+        self._n = np.arange(-self.N, self.N + 1)[None, :].astype(float)
+        # mode (m, n) at row m, column (-n) mod nphi of the half spectrum (rfft along theta), and synthesis weights
+        # that undo irfft's doubling of the rows m >= 1 (torux.torus.Basis._fw on the unshifted grid)
+        self._q = (-np.arange(-self.N, self.N + 1)) % self.nphi
+        self._syn = np.where(m == 0, 1.0, 0.5) * float(self.ntheta * self.nphi) * np.ones((1, 2 * self.N + 1))
+        self._pro = 2.0 / (self.ntheta * self.nphi)
+        self.phi = np.ascontiguousarray(np.broadcast_to(np.asarray(b.phi)[None, :], (self.ntheta, self.nphi)).ravel())
+        self.modes = {"c": (b.modes_c[:, 0], b.modes_c[:, 1]), "s": (b.modes_s[:, 0], b.modes_s[:, 1])}
+        self.zero_c = np.asarray(b.zero_c)
+        self.cols_c = c.cols_c
+        self.n_nfp = b.modes_s[:, 1] * float(self.nfp)
+        self.m_s = b.modes_s[:, 0].astype(float)
+        ref = [_cut(a, self.M, self.N) for a in ref]
+        self.ref = ref
+        self.phase = np.asarray(phase_row(b, GeneralTorus(*ref, 0.0, 0.0, self.M, self.N, nfp)), float)
+        _, _, Rt, Zt, _, _ = self.geometry(*ref)
+        t2 = Rt * Rt + Zt * Zt
+        pnu = np.concatenate([self.projv(-Zt / t2), self.projv(Rt / t2)])
+        self.pivot = int(np.argmax(np.abs(pnu)))
+        self.share = pnu / pnu[self.pivot]
+
+    # ------------------------------------------------------------------ the grid
+    def synth(self, ac, as_):
+        """sum ac cos(m theta - n psi) + as sin(m theta - n psi) on the grid (ntheta, nphi)."""
+        from .torus import _sfft, _FFT_W
+        C = np.zeros((self.ntheta // 2 + 1, self.nphi), complex)
+        C[:self.M + 1, self._q] = (np.asarray(ac, float) - 1j * np.asarray(as_, float)) * self._syn
+        return _sfft().irfftn(C, s=(self.nphi, self.ntheta), axes=(-1, -2), workers=_FFT_W)
+
+    def proj(self, f):
+        """(pc, ps), each (M + 1, 2N + 1): pc = 2 <f cos(m theta - n psi)> (<f> at (0, 0)), ps = 2 <f sin(...)>."""
+        from .torus import _sfft, _FFT_W
+        S = _sfft().rfftn(f, axes=(-1, -2), workers=_FFT_W)[:self.M + 1, :][:, self._q] * self._pro
+        pc = np.array(S.real)
+        pc[0, self.N] *= 0.5
+        return pc, -S.imag
+
+    def projv(self, f):
+        pc, ps = self.proj(f)
+        return np.concatenate([pc.ravel()[self.ic], ps.ravel()[self.is_]])
+
+    def means(self, f):
+        """[mean(f cos) for the cosine modes, mean(f sin) for the sine modes] (no factor 2)."""
+        pc, ps = self.proj(f)
+        c = pc.ravel()[self.ic]
+        return np.concatenate([np.where(self.zero_c, c, 0.5 * c), 0.5 * ps.ravel()[self.is_]])
+
+    def geometry(self, rc, rs, zc, zs):
+        m, n, nfp = self._m, self._n, float(self.nfp)
+        R, Z = self.synth(rc, rs), self.synth(zc, zs)
+        Rt, Zt = self.synth(m * rs, -m * rc), self.synth(m * zs, -m * zc)
+        Rp, Zp = nfp * self.synth(-n * rs, n * rc), nfp * self.synth(-n * zs, n * zc)
+        return R, Z, Rt, Zt, Rp, Zp
+
+    def pack(self, rc, rs, zc, zs, iota):
+        f = lambda a, idx: np.asarray(a, float).ravel()[idx]
+        return np.concatenate([f(rc, self.ic), f(rs, self.is_), f(zc, self.ic), f(zs, self.is_), [float(iota)]])
+
+    def unpack(self, u):
+        u = np.asarray(u, float)
+        shape = (self.M + 1, 2 * self.N + 1)
+        out, k = [], 0
+        for idx in (self.ic, self.is_, self.ic, self.is_):
+            a = np.zeros(shape[0] * shape[1])
+            a[idx] = u[k:k + len(idx)]
+            out.append(a.reshape(shape))
+            k += len(idx)
+        return (*out, float(u[-1]))
+
+    def points(self, R, Z):
+        """Cartesian points (T, 3) of the grid, theta slowest (the order of R.ravel())."""
+        Rf, Zf = np.asarray(R).ravel(), np.asarray(Z).ravel()
+        return np.stack([Rf * np.cos(self.phi), Rf * np.sin(self.phi), Zf], -1)
+
+    def points_of(self, u):
+        rc, rs, zc, zs, _ = self.unpack(u)
+        R, Z, *_ = self.geometry(rc, rs, zc, zs)
+        return self.points(R, Z)
+
+    def field(self, R, Z, grad):
+        """B, A (and with grad, dB_c/dR and dB_c/dZ) in cylindrical components on the grid (ntheta, nphi)."""
+        from .torus import cylindrical_from
+        o = {k: np.asarray(v) for k, v in self.engine.evaluate(self.points(R, Z), grad=grad, A=True).items()}
+        cyl = cylindrical_from(o["B"], o["A"], o.get("G"), self.phi, need_grad=grad, need_A=True)
+        return {k: v.reshape(self.ntheta, self.nphi) for k, v in cyl.items()}
+
+    # ------------------------------------------------------------------ the equations
+    def fold(self, G):
+        """G - (Pnu / Pnu[p]) G[p] (the pivot's entry zero)."""
+        return G - self.share * G[self.pivot]
+
+    def cotangent(self, lam):
+        """mu on [G, the flux row] with mu . [G, flux row] = lam . F for the parts of F that hold the source: the
+        pivot's entry of lam belongs to the phase condition, which does not."""
+        lam = np.asarray(lam, float)
+        n2 = 2 * self.nco
+        mu = np.array(lam[:n2], copy=True)
+        mu[self.pivot] = 0.0
+        mu[self.pivot] = -float(mu @ self.share)
+        return np.append(mu, lam[-1])
+
+    def flux_of(self, u):
+        rc, rs, zc, zs, _ = self.unpack(u)
+        R, Z, Rt, Zt, _, _ = self.geometry(rc, rs, zc, zs)
+        g = self.field(R, Z, grad=False)
+        return float(-2 * np.pi * np.mean(g["AR"] * Rt + g["AZ"] * Zt))
+
+    def residual(self, u, flux_target, flux_scale):
+        """F at u, without the Jacobian (the field without its gradient)."""
+        return self._system(u, flux_target, flux_scale, jacobian=False)[0]
+
+    def system(self, u, flux_target, flux_scale):
+        """F (len(u),) and J (len(u), len(u)) at u."""
+        return self._system(u, flux_target, flux_scale, jacobian=True)
+
+    def _system(self, u, flux_target, flux_scale, jacobian):
+        u = np.asarray(u, float)
+        rc, rs, zc, zs, iota = self.unpack(u)
+        R, Z, Rt, Zt, Rp, Zp = self.geometry(rc, rs, zc, zs)
+        g = self.field(R, Z, grad=jacobian)
+        ib = 1.0 / g["Bp"]
+        G = np.concatenate([self.projv(Rp + iota * Rt - R * g["BR"] * ib), self.projv(Zp + iota * Zt - R * g["BZ"] * ib)])
+        flux = -2 * np.pi * np.mean(g["AR"] * Rt + g["AZ"] * Zt)
+        F = self.fold(G)
+        F[self.pivot] = self.phase @ u[:2 * self.nco]
+        F = np.append(F, (flux - flux_target) * flux_scale)
+        if not jacobian:
+            return F, None
+        return F, self._jacobian(g, R, Rt, Zt, iota, flux_scale)
+
+    def _jacobian(self, g, R, Rt, Zt, iota, flux_scale):
+        from .torus import _sfft, _FFT_W
+        from .torus_cpu import blocks
+        BR, Bp, BZ = g["BR"], g["Bp"], g["BZ"]
+        ib = 1.0 / Bp
+        coef = (("RR", 0, 0, BR * ib + R * (g["dBR_R"] * Bp - BR * g["dBp_R"]) * ib ** 2),
+                ("RZ", 0, 1, R * (g["dBR_Z"] * Bp - BR * g["dBp_Z"]) * ib ** 2),
+                ("ZR", 1, 0, BZ * ib + R * (g["dBZ_R"] * Bp - BZ * g["dBp_R"]) * ib ** 2),
+                ("ZZ", 1, 1, R * (g["dBZ_Z"] * Bp - BZ * g["dBp_Z"]) * ib ** 2))
+        nc, nco, n = self.nc, self.nco, self.size
+        ng = self.ntheta * self.nphi
+        J = np.empty((n, n))
+        for _, i, j, a in coef:
+            ahat = _sfft().fft2(a, workers=_FFT_W) / ng
+            r0, c0 = i * nco, j * nco
+            for rk, rows in (("c", slice(r0, r0 + nc)), ("s", slice(r0 + nc, r0 + nco))):
+                for ck, cols in (("c", slice(c0, c0 + nc)), ("s", slice(c0 + nc, c0 + nco))):
+                    blocks(ahat, self.modes[rk], self.modes[ck], self.ntheta, self.nphi, rk, ck, self.zero_c,
+                           out=J[rows, cols], sign=-1.0)
+        # (d_phi + iota d_theta): cos(m th - n ps) -> (n nfp - iota m) sin, sin -> (iota m - n nfp) cos
+        d = self.n_nfp - iota * self.m_s
+        rows_s = nc + np.arange(self.ns)
+        for off in (0, nco):
+            J[off + rows_s, off + self.cols_c] += d
+            J[off + self.cols_c, off + rows_s] -= d
+        J[:2 * nco, 2 * nco] = np.concatenate([self.projv(Rt), self.projv(Zt)])
+        J[2 * nco, :nco] = 2 * np.pi * self.means(Bp * Zt) * flux_scale
+        J[2 * nco, nco:2 * nco] = -2 * np.pi * self.means(Bp * Rt) * flux_scale
+        J[2 * nco, 2 * nco] = 0.0
+        # the Galerkin rows less their part along Pnu, a slab of rows at a time, then the phase condition at the pivot
+        top = J[self.pivot].copy()
+        for i in range(0, 2 * nco, self.SLAB):
+            k = min(i + self.SLAB, 2 * nco)
+            J[i:k] -= np.outer(self.share[i:k], top)
+        J[self.pivot, :2 * nco] = self.phase
+        J[self.pivot, 2 * nco] = 0.0
+        return J
+
+    # ------------------------------------------------------------------ for the derivative in the source
+    def post(self, u, Bx, Ax, flux_target, flux_scale):
+        """[G, the flux row] from Cartesian B and A at the grid points of u, in JAX: the part of F that holds the
+        source, for its vector-Jacobian product in B, A and the flux (the geometry of u held fixed)."""
+        b = self.basis
+        rc, rs, zc, zs, iota = self.unpack(u)
+        R, Z, Rt, Zt, Rp, Zp = (jnp.asarray(v) for v in self.geometry(rc, rs, zc, zs))
+        P = jnp.asarray(self.phi)
+        c, s = jnp.cos(P), jnp.sin(P)
+        shape = (self.ntheta, self.nphi)
+        BR = (Bx[:, 0] * c + Bx[:, 1] * s).reshape(shape)
+        Bp = (Bx[:, 1] * c - Bx[:, 0] * s).reshape(shape)
+        BZ = Bx[:, 2].reshape(shape)
+        AR = (Ax[:, 0] * c + Ax[:, 1] * s).reshape(shape)
+        AZ = Ax[:, 2].reshape(shape)
+        ib = 1.0 / Bp
+        G = jnp.concatenate([b.projv(Rp + iota * Rt - R * BR * ib), b.projv(Zp + iota * Zt - R * BZ * ib)])
+        flux = -2 * jnp.pi * jnp.mean(AR * Rt + AZ * Zt)
+        return jnp.concatenate([G, jnp.atleast_1d((flux - flux_target) * flux_scale)])

@@ -344,6 +344,83 @@ def adjoint_gradient_mf(engine: FieldEngine, torus: TorusState, objective="iota"
     return out
 
 
+def _field_cotangents_general(eq, u, Bx, Ax, flux, flux_scale, mu):
+    """gB, gA (T, 3) and the flux's: the cotangents of Cartesian B and A at the grid points of u, and of the flux, for
+    mu on [G, the flux row] of the general equations (torux.torus_general.GeneralEquations.post)."""
+    _, pull = jax.vjp(lambda B_, A_, f_: eq.post(u, B_, A_, f_, flux_scale), jnp.asarray(Bx), jnp.asarray(Ax),
+                      jnp.asarray(float(flux)))
+    gB, gA, d_flux = pull(jnp.asarray(mu))
+    return (np.ascontiguousarray(np.asarray(gB), dtype=np.float64),
+            np.ascontiguousarray(np.asarray(gA), dtype=np.float64), float(d_flux))
+
+
+ENGINE_SLAB_PAIRS = 2_000_000    # target points times field elements held at once by a VJP through the engine
+
+
+def _engine_vjp_slabs(engine, sp, layout, x, gB, gA, slab=None):
+    """sum over the points x of gB . dB/dp + gA . dA/dp, p the source's parameters, through the differentiable engine
+    a slab of points at a time: JAX keeps what the backward pass needs for every point against every element, so a
+    slab's memory is that of the slab, not of the grid."""
+    i_ = engine.info
+    elements = max(1, int(i_.n_nodes) + int(i_.n_segments) + int(i_.n_dipoles) + int(i_.n_rings))
+    slab = int(slab or max(64, ENGINE_SLAB_PAIRS // elements))
+    total = None
+    for i in range(0, len(x), slab):
+        xs = jnp.asarray(x[i:i + slab])
+
+        def fld(sp_):
+            o = _DiffEngine(engine, sp_, layout).evaluate(xs, grad=False, A=True)
+            return o["B"], o["A"]
+        _, pull = jax.vjp(fld, sp)
+        d = pull((jnp.asarray(gB[i:i + slab]), jnp.asarray(gA[i:i + slab])))[0]
+        total = d if total is None else jax.tree_util.tree_map(jnp.add, total, d)
+    return total
+
+
+def _vjp_source_general(engine, eq, u, flux, flux_scale, lam, fast=True, slab=None):
+    """lambda^T dF/dp and lambda^T dF/dflux (at fixed flux_scale) for the general equations at any surface,
+    F = eq.system(u, flux, flux_scale)[0] (torux.torus_general.GeneralEquations), p every source parameter.  F holds
+    the source through B and A at the grid points alone, so the product is taken at the field: the cotangents of B
+    and A there first (a VJP of eq.post), then those of the parameters, by the analytic filament kernel for sources of
+    Fourier coils alone (the memory of the grid and of the nodes, never of the two together), otherwise through the
+    differentiable engine a slab of points at a time (_engine_vjp_slabs).  Returns what _vjp_source returns."""
+    from .field import cpu as _cpu
+    mu = eq.cotangent(lam)
+    x = np.ascontiguousarray(eq.points_of(u), dtype=np.float64)
+    sp, layout = source_params(engine.source)
+    if fast and _fourier_only(engine):
+        Ns = [int(v) for v in engine.info.N_per_coil]
+
+        def nodes_fn(sp_):
+            rs, ws, k = [], [], 0
+            for (kind, meta), prm in zip(layout, sp_):
+                for i in meta["coils"]:
+                    r_, w_, _ = fourier_nodes(prm["coef"][i:i + 1], prm["current"][i:i + 1], Ns[k])
+                    k += 1
+                    rs.append(r_)
+                    ws.append(w_)
+            return jnp.concatenate(rs), jnp.concatenate(ws)
+        (r_n, w_n), nodes_vjp = jax.vjp(nodes_fn, sp)
+        r_np = np.ascontiguousarray(np.asarray(r_n), dtype=np.float64)
+        w_np = np.ascontiguousarray(np.asarray(w_n), dtype=np.float64)
+        o = _cpu.filament(x, r_np, w_np, np.zeros(len(r_np)), need_grad=False, need_A=True)
+        gB, gA, d_flux = _field_cotangents_general(eq, u, o[:, 0:3], o[:, 3:6], flux, flux_scale, mu)
+        gr, gw = np.empty_like(r_np), np.empty_like(w_np)
+        _filament_vjp_kernel(x, r_np, w_np, gB, gA, gr, gw)
+        d_sp = nodes_vjp((jnp.asarray(gr), jnp.asarray(gw)))[0]
+    else:
+        o = engine.evaluate(x, grad=False, A=True)
+        gB, gA, d_flux = _field_cotangents_general(eq, u, np.asarray(o["B"]), np.asarray(o["A"]), flux, flux_scale, mu)
+        d_sp = _engine_vjp_slabs(engine, sp, layout, x, gB, gA, slab)
+    parts = _part_gradients(layout, d_sp)
+    out = dict(parts=parts, d_flux=-float(d_flux))
+    fc = [(p, l) for p, l in zip(parts, layout) if l[0] == "fourier"]
+    if fc:
+        out["d_coef"] = np.concatenate([p["d_coef"][l[1]["coils"]] for p, l in fc])
+        out["d_current"] = np.concatenate([p["d_current"][l[1]["coils"]] for p, l in fc])
+    return out
+
+
 def adjoint_gradient_general(engine: FieldEngine, torus, objective="iota"):
     """d iota / d (every source parameter, the flux) at a converged torus of the general (non-stellarator-
     symmetric) basis (torux.torus_general): the same adjoint as adjoint_gradient on that system (Galerkin residuals
