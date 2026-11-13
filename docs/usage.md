@@ -264,6 +264,8 @@ g["d_iota_d_flux"]        # dι/dΨ, per weber
 
 The derivative of ι in every parameter of the source and in the flux, by the adjoint method. They are saved with the answer's JSON.
 
+Without stellarator symmetry they are the adjoint of `system_general` (the next section) on the surface torux found. For QUASR 954 with the mirrored copy of its coil at 3% more current, at M, N = 32, 32, that adds 5.5 s to the solve and the 571 MB of the Jacobian to its memory (an M4 Mac mini, four threads).
+
 ## The equations at any surface
 
 ```python

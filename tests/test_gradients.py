@@ -36,3 +36,54 @@ def test_adjoint_against_central_differences(quasr_954):
     h = 1e-6 * abs(t.flux)                                            # the requested flux
     fd = (iota(flux=t.flux + h) - iota(flux=t.flux - h)) / (2 * h)
     assert abs(fd - g["d_iota_d_flux"]) <= 1e-5 * abs(fd) + 1e-12
+
+
+def test_adjoint_without_stellarator_symmetry_against_central_differences(quasr_954_mirrored):
+    """The same for QUASR 954 with the mirrored copy of its coil at 3% more current, a source without stellarator
+    symmetry, against the transform of the torus solved again at its own resolution by Newton's method on
+    answer.system_general."""
+    import copy
+
+    import scipy.linalg as sla
+    from torux.torus_general import GeneralEquations, general_arrays
+    src = quasr_954_mirrored
+    res = torux.solve(src, flux=0.05, gradients=True)
+    assert res.status == "surface"
+    g, t, part = res.gradients, res.surface, src.parts[0]
+    dmin = res.record["engine"]["dmin"]
+    eq = GeneralEquations(res._engine, t.nfp, t.M, t.N, general_arrays(t))
+    u0 = eq.pack(*general_arrays(t), t.iota)
+
+    def iota(coef=None, current=None, flux=None):
+        """The torus solved again at its own resolution for a changed coil set or flux."""
+        s = torux.Source(src.id, [torux.FourierCurves(part.coef if coef is None else coef,
+                                                      part.current if current is None else current)],
+                         nfp=src.nfp, stellsym=src.stellsym)
+        b = copy.copy(res)
+        b._engine = FieldEngine(s, dmin=dmin)
+        if flux is not None:
+            b.surface = copy.copy(t)
+            b.surface.flux = flux
+        u = u0.copy()
+        for _ in range(6):
+            F, J = b.system_general(*eq.unpack(u))
+            if np.max(np.abs(F)) < 1e-15 * u[0]:
+                break
+            u = u - sla.lu_solve(sla.lu_factor(J.T, overwrite_a=True, check_finite=False), F, trans=1,
+                                 check_finite=False)
+        assert np.max(np.abs(F)) < 1e-15 * u[0]
+        return u[-1]
+
+    def central(key, index, h):
+        up, down = getattr(part, key).copy(), getattr(part, key).copy()
+        up[index] += h
+        down[index] -= h
+        return (iota(**{key: up}) - iota(**{key: down})) / (2 * h)
+
+    fd = central("current", 0, 1e-6 * abs(part.current[0]))            # the current of the first coil
+    assert abs(fd - g["d_iota_d_current"][0]) <= 1e-5 * abs(fd) + 1e-14
+    fd = central("coef", (1, 0, 2), 1e-6)                             # one Fourier coefficient of the second
+    assert abs(fd - g["d_iota_d_coef"][1, 0, 2]) <= 1e-5 * abs(fd) + 1e-12
+    h = 1e-6 * abs(t.flux)                                            # the requested flux
+    fd = (iota(flux=t.flux + h) - iota(flux=t.flux - h)) / (2 * h)
+    assert abs(fd - g["d_iota_d_flux"]) <= 1e-5 * abs(fd) + 1e-12

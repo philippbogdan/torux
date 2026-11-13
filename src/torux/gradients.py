@@ -422,41 +422,27 @@ def _vjp_source_general(engine, eq, u, flux, flux_scale, lam, fast=True, slab=No
 
 
 def adjoint_gradient_general(engine: FieldEngine, torus, objective="iota"):
-    """d iota / d (every source parameter, the flux) at a converged torus of the general (non-stellarator-
-    symmetric) basis (torux.torus_general): the same adjoint as adjoint_gradient on that system (Galerkin residuals
-    of R and Z, the flux equation, the phase condition; unknowns the four coefficient arrays, iota and the
-    unfolding lambda): J^T lambda = e_iota, then one vector-Jacobian product of the residual with respect to the
-    source through the differentiable engine."""
-    from .torus_general import GeneralTorusProblem, phase_row, _grid_quantities, _residual
+    """d iota / d (every source parameter, the flux) at a converged torus of the general (non-stellarator-symmetric)
+    basis: the adjoint of the general equations at any surface (torux.torus_general.GeneralEquations, the reference
+    the torus itself, phi the cylindrical angle), J^T lambda = e_iota by LAPACK on J's own storage (J^T is J's memory
+    read in Fortran order), then one vector-Jacobian product in the source (_vjp_source_general).  The dense
+    Jacobian is the one large array."""
+    import scipy.linalg as sla
+    from .torus_general import GeneralEquations, general_arrays
     if objective != "iota":
         raise NotImplementedError("general basis: objective 'iota' only")
-    prob = GeneralTorusProblem(engine, torus.nfp, torus.M, torus.N, phi0=torus.phi0)
-    b = prob.basis
-    u = jnp.asarray(prob.pack(torus))
-    ph = phase_row(b, torus)
-    R00 = float(torus.rc[0, b.N])
-    flux_scale = R00 / max(abs(torus.flux), 1e-300)
-    F, J, flux, res = prob.system(u, torus.flux, flux_scale, ph)
-    k = int(u.shape[0]) - 2                       # iota (then lambda) closes the unknowns
-    g = jnp.zeros_like(u).at[k].set(1.0)
-    lam = jnp.linalg.solve(jnp.asarray(J).T, g)
-    sp, layout = source_params(engine.source)
-
-    def Fp(sp_, flux_t):
-        de = _DiffEngine(engine, sp_, layout)
-        rc, rs, zc, zs, _, _ = b.unpack(u)
-        R, Z, *_ = b.geometry(rc, rs, zc, zs)
-        x = b.points(R, Z)[0]
-        o = de.evaluate(x, grad=True, A=True)
-        G = _grid_quantities(b, u, o["B"], o["A"], o["G"])
-        Fv, _, _ = _residual(b, G, u, flux_t, flux_scale, ph, 0.0, False)
-        return Fv
-    _, vjp = jax.vjp(Fp, sp, jnp.asarray(float(torus.flux)))
-    d_sp, d_flux = vjp(lam)
-    out = dict(parts=_part_gradients(layout, d_sp), d_flux=-float(d_flux), value=float(u[k]),
-               residual=float(jnp.max(jnp.abs(F))))
-    fc = [(p, l) for p, l in zip(out["parts"], layout) if l[0] == "fourier"]
-    if fc:
-        out["d_coef"] = np.concatenate([p["d_coef"][l[1]["coils"]] for p, l in fc])
-        out["d_current"] = np.concatenate([p["d_current"][l[1]["coils"]] for p, l in fc])
+    ref = general_arrays(torus)
+    eq = GeneralEquations(engine, torus.nfp, torus.M, torus.N, ref)
+    u = eq.pack(*ref, torus.iota)
+    flux_scale = float(ref[0][0, torus.N]) / max(abs(float(torus.flux)), 1e-300)
+    F, J = eq.system(u, float(torus.flux), flux_scale)
+    residual = float(np.max(np.abs(F)))
+    g = np.zeros(len(u))
+    g[-1] = 1.0                                   # iota closes the unknowns
+    lu = sla.lu_factor(J.T, overwrite_a=True, check_finite=False)
+    del J
+    lam = sla.lu_solve(lu, g, check_finite=False)
+    del lu
+    out = _vjp_source_general(engine, eq, u, float(torus.flux), flux_scale, lam)
+    out.update(value=float(u[-1]), residual=residual)
     return out
