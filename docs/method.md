@@ -54,7 +54,7 @@ Sources that are not stellarators (a tokamak's own coils, perturbation coils, a 
 
 ## Gradients (`torux.gradients`)
 
-The adjoint of the torus system gives the derivative of ι, or of any function of the surface, in every source parameter (coil coefficients and currents, segment ends, dipole positions and moments, ring radii, the flux) for the cost of one more linear solve. It agrees with central differences to 10⁻⁵ or better (`tests/test_gradients.py`).
+The adjoint of the torus system gives the derivative of ι, or of any function of the surface, in every source parameter (coil coefficients and currents, segment ends, dipole positions and moments, ring radii, the flux) for the cost of one more linear solve. It agrees with central differences to 10⁻⁵ or better (`tests/test_gradients.py`). These are derivatives of the solve on one period: exact for changes that keep the source's symmetry, and for one coil of a symmetric set only when summed over its copies.
 
 ## What is known already
 
