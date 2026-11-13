@@ -744,15 +744,17 @@ def boozer_pairs(sim):
     return out
 
 
-def pick_coil_set(sim, sets, which):
-    """The one of coil_sets(...) that ``which`` names (its id, its BiotSavart's name or its index)."""
+def pick_coil_set(sim, sets, which, how=None):
+    """The one of coil_sets(...) that ``which`` names (its id, its BiotSavart's name or its index). ``how``: the way
+    to choose that a refusal names (default: torux.load's which= and the command line's --coils)."""
     ids = [i for i, _, _ in sets]
     if len(sets) == 1 and which is None:
         return sets[0]
     if which is None:
         said = ", ".join(f"its {b} was computed with {bs}" for b, (bs, _) in boozer_pairs(sim).items())
-        raise ValueError(f"{sim.path}: {len(sets)} coil sets ({ids}): choose one with which= (on the command line, "
-                         f"--coils NAME), by its name or index" + (f". In the file, {said}" if said else ""))
+        how = how or "which= in torux.load (on the command line, --coils NAME)"
+        raise ValueError(f"{sim.path}: {len(sets)} coil sets ({ids}): choose one with {how}, by its name or index"
+                         + (f". In the file, {said}" if said else ""))
     pick = [t for t in sets if t[0] == which or t[1] == str(which) or t[0].endswith("#" + str(which))]
     if isinstance(which, (int, np.integer)) and not isinstance(which, bool) and not pick and -len(sets) <= which < len(sets):
         pick = [sets[which]]

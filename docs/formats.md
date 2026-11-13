@@ -8,8 +8,8 @@
 |---|---|---|
 | **QUASR download** (`serial*.json`) | coils as Fourier filaments, the design's stored surfaces, and the request | the flux of the outermost stored surface becomes the request, and nothing else is needed |
 | **QUASR by number** (`"quasr:954"`) | the same, downloaded once | kept in torux's cache, and needs the network the first time only |
-| **SIMSOPT JSON** | every coil of a `BiotSavart` object | `CurveXYZFourier`, `RotatedCurve`, `CurvePlanarFourier`, `CurveXYZFourierSymmetries` and its earlier name `CurveXYZHelical` converted exactly, framed and winding-surface curves by FFT with a measured error. Several coil sets in one file: `which=` picks one (`--coils` on the command line). A `Current` whose two values differ is refused until `currents=` chooses one ([below](#a-current-with-two-values)) |
-| **SIMSOPT objects** | a live `BiotSavart`, `Coil` or list of `Coil`s | through SIMSOPT's own `save`, then as the JSON |
+| **SIMSOPT JSON** | every coil of a `BiotSavart` object | `CurveXYZFourier`, `RotatedCurve`, `CurvePlanarFourier`, `CurveXYZFourierSymmetries` and its earlier name `CurveXYZHelical` converted exactly, framed and winding-surface curves by FFT with a measured error. Several coil sets in one file: `which=` picks one (`--coils` on the command line), and with several such files, a list of one entry per file (`--coils` once per file). A `Current` whose two values differ is refused until `currents=` chooses one ([below](#a-current-with-two-values)) |
+| **SIMSOPT objects** | a live `BiotSavart`, `Coil` or list of `Coil`s | through SIMSOPT's own `save`, then as the JSON, each `Current` with the value it holds, `get_value()`, the one SIMSOPT computes with |
 | **Fourier-filament JSON** | closed filaments | `{"nfp", "stellarator_symmetric", "coils": [{"xc", "xs", "yc", "ys", "zc", "zs", "current_A"}]}`, every coil of the device written out, and optionally `"requested_toroidal_flux_Wb"` |
 | **MAKEGRID** (`coils.*`) | closed polygons | circular coils on the axis become rings |
 | **FOCUS** coil tables | Fourier filaments | give `nfp=` |

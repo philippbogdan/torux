@@ -15,7 +15,8 @@ search (a size, the largest) says on stderr what it asks, how long it may take a
 code is 0 for a verified surface, a certified or proved no-surface or a verified range, 2 for anything undetermined,
 1 for an error, a command line that cannot be read included.  Each subcommand is a pair of functions in COMMANDS.
 --coils and --currents are torux.load's which= and currents= for a SIMSOPT JSON source: which coil set of a file
-holding several, and which of a Current object's two values where they differ.  check's --which is the surface's.
+holding several (with several files, --coils once per file, - for one that needs none), and which of a Current
+object's two values where they differ.  check's --which is the surface's.
 """
 from __future__ import annotations
 

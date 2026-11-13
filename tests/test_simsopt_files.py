@@ -258,3 +258,26 @@ def test_a_helical_curve_in_another_layout_is_refused(tmp_path):
     f = _helical_file(tmp_path / "h.json", "CurveXYZHelical", np.r_[1.0, np.zeros(9)], 3, 2, True, names=names)
     with pytest.raises(NotImplementedError, match="not the layout"):
         torux.load(f)
+
+
+# --------------------------------------------------------------------------- several files of several coil sets
+def test_several_files_of_several_coil_sets(tmp_path, capsys):
+    """torux 0.1.4 gave which= and --coils to the first file alone, and the second file's refusal said to use
+    --coils. Now which= takes one entry per file, --coils is given once per file, and the refusal says so."""
+    from torux.cli import main
+    f = _boozer_file(tmp_path / "a.json", change=_two_sets)
+    g = _boozer_file(tmp_path / "b.json", change=_two_sets)
+    q = example("quasr_0000954.json")
+    with pytest.raises(ValueError, match="one entry per source file") as e:
+        torux.load(f, g, which="BiotSavart1")
+    assert "b.json" in str(e.value) and "--coils once per source file" in str(e.value)
+    src = torux.load(f, g, which=["BiotSavart1", "BiotSavart2"])
+    assert [p.n for p in src.parts] == [4, 4] and src.provenance["files"] == [f, g]
+    assert torux.load(q, g, which=[None, 1]).parts[1].n == 4
+    with pytest.raises(ValueError, match="2 entries for 3 source files"):
+        torux.load(f, g, q, which=["BiotSavart1", "BiotSavart2"])
+    assert main(["check", f, g, q, "--coils", "BiotSavart1"]) == 1
+    assert "--coils once per source file" in capsys.readouterr().err
+    assert main(["check", f, g, q, "--coils", "BiotSavart1", "--coils", "BiotSavart2"]) == 0
+    assert main(["check", q, g, q, "--coils", "-", "--coils", "0"]) == 0
+    assert capsys.readouterr().out.count("toroidal flux") == 2

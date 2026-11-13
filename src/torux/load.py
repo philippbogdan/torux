@@ -116,7 +116,7 @@ def _design_request(src, surfs, provenance):
     src.request = {"flux_Wb": float(flux), "provenance": provenance}
 
 
-def _load_json(path, name, nfp, which, currents=None):
+def _load_json(path, name, nfp, which, currents=None, how=None):
     with open(path, "rb") as fh:
         d = json.loads(fh.read())
     if isinstance(d, dict) and "simsopt_objs" in d:
@@ -135,7 +135,7 @@ def _load_json(path, name, nfp, which, currents=None):
         sets = coil_sets(sim, name)
         if not sets:
             raise ValueError(f"{path}: no BiotSavart object with coils")
-        sid = pick_coil_set(sim, sets, which)[0]
+        sid = pick_coil_set(sim, sets, which, how)[0]
         return load_simson_sources(str(path), name, extra_nfp=(nfp,) if nfp else (), which=sid,
                                    currents=currents)[0]
     if isinstance(d, dict) and isinstance(d.get("coils"), list) and d["coils"] and "xc" in d["coils"][0]:
@@ -159,10 +159,10 @@ def _load_json(path, name, nfp, which, currents=None):
     raise ValueError(f"{path}: a JSON file, but not SIMSOPT, Fourier-filament or torux JSON")
 
 
-def _load_one(path, name, nfp, which, currents=None):
+def _load_one(path, name, nfp, which, currents=None, how=None):
     fmt = _sniff(path)
     if fmt == "json":
-        return _load_json(path, name, nfp, which, currents), None
+        return _load_json(path, name, nfp, which, currents, how), None
     if fmt == "makegrid":
         from .io.makegrid import load_makegrid
         kw = dict(nfp_candidates=[nfp]) if nfp else {}
@@ -207,23 +207,43 @@ def _load_one(path, name, nfp, which, currents=None):
     raise ValueError(f"{path}: format {fmt} not handled")
 
 
+def per_file(value, n, what):
+    """One entry a file from which= or currents=: a list or tuple is one entry per file, in order, and must have n.
+    One value is which= of the first file (every other then needs none) and currents= of every file."""
+    if isinstance(value, (list, tuple)):
+        if len(value) != n:
+            raise ValueError(f"{what}= has {len(value)} entr{'y' if len(value) == 1 else 'ies'} for {n} source "
+                             f"file{'s' if n != 1 else ''}: give one entry per file, in order, None for a file that "
+                             f"needs none")
+        return list(value)
+    return [value] + [None] * (n - 1) if what == "which" else [value] * n
+
+
+WHICH_OF_SEVERAL = ("which=, a list with one entry per source file in order, None for a file that needs none (on the "
+                    "command line, --coils once per source file in order, - for a file that needs none)")
+
+
 def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None, currents=None):
     """A Source from one file, or from several whose parts add up to one source.
 
     nfp       field periods, for formats that do not state them (FOCUS tables) and as the symmetry to verify
     kind      'stellarator' (default), 'tokamak' or 'dipole'
     flux      the requested full toroidal flux in Wb, kept with the source (Source.request)
-    which     for a SIMSOPT JSON file holding several coil sets: the one to take (its name or index)
+    which     for a SIMSOPT JSON file holding several coil sets: the one to take (its name or index). With several
+              files, one value is the first file's, and a list gives one entry per file, None where a file needs none
     name      the source's id (default: the first file's name)
     currents  for a SIMSOPT JSON file whose Current objects state two different values: 'saved' (the value the
               object held when the file was saved) or 'dofs' (the value SIMSOPT reads back). Without it such a
-              file is refused"""
+              file is refused. One value is every file's, a list one entry per file"""
     if kind is not None and kind not in KINDS:
         raise ValueError(f"kind must be one of {KINDS}")
     name = name or _name(path)
-    src, default_kind = _load_one(path, name, nfp, which, currents)
-    for p in more:
-        other, k2 = _load_one(p, _name(p), nfp, None, currents)
+    whichs = per_file(which, 1 + len(more), "which")
+    currs = per_file(currents, 1 + len(more), "currents")
+    how = WHICH_OF_SEVERAL if more else None
+    src, default_kind = _load_one(path, name, nfp, whichs[0], currs[0], how)
+    for p, w, c in zip(more, whichs[1:], currs[1:]):
+        other, k2 = _load_one(p, _name(p), nfp, w, c, how)
         src.parts = list(src.parts) + list(other.parts)
         src.provenance.setdefault("files", []).extend(other.provenance.get("files", [str(p)]))
         for k, v in other.meta.items():

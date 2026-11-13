@@ -746,8 +746,9 @@ def add_command(sub):
 
 def add_source_choices(c):
     """--coils and --currents: what torux.load's which= and currents= say, for a SIMSOPT JSON source."""
-    c.add_argument("--coils", metavar="NAME", help="the coil set to take from a SIMSOPT JSON file holding several: "
-                                                   "its BiotSavart's name or index")
+    c.add_argument("--coils", metavar="NAME", action="append",
+                   help="the coil set to take from a SIMSOPT JSON file holding several: its BiotSavart's name or "
+                        "index. With several source files, once per file in order, - for a file that needs none")
     c.add_argument("--currents", choices=("saved", "dofs"), help="for a SIMSOPT JSON file whose Current objects "
                                                                  "state two different values: the one each held "
                                                                  "when the file was saved, or the one SIMSOPT reads "
@@ -755,10 +756,14 @@ def add_source_choices(c):
 
 
 def source_choices(a):
-    """torux.load's which= and currents= from --coils and --currents."""
-    which = a.coils
-    if which is not None and which.lstrip("-").isdigit():
-        which = int(which)
+    """torux.load's which= and currents= from --coils and --currents: --coils once is which= of the first file, more
+    than once a list, one entry per file, - for None."""
+    def one(w):
+        if w == "-":
+            return None
+        return int(w) if w.lstrip("-").isdigit() else w
+    coils = a.coils or []
+    which = None if not coils else one(coils[0]) if len(coils) == 1 else [one(w) for w in coils]
     return dict(which=which, currents=a.currents)
 
 
