@@ -187,9 +187,9 @@ def test_without_symmetry_unchanged(quasr_954):
     assert out["d_iota_d_coef"] is g["d_coef"] and out["parts"] is g["parts"]
 
 
-def test_copies_that_cannot_be_mapped(quasr_954):
-    """A coil whose copy runs along it at another pace (no shift or reversal of its parameter) has no map to it:
-    the answer gives no per-coil numbers under the usual keys, says why, and keeps the one-period solve's apart."""
+def _unmappable(quasr_954):
+    """QUASR 954 with coil 1 resampled: its copies run along it at another pace, and the answer's gradients for a
+    made-up adjoint result."""
     from types import SimpleNamespace
     p = quasr_954.parts[0]
     t = np.arange(256) / 256
@@ -202,11 +202,30 @@ def test_copies_that_cannot_be_mapped(quasr_954):
     coef[1, :, 1::2] = -2 * c[1:K + 1].imag.T
     src = torux.Source("954 resampled", [torux.FourierCurves(coef, p.current)], nfp=2, stellsym=True)
     g = _fake(src)
-    out = iota_gradients(src, SimpleNamespace(nfp=2, phi0=0.0), False, g)
+    return g, iota_gradients(src, SimpleNamespace(nfp=2, phi0=0.0), False, g)
+
+
+def test_copies_that_cannot_be_mapped(quasr_954):
+    """A coil whose copy runs along it at another pace (no shift or reversal of its parameter) has no map to it:
+    the answer gives no per-coil numbers under the usual keys, says why, and keeps the one-period solve's apart."""
+    g, out = _unmappable(quasr_954)
     assert out["d_iota_d_flux"] == g["d_flux"]
     assert not {"parts", "d_iota_d_coef", "d_iota_d_current"} & set(out)
     assert out["per_coil"].startswith("not given: ")
     assert out["one_period"]["d_iota_d_current"] is g["d_current"] and "one field period" in out["one_period"]["meaning"]
+
+
+def test_the_usage_names_what_moves_into_one_period(quasr_954):
+    """Where the copies cannot be mapped, parts moves into one_period with the per-coil keys, which docs/usage.md of
+    torux 0.1.4 did not say."""
+    import os
+    _, out = _unmappable(quasr_954)
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    with open(os.path.join(root, "docs", "usage.md"), encoding="utf-8") as fh:
+        said = next(p for p in fh.read().split("\n\n") if 'g["one_period"]' in p)
+    moved = set(out["one_period"]) - {"meaning"}
+    assert moved == {"parts", "d_iota_d_coef", "d_iota_d_current"}
+    assert all(f"`{k}`" in said for k in moved), said
 
 
 def _symmetric_set(nfp, base_pos, base_vec, flip_vec_sign):
