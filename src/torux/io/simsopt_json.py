@@ -40,6 +40,12 @@ Curves (each gives r(t), t in [0, 1)):
                          vectors), established by B.n on its own Boozer surface: 2.2e-3 max
                          (4.8e-4 mean) versus 0.39 with Rx(+roll).  Nonzero yaw/pitch raise.
   csx_windowpane_curve_constant_R  r = (z(t), Rv cos phi(t), Rv sin phi(t)); FFT-converted.
+  CurveXYZFourierSymmetries, and CurveXYZHelical (its earlier name, simsopt.geo.curvexyzhelical at
+                         SIMSOPT fddc130f, the same curve with ntor = 1): xhat, yhat, z Fourier series in
+                         2 pi nfp m t (stellsym: xc(0..order), ys(1..order), zs(1..order), otherwise xc(0..),
+                         xs(1..), yc(0..), ys(1..), zc(0..), zs(1..)), and x + i y = exp(2 pi i ntor t)
+                         (xhat + i yhat).  A trigonometric polynomial of order nfp order + |ntor|: converted
+                         exactly, the DOF names checked against this layout.
 Field objects: BiotSavart (``coils``: the full list), BoozerSurface (``biotsavart``,
 ``surface``).  Every BiotSavart object of a file is one candidate field source; the
 caller chooses among them.
@@ -270,11 +276,64 @@ def curve_from_obj(sim, o):
         return _cws_rep(sim, o)
     if c == "OrientedCurveXYZFourier":
         return _oriented_rep(sim.dofs_x(o), int(o["order"]), qp)
+    if c in ("CurveXYZFourierSymmetries", "CurveXYZHelical"):
+        return _helical_rep(sim, o, qp)
     if c == "csx_windowpane_curve_constant_R":
         return _windowpane_R_rep(sim.dofs_x(o), int(o["order"]), float(o["Rvessel"]), qp)
     if c == "csx_windowpane_curve_constant_Z":
         return _windowpane_Z_rep(sim.dofs_x(o), int(o["order"]), float(o["Zvessel"]), qp)
-    raise NotImplementedError(f"curve class {c}")
+    raise NotImplementedError(f"curve class {c}: torux does not read this SIMSOPT curve class")
+
+
+# ---- CurveXYZFourierSymmetries and CurveXYZHelical (exact)
+def helical_names(order, stellsym):
+    """The DOF names of CurveXYZFourierSymmetries (and CurveXYZHelical) in SIMSOPT's order."""
+    if stellsym:
+        return ([f"xc({i})" for i in range(order + 1)] + [f"ys({i})" for i in range(1, order + 1)]
+                + [f"zs({i})" for i in range(1, order + 1)])
+    out = []
+    for a in "xyz":
+        out += [f"{a}c(0)"] + [f"{a}c({i})" for i in range(1, order + 1)] + [f"{a}s({i})" for i in range(1, order + 1)]
+    return out
+
+
+def helical_gamma(x, order, nfp, stellsym, ntor, t):
+    """r(t) of a CurveXYZFourierSymmetries with DOFs x (SIMSOPT's jaxXYZFourierSymmetriescurve_pure)."""
+    x = np.asarray(x, dtype=np.float64)
+    w = 2 * np.pi * np.asarray(t, dtype=np.float64)
+    m = np.arange(order + 1)
+    C = np.cos(np.outer(w, nfp * m))
+    S = np.sin(np.outer(w, nfp * m))[:, 1:]
+    k = order + 1
+    if stellsym:
+        xh = C @ x[:k]
+        yh = S @ x[k:k + order]
+        z = S @ x[k + order:k + 2 * order]
+    else:
+        b = 2 * order + 1
+        xh, yh, z = (C @ x[j * b:j * b + k] + S @ x[j * b + k:(j + 1) * b] for j in range(3))
+    a = ntor * w
+    return np.stack([np.cos(a) * xh - np.sin(a) * yh, np.sin(a) * xh + np.cos(a) * yh, z], axis=1)
+
+
+def _helical_rep(sim, o, qp):
+    order, nfp, stellsym = int(o["order"]), int(o["nfp"]), bool(o["stellsym"])
+    ntor = int(o.get("ntor", 1))
+    x = sim.dofs_x(o)
+    names = sim.obj(o["dofs"]).get("names")
+    want = helical_names(order, stellsym)
+    if x.size != len(want) or (names is not None and list(names) != want):
+        raise NotImplementedError(f"{o['@class']} {o.get('@name', '')}: its degrees of freedom are not the layout "
+                                  f"torux reads ({len(want)} named {want[0]} ... {want[-1]})")
+    K = nfp * order + abs(ntor)
+    N = 4 * (K + 2)
+    coef = coef_from_samples(helical_gamma(x, order, nfp, stellsym, ntor, np.arange(N) / N))
+    tail = np.abs(coef[:, 2 * K + 1:]).max() if coef.shape[1] > 2 * K + 1 else 0.0
+    scale = np.abs(coef).max()
+    assert tail <= 1e-13 * scale, ("helical conversion not exact", tail, scale)
+    rep = _coef_rep(coef[:, :2 * K + 1].copy(), o["@class"], qp)
+    rep.note = f"exact conversion to Cartesian Fourier order {K}, discarded harmonics <= {tail:.1e} m"
+    return rep
 
 
 # ---- CurvePlanarFourier (exact)
@@ -630,7 +689,8 @@ def nfp_hints(sim):
     """nfp values suggested by the file (surfaces' nfp, rotation angles of RotatedCurves)."""
     c = set()
     for k, o in sim.objs.items():
-        if o["@class"] in ("SurfaceXYZTensorFourier", "SurfaceRZFourier", "CurveCWSFourier"):
+        if o["@class"] in ("SurfaceXYZTensorFourier", "SurfaceRZFourier", "CurveCWSFourier",
+                           "CurveXYZFourierSymmetries", "CurveXYZHelical"):
             c.add(int(o["nfp"]))
         if o["@class"] == "RotatedCurve":
             ph = float(o["phi"]) % (2 * np.pi)
