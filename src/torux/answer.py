@@ -256,7 +256,8 @@ class Answer(Result):
     def plot(self, path=None, *, dark=False):
         """The surface inside its coils, coloured by |B| in tesla, beside three cross-sections in metres: the
         matplotlib figure, or with ``path`` (.png, .pdf, .svg) the file, whose path is returned. ``dark=True`` for
-        a dark page."""
+        a dark page. Green only for a surface the independent check verified: a torus found and not verified is
+        drawn in greys, its sections dashed. A warning names any part of the source the picture leaves out."""
         from .plot import plot
         return plot(self, path, dark=dark)
 

@@ -227,10 +227,10 @@ s.plot("q954.png")          # .png, .pdf or .svg, and dark=True for a dark page
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="../visuals/plot-dark.png">
-  <img src="../visuals/plot-light.png" width="760" alt="The picture s.plot draws for QUASR 954: the flux surface as a green torus shaded by the strength of the field on it, inside its four copper coils. Beside it are its cross-sections at three toroidal angles and the scale of the field strength.">
+  <img src="../visuals/plot-light.png" width="760" alt="The picture s.plot draws for QUASR 954: the verified flux surface as a green torus shaded by the strength of the field on it, inside its four copper coils. Beside it are its cross-sections at three toroidal angles and the scale of the field strength.">
 </picture>
 
-The surface coloured by field strength inside its coils, three cross-sections, and one line of what it is.
+The surface coloured by field strength inside its coils, and three cross-sections. Green is a surface the independent check verified and nothing else: any other torus an answer holds (`surface_unverified`, `range_unverified`, `verify=False`, a timeout) is drawn in greys, its sections dashed. Coils without current, conductors of finite section and the 1/R field are not drawn, and a warning names them.
 
 ## Boozer spectrum and quasisymmetry
 
@@ -336,7 +336,7 @@ torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --vo
 - `budget_s`: seconds for the whole question (in `many`, for each design's). The call returns within it, up to one last step, and as soon as it has its answer. By default torux states a budget from the size of the source: at least five minutes for a flux, fifteen for a size, half an hour for the largest surface. A surface takes seconds when the file brings a surface to start from, as QUASR's do, seconds to minutes from the coils alone, and a certificate takes minutes.
 - Near the edge of what the coils hold, an outcome can depend on the clock: the solver shares its budget among its stages by the time each takes, so the same request can come back undetermined on a slower or busier machine. Asked twice for the surface of `examples/quasr_0000954.json` that encloses 0.41495 Wb, six times its design flux, torux verified it in 198 s and came back `undetermined` after 263 s in the next process. Asked for 0.0695 Wb of `examples/quasr_1100073.json`, a hair more than the file's own 0.06949574 Wb, it gave up after 1,914 s, where the file's own request gets its certificate in 116 s ([`results/edge_requests.csv`](../results/edge_requests.csv)). A surface that is returned is verified either way.
 - Memory: about a gigabyte for an ordinary request. A hard one can take several: of the 300 coil sets of the comparison the hardest took 7.5 GiB and the next 4.1.
-- `verify=False` skips the independent check: the answer then rests on the solver's own checks and says so.
+- `verify=False` skips the independent check: the answer then rests on the solver's own checks and says so, and its picture is in greys.
 - `trace_lines=8` also follows eight field lines with the independent tracer for 100 turns round the machine and reports how far they stray from the surface. Minutes.
 
 | variable | effect |

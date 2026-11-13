@@ -171,7 +171,11 @@ def _solve(a):
             code = 1
     if a.plot:
         try:
-            res.plot(a.plot)
+            with warnings.catch_warnings(record=True) as said:
+                warnings.simplefilter("always", UserWarning)
+                res.plot(a.plot)
+            for w in said:                  # what the picture leaves out, on stderr as a line of its own
+                _say(f"{a.plot}: {w.message}")
         except ValueError as e:             # nothing to draw: the answer stands, and so does its exit code
             print(f"not drawn   {a.plot}: {e}", file=sys.stderr)
         except (ImportError, OSError) as e:

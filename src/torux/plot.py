@@ -1,5 +1,6 @@
 """The one picture of an answer: the surface inside its coils, coloured by the strength of the field on it, beside
-three of its cross-sections.
+three of its cross-sections.  Green is a surface the independent check verified, and nothing else: a torus that was
+found and not verified is drawn in greys, its sections dashed.
 
     s = torux.solve("examples/quasr_0000954.json")
     s.plot()                     # the figure: a window, or the cell's picture in a notebook
@@ -17,6 +18,7 @@ from __future__ import annotations
 
 import math
 import os
+import warnings
 
 import numpy as np
 
@@ -35,9 +37,10 @@ DISTANCE = 3.6              # the camera's distance in units of the scene's radi
 COIL_PT = 1.25              # a coil's stroke at middle depth, points
 MARK_PT2 = 2.2              # a magnet's mark, square points
 FONTS = ("Helvetica Neue", "Helvetica", "Segoe UI", "Noto Sans", "Arial", "Liberation Sans", "DejaVu Sans")
-CAPTION_PT = 9.4            # the line of words (13 px at a README's width). Smaller only when a long name or
-CAPTION_MIN_PT = 7.5        # note needs it, and never below this
 LABEL_PT = 8.6              # tick labels and the panels' words (12 px)
+MARGIN = 0.2                # inches of page round what is drawn, the same on every side, to the ink
+GAP = 0.3                   # inches at least between the machine and the sections, to the ink
+MACHINE_MAX_H = 4.4         # inches: the machine's height when its own aspect asks for more
 TITLE = 0.25                # inches above a panel for its words
 R_LABEL = 0.46              # inches from the sections' foot to the baseline of their R label
 BAR = 0.075                 # the colour scale's thickness, inches
@@ -46,11 +49,17 @@ BAR = 0.075                 # the colour scale's thickness, inches
 def plot(answer, path=None, *, dark=False):
     """The surface inside its coils, coloured by |B| in tesla, beside three cross-sections in metres: the
     matplotlib figure (in a window, if there is one, that does not block), or with ``path`` (.png, .pdf, .svg) the
-    file, whose path is returned.  ``dark=True`` draws it for a dark page."""
+    file, whose path is returned.  ``dark=True`` draws it for a dark page.  Only a surface the independent check
+    verified is green: any other torus the answer holds is drawn in greys with its sections dashed.  Parts of the
+    source the picture leaves out (coils without current, conductors of finite section, the 1/R field) are named in
+    a warning."""
     if getattr(answer, "surface", None) is None:
         raise ValueError(f"no surface to draw: the status is {getattr(answer, 'status', None)!r}")
     ext = check_path(path)
     p = _picture(answer)
+    if p.left_out:
+        warnings.warn("the picture leaves out " + _listed(p.left_out), stacklevel=2,
+                      skip_file_prefixes=(os.path.dirname(os.path.abspath(__file__)),))
     if path is not None:
         fig = _figure(p, dark)
         fig.savefig(os.fspath(path), dpi=FILE_DPI, facecolor=fig.get_facecolor(), metadata=_metadata(ext))
@@ -83,22 +92,14 @@ class _Picture:
 
 
 def _picture(answer):
-    """Everything the figure draws, from the answer and its source: the surface and |B| on it, the parts of the
-    source that can be drawn and their depth against the surface, the sections, the axis, the words, the layout."""
+    """Everything the figure draws, from the answer and its source: the surface and |B| on it, whether it is
+    verified, the parts of the source that can be drawn and their depth against the surface, the sections, the
+    axis, the layout."""
     src = _source(answer)
     T = answer.surface
     p = _Picture()
-    p.name = str(getattr(src, "id", "") or "source")
     p.nfp = int(round(float(T.nfp))) if float(T.nfp) >= 1 and float(T.nfp).is_integer() else 1
-    p.flux = abs(float(T.flux))
-    p.iota = float(T.iota)                        # (an Answer's iota is only for a verified surface)
-    p.status = str(answer.status)
-    ev = answer.evidence or {}
-    ind, sol = ev.get("independent") or {}, ev.get("solver") or {}
-    p.answer = p.status in ("surface", "range")
-    p.check = ind.get("bn_sup", ind.get("bn_max")) if ind.get("ok") else None
-    p.own = sol.get("bn_off")                     # the solver's own check: all there is when verify=False
-    p.why = ev.get("unverified") or ev.get("status_at_deadline") or p.status
+    p.verified = _verified(answer)
     # the surface on a grid of the whole torus, and the centres of its faces (which way each looks). |B| follows,
     # at the corners of the faces that are painted
     p.theta = np.linspace(0.0, 2 * np.pi, 97)
@@ -132,9 +133,17 @@ def _grid(answer, theta, phi):
     return _surface_points(answer, TH.ravel(), PH.ravel()).reshape(len(theta), len(phi), 3)
 
 
+def _verified(answer):
+    """Whether the answer's torus is a surface the independent check verified: the status 'surface' or 'range' and
+    the independent evidence ok.  Not with verify=False, a status ending in '_unverified', a timeout or an
+    undetermined answer that still holds a torus."""
+    ind = (getattr(answer, "evidence", None) or {}).get("independent") or {}
+    return str(getattr(answer, "status", "")) in ("surface", "range") and bool(ind.get("ok"))
+
+
 def _surface_points(answer, theta, phi):
-    """Points of the torus the answer holds, verified or not: a torus that is not verified is drawn, and its caption
-    says what it is, where answer.points refuses to give its points as an answer's."""
+    """Points of the torus the answer holds, verified or not: a torus that is not verified is drawn, in greys,
+    where answer.points refuses to give its points as an answer's."""
     from .answer import _points
     return np.asarray(_points(answer.surface, theta, phi)[0])
 
@@ -196,7 +205,7 @@ def _axis(answer, src, phis, sections):
 
 def _parts(src, ds):
     """The source as polylines (each (k, 3), m, with straight edges cut into pieces of at most ``ds`` metres) and
-    point marks ((k, 3), m), and what is not drawn, in words."""
+    point marks ((k, 3), m), and what is not drawn, in words for the warning."""
     lines, marks, left = [], [], []
     off = idle = 0
     for part in src.parts:
@@ -312,12 +321,15 @@ def _scene(p, field):
     p.B_cos = np.sum(vn * eye, axis=-1) / np.linalg.norm(eye, axis=-1)
     lines2 = [cam.project(ln) for ln in p.lines]
     marks2 = cam.project(p.marks) if len(p.marks) else (np.zeros((0, 2)), np.zeros(0))
-    xy = np.concatenate([p.faces.reshape(-1, 2)] + [s for s, _ in lines2] + [marks2[0]])
-    _layout(p, xy)
     alld = np.concatenate([d for _, d in lines2] + [marks2[1], p.face_depth])
     p.depth_range = near, far = float(alld.min()), float(alld.max())
-    # the painted surface's depth, nearest within a stroke's reach of every pixel: half the widest stroke (the
-    # nearest, strokes thin with distance) or mark, and a point for the smoothing of its edge
+    # half the widest stroke (the nearest, strokes thin with distance) or mark, points
+    half = 0.5 * max(COIL_PT * 0.5 * (near + far) / near if p.lines else 0.0,
+                     math.sqrt(MARK_PT2) if len(p.marks) else 0.0)
+    xy = np.concatenate([p.faces.reshape(-1, 2)] + [s for s, _ in lines2] + [marks2[0]])
+    _layout(p, xy, half / 72)
+    # the painted surface's depth, nearest within a stroke's reach of every pixel: half the widest stroke or mark,
+    # and a point for the smoothing of its edge
     zbuf = _depth_buffer(p.faces, p.face_depth, p.xlim, p.ylim, p.machine[2], p.machine[3])
     reach = 0.5 * max(COIL_PT * 0.5 * (near + far) / near, math.sqrt(MARK_PT2)) + 1.0
     zmin = _nearest_within(zbuf, int(math.ceil(reach / 72 * DEPTH_DPI)))
@@ -336,46 +348,65 @@ def _scene(p, field):
     p.mark_front = _ahead(p.mark_xy, p.mark_depth, zmin, p) if len(p.mark_depth) else np.zeros(0, bool)
 
 
-def _layout(p, xy):
-    """Where everything goes, in inches: the machine on the left, at the aspect of what it shows. The three
-    sections in a row on one scale to its right, the colour scale under them. One line of words below."""
+def _layout(p, xy, pad):
+    """Where everything goes, in inches: the machine on the left, at the aspect of what it shows, the three sections
+    in a row on one scale to its right with the colour scale under them, both centred on the height.  MARGIN of
+    page on every side, from the edge of the page to the ink.  ``pad``: how far the machine's ink reaches past the
+    points it draws (half its widest stroke), inches."""
     (x0, y0), (x1, y1) = xy.min(axis=0), xy.max(axis=0)
-    mw = 5.0
-    mh = float(np.clip(mw * (y1 - y0) / (x1 - x0), 2.5, 4.0))
     # the sections: each its own R window, one Z window, one scale
-    pad = 0.06
-    Rr = [(s[:, 0].min(), s[:, 0].max()) for s in p.sections]
+    m = 0.06 * max(max(float(np.ptp(s[:, 0])) for s in p.sections),
+                   float(np.ptp(np.concatenate([s[:, 1] for s in p.sections]))))
+    Rr = [(float(s[:, 0].min()) - m, float(s[:, 0].max()) + m) for s in p.sections]
     Zall = np.concatenate([s[:, 1] for s in p.sections])
-    zl, zh = float(Zall.min()), float(Zall.max())
-    span = max(max(b - a for a, b in Rr), zh - zl)
-    m = pad * span
-    Rr = [(a - m, b + m) for a, b in Rr]
-    zl, zh = zl - m, zh + m
-    left, gap, width = 5.62, 0.16, 8.26 - 5.62
+    zl, zh = float(Zall.min()) - m, float(Zall.max()) + m
+    gap, width = 0.16, 2.64
     scale = min((width - 2 * gap) / sum(b - a for a, b in Rr), 2.0 / (zh - zl))
     sh = scale * (zh - zl)
-    # the column, top down: the angles, the panels, their R ticks and the R label, a gap, the colour scale's
-    # title, the scale, its ticks
-    col_h = TITLE + sh + R_LABEL + 0.22 + TITLE + BAR + 0.22
-    body = max(mh, col_h)
-    cap = 0.46
-    H = body + cap
-    p.size = (WIDTH, H)
-    p.machine = (0.0, cap + 0.5 * (body - mh), mw, mh)
-    top = cap + 0.5 * (body + col_h)
-    x = left
-    p.panels = []
-    for a, b in Rr:
-        w = scale * (b - a)
-        p.panels.append(((x, top - TITLE - sh, w, sh), (a, b), (zl, zh)))
-        x += w + gap
-    p.bar = (left, top - TITLE - sh - R_LABEL - 0.22 - TITLE - BAR, 1.55, BAR)
-    p.caption_at = (0.25, 0.16)
-    # the machine's limits: what it shows, centred, one scale on both screen axes
-    W, Hm = mw, mh
-    s = max((x1 - x0) / (W * 0.95), (y1 - y0) / (Hm * 0.95))
-    cx, cy = 0.5 * (x0 + x1), 0.5 * (y0 + y1)
-    p.xlim, p.ylim = (cx - 0.5 * s * W, cx + 0.5 * s * W), (cy - 0.5 * s * Hm, cy + 0.5 * s * Hm)
+
+    def column(x, top):
+        """The sections' and the scale's axes, the sections' top left at (x, top - TITLE): top down the angles,
+        the panels, their R ticks and the R label, a gap, the colour scale's title, the scale, its ticks."""
+        p.panels = []
+        for a, b in Rr:
+            w = scale * (b - a)
+            p.panels.append(((x, top - TITLE - sh, w, sh), (a, b), (zl, zh)))
+            x += w + gap
+        p.bar = (p.panels[0][0][0], top - TITLE - sh - R_LABEL - 0.22 - TITLE - BAR, 1.55, BAR)
+
+    # the column's ink, measured on a page of its own
+    column(1.0, 5.0)
+    ink = _ink(p, (WIDTH, 6.0))
+    cx0, cx1, cy0, cy1 = ink[0] - 1.0, ink[1] - 1.0, ink[2] - 5.0, ink[3] - 5.0   # from the anchor
+    cw, ch = cx1 - cx0, cy1 - cy0
+    # the machine: as wide as the page leaves it, unless that makes it taller than MACHINE_MAX_H
+    room = WIDTH - 2 * MARGIN - GAP - cw
+    k = (room - 2 * pad) / (x1 - x0)                 # inches per unit of the screen
+    if k * (y1 - y0) + 2 * pad > MACHINE_MAX_H:
+        k = (MACHINE_MAX_H - 2 * pad) / (y1 - y0)
+    mw, mh = k * (x1 - x0) + 2 * pad, k * (y1 - y0) + 2 * pad
+    body = max(mh, ch)
+    p.size = (WIDTH, body + 2 * MARGIN)
+    p.machine = (MARGIN, MARGIN + 0.5 * (body - mh), mw, mh)
+    column(WIDTH - MARGIN - cx1, MARGIN + 0.5 * (body - ch) - cy0)
+    e = pad / k
+    p.xlim, p.ylim = (x0 - e, x1 + e), (y0 - e, y1 + e)
+
+
+def _ink(p, size, dpi=FILE_DPI):
+    """Where the sections and the colour scale put ink on a light page of ``size`` inches: left, right, bottom,
+    top, inches from the page's bottom left."""
+    from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.figure import Figure
+    c = PAGES[False]
+    fig = Figure(figsize=size, dpi=dpi, facecolor=c["page"])
+    FigureCanvasAgg(fig)
+    _column(fig, p, c, _font(), False)
+    fig.canvas.draw()
+    rgb = np.asarray(fig.canvas.buffer_rgba())[..., :3].astype(int)
+    rows, cols = np.nonzero(np.any(np.abs(rgb - np.round(_rgb(c["page"]) * 255)) > 3, axis=-1))
+    h = rgb.shape[0]
+    return cols.min() / dpi, (cols.max() + 1) / dpi, (h - rows.max() - 1) / dpi, (h - rows.min()) / dpi
 
 
 def _depth_buffer(faces, depth, xlim, ylim, W, H):
@@ -440,10 +471,14 @@ def _oklab_to_srgb(L, a, b):
     return np.where(lin <= 0.0031308, 12.92 * lin, 1.055 * np.abs(lin) ** (1 / 2.4) - 0.055)
 
 
-def _ramp(dark=False, n=256):
+def _ramp(dark=False, n=256, verified=True):
     """The colour scale of |B|: one hue, the repository's green, in equal perceptual steps, lighter towards weak
-    field on a white page and brighter towards strong field on a dark one.  (n, 3) sRGB in [0, 1]."""
+    field on a white page and brighter towards strong field on a dark one.  For a torus that is not verified the
+    same steps in neutral grey, paler.  (n, 3) sRGB in [0, 1]."""
     h = math.radians(HUE)
+    if not verified:
+        L = np.linspace(0.30, 0.72, n) if dark else np.linspace(0.94, 0.56, n)
+        return np.clip(_oklab_to_srgb(L, 0.0 * L, 0.0 * L), 0.0, 1.0)
     L = np.linspace(0.30, 0.94, 400) if dark else np.linspace(0.95, 0.36, 400)
     cap = 0.15 if dark else 0.12
     lo, hi = np.zeros_like(L), np.full_like(L, 0.4)
@@ -475,28 +510,30 @@ def _figure(p, dark, pyplot=False):
         fig = plt.figure(figsize=p.size, dpi=100, facecolor=c["page"])
     else:
         fig = Figure(figsize=p.size, dpi=100, facecolor=c["page"])
-    font = _font()
     W, H = p.size
+    _machine(fig.add_axes((p.machine[0] / W, p.machine[1] / H, p.machine[2] / W, p.machine[3] / H)), p, c, dark)
+    _column(fig, p, c, _font(), dark)
+    return fig
+
+
+def _column(fig, p, c, font, dark):
+    """The three sections, their R label and the colour scale, where p.panels and p.bar put them."""
+    W, H = fig.get_size_inches()
 
     def at(r):
         return (r[0] / W, r[1] / H, r[2] / W, r[3] / H)
 
-    _machine(fig.add_axes(at(p.machine)), p, c, dark)
     for k, (rect, rl, zl) in enumerate(p.panels):
         _section(fig.add_axes(at(rect)), p, k, rect, rl, zl, c, font)
     first, last = p.panels[0][0], p.panels[-1][0]
     fig.text((0.5 * (first[0] + last[0] + last[2])) / W, (first[1] - R_LABEL) / H, "R (m)", color=c["muted"],
              fontsize=LABEL_PT, fontfamily=font, ha="center", va="baseline")
     _colour_scale(fig.add_axes(at(p.bar)), p, c, font, dark)
-    text, size = _caption(p, font, W - 2 * p.caption_at[0])
-    fig.text(p.caption_at[0] / W, p.caption_at[1] / H, text, color=c["muted"], fontsize=size, fontfamily=font,
-             ha="left", va="baseline")
-    return fig
 
 
-def _colours(values, lo, hi, dark):
+def _colours(values, lo, hi, dark, verified=True):
     """The ramp's colour of every value, interpolated between its steps (no banding)."""
-    col = _ramp(dark, 1024)
+    col = _ramp(dark, 1024, verified)
     u = np.clip((np.asarray(values, float) - lo) / max(hi - lo, 1e-300), 0.0, 1.0) * (len(col) - 1)
     i = np.minimum(u.astype(int), len(col) - 2)
     f = (u - i)[:, None]
@@ -509,10 +546,13 @@ def _machine(ax, p, c, dark):
     ax.set_xlim(*p.xlim)
     ax.set_ylim(*p.ylim)
     lo, hi = p.B_range
-    rgb = _colours(p.B_values, lo, hi, dark)
-    # where the surface is seen edge on it darkens a little, so that the torus reads as a solid
+    rgb = _colours(p.B_values, lo, hi, dark, p.verified)
+    # where the surface is seen edge on it darkens a little, so that the torus reads as a solid (towards a neutral
+    # grey as dark as the page, for a torus in greys)
     rim = (np.clip(1.0 - np.abs(p.B_cos), 0.0, 1.0) ** 3)[:, None]
     toward = _rgb("#000000") if not dark else _rgb(c["page"])
+    if not p.verified:
+        toward = np.full(3, float(np.mean(toward)))
     rgb = rgb * (1 - 0.30 * rim) + toward * 0.30 * rim
     rgba = np.concatenate([rgb, np.ones((len(rgb), 1))], -1)[p.face_corner]          # (faces, 4 corners, 4)
     tri = np.stack([p.faces[:, [0, 1, 2]], p.faces[:, [0, 2, 3]]], 1).reshape(-1, 3, 2)
@@ -581,11 +621,16 @@ def _Shaded(triangles, colours, transform, zorder):
 
 
 def _section(ax, p, k, rect, rlim, zlim, c, font):
+    """A verified surface's section filled and drawn in green, any other torus's dashed in grey and left empty."""
     s = p.sections[k]
-    ax.fill(s[:, 0], s[:, 1], color=c["line"], alpha=0.10, lw=0)
-    ax.plot(s[:, 0], s[:, 1], color=c["line"], lw=1.3, solid_joinstyle="round")
+    if p.verified:
+        ax.fill(s[:, 0], s[:, 1], color=c["line"], alpha=0.10, lw=0)
+        ax.plot(s[:, 0], s[:, 1], color=c["line"], lw=1.3, solid_joinstyle="round")
+    else:
+        ax.plot(s[:, 0], s[:, 1], color=c["muted"], lw=1.3, ls=(0, (3.2, 2.4)), dash_capstyle="butt")
     if p.axis is not None:
-        ax.plot([p.axis[k, 0]], [p.axis[k, 1]], ls="none", marker="+", ms=5.5, mew=0.9, color=c["ink"])
+        ax.plot([p.axis[k, 0]], [p.axis[k, 1]], ls="none", marker="+", ms=5.5, mew=0.9,
+                color=c["ink"] if p.verified else c["muted"])
     ax.set_xlim(*rlim)
     ax.set_ylim(*zlim)
     ax.set_facecolor("none")
@@ -612,7 +657,7 @@ def _section(ax, p, k, rect, rlim, zlim, c, font):
 def _colour_scale(ax, p, c, font, dark):
     from matplotlib.colors import ListedColormap
     lo, hi = p.B_range
-    ax.imshow(np.linspace(0, 1, 512)[None, :], aspect="auto", cmap=ListedColormap(_ramp(dark, 512)),
+    ax.imshow(np.linspace(0, 1, 512)[None, :], aspect="auto", cmap=ListedColormap(_ramp(dark, 512, p.verified)),
               extent=(lo, hi, 0, 1), interpolation="nearest")
     ax.set_xlim(lo, hi)
     ax.set_yticks([])
@@ -622,26 +667,18 @@ def _colour_scale(ax, p, c, font, dark):
         s.set_visible(False)
     ax.tick_params(axis="x", colors=c["rule"], labelcolor=c["muted"], labelsize=LABEL_PT, width=0.8, length=2.5,
                    pad=2, labelfontfamily=font[0])
-    ax.set_title("|B| on the surface (T)", color=c["muted"], fontsize=LABEL_PT, fontfamily=font, loc="left", pad=4)
+    ax.set_title(f"|B| on the {'surface' if p.verified else 'torus'} (T)", color=c["muted"], fontsize=LABEL_PT,
+                 fontfamily=font, loc="left", pad=4)
 
 
-# ------------------------------------------------------------------------------------------------ words and numbers
+# ------------------------------------------------------------------------------------------------ words
 def _width(text, font, size):
-    """The width of a line of text in inches, as matplotlib sets it (with its mathematics, if it has any)."""
+    """The width of a line of text in inches, as matplotlib sets it."""
     from matplotlib.backends.backend_agg import RendererAgg
     from matplotlib.font_manager import FontProperties
     w, _, _ = RendererAgg(8, 8, 72).get_text_width_height_descent(text, FontProperties(family=font, size=size),
-                                                                  ismath=_has_math(text))
+                                                                  ismath=False)
     return w / 72.0
-
-
-def _has_math(text):
-    return text.replace("\\$", "").count("$") >= 2
-
-
-def _literal(text):
-    """Words to be set as they are, even where they hold a dollar sign."""
-    return str(text).replace("$", "\\$")
 
 
 def _ticks(lo, hi, length, font, along, most=5):
@@ -687,73 +724,9 @@ def _plain(v):
     return "0" if s in ("-0", "0") else s.replace("-", "−")
 
 
-def _num(v, sig):
-    """A number to ``sig`` significant digits, in the form a reader writes it (10 to a power past 1e-4)."""
-    if v == 0:
-        return "0"
-    if not math.isfinite(v):
-        return "not known"
-    e = int(math.floor(math.log10(abs(v))))
-    if -4 <= e < 6:
-        s = f"{v:.{max(sig - 1 - e, 0)}f}"
-    else:
-        m = f"{v / 10 ** e:.{sig - 1}f}"
-        sup = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
-        s = f"{m} × 10{str(e).translate(sup)}"
-    return s.replace("-", "−")
-
-
-def _caption(p, font, room):
-    """The one line of words and its size: the source, the flux, the rotational transform, the field across the
-    surface by the independent check (or that it is not verified), and what is not drawn.  It always fits in
-    ``room`` inches: at a smaller size if it must. Then with the name shortened in its middle (to no fewer than
-    16 characters), then the list of what is not drawn cut at its end, then the reason a surface is not verified.
-    Each cut marked with an ellipsis.  The numbers and the claim itself are never cut."""
-    numbers = [f"{_num(p.flux, 4)} Wb" + (", the outermost surface verified" if p.status == "range" else ""),
-               f"$\\iota$ = {_num(p.iota, 4)}"]
-    if p.answer and p.check is not None:
-        claim, reason = f"field across it {_num(float(p.check), 2)} of |B| by the independent check", ""
-    elif p.answer and p.own is not None:
-        claim, reason = (f"field across it {_num(float(p.own), 2)} of |B| by the solver's own check, "
-                         "not checked independently"), ""
-    else:
-        claim, reason = "not verified: ", str(p.why).replace("_", " ")
-    note = "not drawn: " + ", ".join(p.left_out) if p.left_out else ""
-    sep = "    "
-
-    def line(name, reason, note):
-        words = [_literal(name)] + numbers + [claim + _literal(reason)] + ([_literal(note)] if note else [])
-        return sep.join(words)
-
-    def fits(text):
-        return _width(text, font, size) <= room
-
-    size = CAPTION_PT
-    w = _width(line(p.name, reason, note), font, size)
-    if w > room:
-        size = max(CAPTION_MIN_PT, CAPTION_PT * room / w * 0.995)
-    name = p.name
-    if not fits(line(name, reason, note)):
-        name = _shorten(name, lambda n: fits(line(n, reason, note)), middle=True, keep=16)
-    if note and not fits(line(name, reason, note)):
-        note = _shorten(note, lambda t: fits(line(name, reason, t)), middle=False, keep=len("not drawn: ") + 1)
-    if reason and not fits(line(name, reason, note)):
-        reason = _shorten(reason, lambda t: fits(line(name, t, note)), middle=False, keep=1)
-    return line(name, reason, note), size
-
-
-def _shorten(text, fits, middle, keep):
-    """The longest cut of ``text`` that fits and keeps at least ``keep`` of its characters, an ellipsis where it
-    was cut (its middle, or its end). The text itself when it is no longer than ``keep``."""
-    def cut(k):
-        if k >= len(text):
-            return text
-        return text[:(k + 1) // 2] + "\u2026" + text[len(text) - k // 2:] if middle else text[:k] + "\u2026"
-    lo, hi = min(keep, len(text)), len(text)
-    while lo < hi:
-        k = (lo + hi + 1) // 2
-        lo, hi = (k, hi) if fits(cut(k)) else (lo, k - 1)
-    return cut(lo)
+def _listed(things):
+    """Words joined as a sentence lists them: a, b and c."""
+    return things[0] if len(things) == 1 else ", ".join(things[:-1]) + " and " + things[-1]
 
 
 def _font():

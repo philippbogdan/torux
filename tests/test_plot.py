@@ -1,12 +1,13 @@
 """The one picture: what it draws is right by code that shares none with torux.plot (SIMSOPT's surface, curves and
-Biot-Savart), no coil behind the surface is drawn over it, and it behaves as a function should in a script, a
-notebook and a file."""
+Biot-Savart), no coil behind the surface is drawn over it, green is only ever a verified surface, no words stand
+under it, and it behaves as a function should in a script, a notebook and a file."""
 import copy
 import importlib.util
 import json
 import math
 import sys
 import types
+import warnings
 import xml.etree.ElementTree as ET
 
 import numpy as np
@@ -210,6 +211,65 @@ def _variant(res, **kw):
     return out
 
 
+def _not_verified(res):
+    """Every way a torus that is not verified reaches the picture, as the solver writes each: the independent check
+    refused it, the check was skipped for want of time, the solver's acceptance refused a range's outer torus, no
+    check was asked (verify=False), the budget ran out with a torus in hand (a timeout), a request came back
+    undetermined still holding one."""
+    ev = res.evidence
+    refused = copy.deepcopy(ev)
+    refused["independent"]["ok"] = False
+    refused["unverified"] = "the independent verification refused the torus"
+    skipped = copy.deepcopy(ev)
+    skipped["independent"] = dict(skipped="no time left in the budget")
+    skipped["unverified"] = "independent verification skipped: no time left in the budget"
+    unasked = {k: v for k, v in copy.deepcopy(ev).items() if k != "independent"}
+    late = copy.deepcopy(refused)
+    late["status_at_deadline"] = "surface_unverified"
+    return {"surface_unverified": _variant(res, status="surface_unverified", evidence=refused),
+            "skipped": _variant(res, status="surface_unverified", evidence=skipped),
+            "range_unverified": _variant(res, status="range_unverified", evidence=copy.deepcopy(ev)),
+            "verify=False": _variant(res, evidence=unasked),
+            "verify=False, range": _variant(res, status="range", evidence=copy.deepcopy(unasked)),
+            "timeout": _variant(res, status="timeout", evidence=late),
+            "undetermined": _variant(res, status="undetermined", evidence=copy.deepcopy(ev))}
+
+
+def _png(answer, path, dark=False):
+    """The picture of an answer as an (h, w, 3) array of 0 to 255."""
+    from PIL import Image
+    import torux.plot as P
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message="the picture leaves out")   # QUASR 954 leaves nothing out
+        P.plot(answer, path, dark=dark)
+    with Image.open(path) as im:
+        return np.asarray(im.convert("RGB")).astype(int)
+
+
+def _oklab(rgb):
+    """OKLab of sRGB in [0, 1] (..., 3), written here from Ottosson's matrices."""
+    lin = np.where(rgb <= 0.04045, rgb / 12.92, ((rgb + 0.055) / 1.055) ** 2.4)
+    m1 = np.array([[0.4122214708, 0.5363325363, 0.0514459929], [0.2119034982, 0.6806995451, 0.1073969566],
+                   [0.0883024619, 0.2817188376, 0.6299787005]])
+    m2 = np.array([[0.2104542553, 0.7936177850, -0.0040720468], [1.9779984951, -2.4285922050, 0.4505937099],
+                   [0.0259040371, 0.7827717662, -0.8086757660]])
+    return np.cbrt(lin @ m1.T) @ m2.T
+
+
+def _green(img):
+    """How many pixels are green: an OKLab hue between 110 and 230 degrees (the repository's green is 173.5) and a
+    chroma past 0.02 (a neutral grey's is 0, the page's own greys' under 0.02)."""
+    lab = _oklab(img.reshape(-1, 3) / 255.0)
+    hue = np.degrees(np.arctan2(lab[:, 2], lab[:, 1])) % 360
+    return int(np.sum((np.hypot(lab[:, 1], lab[:, 2]) > 0.02) & (hue > 110) & (hue < 230)))
+
+
+def _ink_margins(img):
+    """Pixels of page between each edge and the nearest ink: left, right, top, bottom."""
+    r, c = np.nonzero(np.any(np.abs(img - img[2, 2]) > 3, axis=-1))
+    return c.min(), img.shape[1] - 1 - c.max(), r.min(), img.shape[0] - 1 - r.max()
+
+
 # ------------------------------------------------------------------------------------------------ what is drawn
 @needs_simsopt
 def test_quasr_954_is_drawn_where_simsopt_puts_it(solved_954):
@@ -373,7 +433,7 @@ def test_an_answer_read_back_without_its_source_says_so(solved_954):
 @needs_mpl
 def test_every_kind_of_part_is_drawn_or_named(solved_954):
     """Filaments, polygons, segments and rings are drawn as lines, magnets as marks. A conductor of finite section,
-    the 1/R field and a coil without current are left out and named in the line of words."""
+    the 1/R field and a coil without current are left out and named in a warning, which points at the caller."""
     import torux.plot as P
     src = solved_954._engine.source
     ring = np.zeros((1, 3, 3))
@@ -393,11 +453,19 @@ def test_every_kind_of_part_is_drawn_or_named(solved_954):
     p = P._picture(_variant(solved_954, source=mixed))
     assert len(p.lines) == 4 + 1 + 1 + 1 and len(p.marks) == 3
     assert p.left_out == ["1 coil without current", "1 axisymmetric conductor", "the 1/R toroidal field"]
-    text = P._caption(p, P._font(), 7.88)[0]
-    assert "everything" in text and "by the independent check" in text and "not drawn: 1 coil without current" in text
-    p.left_out = ["the 1/R toroidal field"]
-    assert "not drawn: the 1/R toroidal field" in P._caption(p, P._font(), 7.88)[0]
-    assert len(P.plot(_variant(solved_954, source=mixed)).axes) == 5
+    with pytest.warns(UserWarning) as said:
+        fig = _variant(solved_954, source=mixed).plot()
+    assert [str(w.message) for w in said] == ["the picture leaves out 1 coil without current, 1 axisymmetric "
+                                              "conductor and the 1/R toroidal field"]
+    assert said[0].filename == __file__
+    assert len(fig.axes) == 5 and [t.get_text() for t in fig.texts] == ["R (m)"]
+    only = torux.Source(id="one", parts=list(src.parts) + [torux.ToroidalField(0.1)], nfp=src.nfp,
+                        stellsym=src.stellsym)
+    with pytest.warns(UserWarning, match=r"^the picture leaves out the 1/R toroidal field$"):
+        P.plot(_variant(solved_954, source=only))
+    with warnings.catch_warnings():
+        warnings.filterwarnings("error", message="the picture leaves out")
+        P.plot(solved_954)                                   # nothing left out, nothing said
 
 
 @needs_mpl
@@ -417,27 +485,34 @@ def test_the_other_quasr_examples(name, share, tmp_path):
 
 # ------------------------------------------------------------------------------------------------ words, scale, look
 @needs_mpl
-def test_the_line_of_words_always_fits(picture_954):
-    """However long the name and the list of what is not drawn, the line stays one line inside the figure, at no
-    less than 7 points, any shortening marked with an ellipsis."""
+def test_no_words_under_the_figure_and_the_same_page_on_every_side(solved_954, tmp_path):
+    """The only words are those that label marks: the sections' angles, the axes, the colour scale. None stands
+    under the machine or below the drawing. The page round the ink is the same on all four sides, on both pages,
+    verified or not."""
     from matplotlib.backends.backend_agg import FigureCanvasAgg
+    from matplotlib.text import Text
     import torux.plot as P
-    for name, left in (("quasr_0000954", []), ("w7x", ["20 coils without current"]),
-                       ("a" * 300, ["x" * 200, "y" * 200]), ("a" * 40, ["3 coils without current",
-                                                                     "2 axisymmetric conductors",
-                                                                     "the 1/R toroidal field"])):
-        p = copy.copy(picture_954)
-        p.name, p.left_out = name, left
-        fig = P._figure(p, False)
+    for name, a in (("verified", solved_954), ("not verified", _not_verified(solved_954)["surface_unverified"])):
+        fig = P.plot(a)
         canvas = FigureCanvasAgg(fig)
         canvas.draw()
-        t = fig.texts[-1]
-        box = t.get_window_extent(canvas.get_renderer())
-        assert box.x0 >= 0 and box.x1 <= fig.bbox.width and t.get_fontsize() >= P.CAPTION_MIN_PT
-        assert "\n" not in t.get_text()
-        assert "of |B| by the independent check" in t.get_text()                 # the claim is never cut
-        if len(name) > 100:
-            assert "…" in t.get_text() and name[:8] in t.get_text()
+        r = canvas.get_renderer()
+        words = [t for t in fig.findobj(Text) if t.get_visible() and t.get_text().strip()]
+        said = {t.get_text() for t in words}
+        scale = "|B| on the surface (T)" if name == "verified" else "|B| on the torus (T)"
+        assert {"φ = 0°", "φ = 45°", "φ = 90°", "Z (m)", "R (m)", scale} <= said, name
+        ticks = said - {"φ = 0°", "φ = 45°", "φ = 90°", "Z (m)", "R (m)", scale}
+        assert all(t.replace("−", "").replace(".", "").isdigit() for t in ticks), (name, ticks)
+        assert [t.get_text() for t in fig.texts] == ["R (m)"]
+        machine = fig.axes[0].get_window_extent(r)
+        column = min(ax.get_window_extent(r).x0 for ax in fig.axes[1:])
+        for t in words:
+            box = t.get_window_extent(r)
+            assert box.x0 > machine.x1 and box.x0 > column - 60, (name, t.get_text())     # beside, never under
+        for dark in (False, True):
+            m = _ink_margins(_png(a, tmp_path / "x.png", dark=dark))
+            want = P.MARGIN * P.FILE_DPI
+            assert all(abs(v - want) <= 2 for v in m), (name, dark, m, want)
 
 
 @needs_mpl
@@ -462,19 +537,29 @@ def test_colour_scale_ticks_never_crowd():
 
 
 @needs_mpl
-def test_an_answer_not_verified_is_never_shown_as_one(solved_954):
+def test_green_is_only_ever_a_verified_surface(solved_954, tmp_path):
+    """A verified surface is drawn in green. Every other torus that reaches the picture is drawn with no green
+    pixel anywhere, on either page: the surface and its scale in greys, its sections dashed and empty."""
     import torux.plot as P
-    ev = copy.deepcopy(solved_954.evidence)
-    ev["independent"]["ok"] = False
-    ev["unverified"] = "the independent verification refused the torus"
-    p = P._picture(_variant(solved_954, status="surface_unverified", evidence=ev))
-    text = P._caption(p, P._font(), 7.78)[0]
-    assert "not verified: the independent verification refused the torus" in text
-    assert "by the independent check" not in text
-    ev = copy.deepcopy(solved_954.evidence)
-    del ev["independent"]                                    # solved with verify=False
-    text = P._caption(P._picture(_variant(solved_954, evidence=ev)), P._font(), 7.78)[0]
-    assert "solver's own check, not checked independently" in text
+    assert P._verified(solved_954) and P._picture(solved_954).verified
+    assert _green(_png(solved_954, tmp_path / "v.png")) > 50_000
+    assert _green(_png(solved_954, tmp_path / "v.png", dark=True)) > 50_000
+    drawn = None
+    for name, a in _not_verified(solved_954).items():
+        assert not P._verified(a), name
+        p = P._picture(a)
+        assert not p.verified, name
+        if drawn is None:
+            fig = P._figure(p, False)
+            outline = fig.axes[1].lines[0]
+            assert outline.get_linestyle() == "--" and not fig.axes[1].patches             # dashed and empty
+            assert fig.axes[4].get_title(loc="left") == "|B| on the torus (T)"
+            drawn = name
+        for dark in (False, True):
+            img = _png(a, tmp_path / f"{name}.png", dark=dark)
+            assert _green(img) == 0, (name, dark)
+            torus = np.abs(img - img[2, 2]).max(axis=-1) > 40
+            assert torus.sum() > 50_000, (name, dark)                               # it is drawn
 
 
 @needs_mpl
@@ -498,5 +583,13 @@ def test_the_colour_scale_is_one_green_in_even_steps_on_both_pages():
         L = lab[:, 0]
         assert np.all(np.diff(L) > 0) if dark else np.all(np.diff(L) < 0)
         steps = np.linalg.norm(np.diff(lab, axis=0), axis=1)
+        assert steps.min() > 0.9 * steps.mean() and steps.max() < 1.1 * steps.mean()
+        assert min(abs(L[0] - page), abs(L[-1] - page)) > 0.05
+        # a torus that is not verified: the same in neutral grey
+        lab = oklab(P._ramp(dark, verified=False))
+        assert np.all(np.hypot(lab[:, 1], lab[:, 2]) < 1e-3)
+        L = lab[:, 0]
+        assert np.all(np.diff(L) > 0) if dark else np.all(np.diff(L) < 0)
+        steps = np.abs(np.diff(L))
         assert steps.min() > 0.9 * steps.mean() and steps.max() < 1.1 * steps.mean()
         assert min(abs(L[0] - page), abs(L[-1] - page)) > 0.05
