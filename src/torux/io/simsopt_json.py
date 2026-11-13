@@ -158,8 +158,8 @@ class Simson:
                         f"{self.path}: the SIMSOPT Current object {nm} states two values: {saved!r} as the value "
                         f"it held when the file was saved, and {dofs!r} in its degrees of freedom, which SIMSOPT "
                         f"takes when it reads the file back. The file does not say which one its coils carried, "
-                        f"and torux does not guess: choose with currents='saved' or currents='dofs' (on the "
-                        f"command line, --currents saved or --currents dofs)")
+                        f"and torux does not guess: choose with torux.load(path, currents='saved') or "
+                        f"currents='dofs' (on the command line, --currents saved or --currents dofs)")
                 v = dofs if self.currents == "dofs" else saved
         elif c == "ScaledCurrent":
             v = float(o["scale"]) * self.current(o["current_to_scale"])

@@ -44,7 +44,7 @@ A claimed symmetry is used only after it has been verified on the parts themselv
 
 ### A `Current` with two values
 
-SIMSOPT writes a `Current` object's value twice: as its `current`, the value it held when the file was saved, and in its degrees of freedom, the value SIMSOPT itself takes when it reads the file back. In a file written the ordinary way they are the same number. A value set past the degrees of freedom makes them differ, and then the file does not say which current its coils carried. torux refuses such a file and names the object and both values. `torux.load(path, currents="saved")` takes the value each object held when saved, `currents="dofs"` the one SIMSOPT reads back, and on the command line `--currents saved` or `--currents dofs`. A check of a surface against coils read either way says which was taken.
+SIMSOPT writes a `Current` object's value twice: as its `current`, the value it held when the file was saved, and in its degrees of freedom, the value SIMSOPT itself takes when it reads the file back. In a file written the ordinary way they are the same number. A value set past the degrees of freedom makes them differ, and then the file does not say which current its coils carried. torux refuses such a file and names the object and both values. `torux.load(path, currents="saved")` takes the value each object held when saved, `currents="dofs"` the one SIMSOPT reads back, and on the command line `--currents saved` or `--currents dofs`, in `solve`, `check` and `many` alike. A check of a surface against coils read either way says which was taken.
 
 A live SIMSOPT object is not a file: SIMSOPT computes its field with the value each `Current` holds, and torux reads it with that value without asking.
 

@@ -6,7 +6,7 @@
     torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME] [--coils NAME]
                 [--currents saved|dofs] [--surface-currents saved|dofs] [--mismatched-coils]
     torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S]
-               [--jobs N] [--save DIR]
+               [--jobs N] [--save DIR] [--coils NAME] [--currents saved|dofs]
     torux version
 
 solve prints the answer on stdout and, with --save, writes it: *.json (everything), input.<name> (VMEC input, cut
@@ -16,7 +16,7 @@ code is 0 for a verified surface, a certified or proved no-surface or a verified
 1 for an error, a command line that cannot be read included.  Each subcommand is a pair of functions in COMMANDS.
 --coils and --currents are torux.load's which= and currents= for a SIMSOPT JSON source: which coil set of a file
 holding several (with several files, --coils once per file, - for one that needs none), and which of a Current
-object's two values where they differ.  check's --which is the surface's, and
+object's two values where they differ.  In many they apply to every design.  check's --which is the surface's, and
 --surface-currents and --mismatched-coils are check's surface_currents= and mismatched_coils=True.
 """
 from __future__ import annotations

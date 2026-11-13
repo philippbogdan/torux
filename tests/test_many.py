@@ -525,3 +525,24 @@ def test_blas_loaded_before_torux_gets_torux_threads():
     out = subprocess.run([sys.executable, "-c", code], env=env, capture_output=True, text=True, check=True)
     n, pools = json.loads(out.stdout.strip().splitlines()[-1])
     assert n == "2" and all(t <= 2 for _, t in pools), pools
+
+
+def test_the_advice_of_a_refusal_works_in_many(tmp_path, capsys):
+    """A SIMSOPT file of several coil sets, and one whose Current states two values: their refusals say --coils and
+    --currents, which torux 0.1.4's many did not take. Now it does, for every design, and torux.many takes which=
+    and currents= as torux.load does."""
+    from test_simsopt_files import _boozer_file, _two_sets, _two_valued
+    from torux.cli import main
+    sets = _boozer_file(tmp_path / "sets.json", change=_two_sets)
+    two = _boozer_file(tmp_path / "two.json", change=_two_valued(3.95))
+    table = str(tmp_path / "t.csv")
+    assert main(["many", sets, two, "--table", table, "--flux", "0.05", "--jobs", "2"]) == 0
+    notes = " ".join(r["note"] for r in _rows(table)[1])
+    assert "--coils NAME" in notes and "--currents saved" in notes
+    capsys.readouterr()
+    assert main(["many", sets, two, "--table", table, "--flux", "0.05", "--jobs", "2", "--coils", "BiotSavart1",
+                 "--currents", "dofs"]) == 0
+    head, rows = _rows(table)
+    assert sorted(r["outcome"] for r in rows) == ["surface", "surface"]
+    got = batch.many([sets, two], 0.05, which="BiotSavart3", currents="dofs", jobs=2)
+    assert all(a.status == "error" and "matches 0" in a.evidence["error"] for a in got)

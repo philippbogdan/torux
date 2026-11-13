@@ -4,7 +4,7 @@
     answers = torux.many(files, minor_radius=0.1, table="answers.csv")     # the same question of every design
 
     torux many designs/*.json --table answers.csv [--flux WB | --minor-radius M | --volume M3 | --largest]
-               [--budget S] [--jobs N] [--save DIR]
+               [--budget S] [--jobs N] [--save DIR] [--coils NAME] [--currents saved|dofs]
 
 Each design is solved by a fresh Python process that imports this module and runs one job, never a fork of
 the caller: a fork of a process whose JAX or numba has started its threads can hang, and a spawned
@@ -48,7 +48,7 @@ _WORKER = "import sys; from torux.batch import _worker_main; _worker_main(sys.ar
 
 
 def many(sources, flux=None, *, minor_radius=None, volume=None, largest=False, jobs=None, table=None, save=None,
-         budget_s=None, tol=3e-15, verify=True, gradients=False):
+         budget_s=None, tol=3e-15, verify=True, gradients=False, which=None, currents=None):
     """Solve many sources at once, each in its own process, ``jobs`` at a time, and return the answers in the
     order given.
 
@@ -61,10 +61,13 @@ def many(sources, flux=None, *, minor_radius=None, volume=None, largest=False, j
     table     a .csv file with one row a design, written as each finishes.  A table that exists is continued:
               the designs already in it are not solved again
     save      a folder where each answer is also written as JSON
+    which, currents
+              torux.load's, for every design: the coil set of a SIMSOPT file holding several, and which of a Current
+              object's two values to take where they differ
     The rest are torux.solve's.  A design that fails is an answer with status 'error' and the reason.  A design
     already in the table comes back as the answer saved for it in ``save`` when that folder holds it, else None."""
     return _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, None,
-                dict(minor_radius=minor_radius, volume=volume, largest=largest))
+                dict(minor_radius=minor_radius, volume=volume, largest=largest), dict(which=which, currents=currents))
 
 
 # --------------------------------------------------------------------------- the batch
@@ -109,7 +112,7 @@ def _expand(s):
     return found
 
 
-def _items(sources):
+def _items(sources, choices=None):
     from .source import Source
     from .sources import load, quasr_number
     if isinstance(sources, (str, os.PathLike)):
@@ -130,7 +133,7 @@ def _items(sources):
         else:
             # a live SIMSOPT or DESC object: written and read here, and the Source goes to the worker
             try:
-                src = load(x)
+                src = load(x, **(choices or {}))
                 out.append(_Item(src, src.id))
             except Exception as e:  # noqa: BLE001
                 it = _Item(None, getattr(x, "name", None) or type(x).__name__)
@@ -172,7 +175,7 @@ def _threads():
     return threads()
 
 
-def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, report, size=None):
+def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, report, size=None, choices=None):
     from .ask import one_question
     size = {**dict(minor_radius=None, volume=None, largest=False), **(size or {})}
     one_question(flux if flux is None or isinstance(flux, numbers.Real) else None, **size)
@@ -186,7 +189,8 @@ def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, rep
                                  or not math.isfinite(budget_s) or budget_s <= 0):
         raise ValueError(f"budget_s={budget_s!r}: give the seconds for each design's whole question as a positive "
                          f"number")
-    items = _items(sources)
+    choices = {k: v for k, v in (choices or {}).items() if v is not None}     # torux.load's which= and currents=
+    items = _items(sources, choices)
     if flux is None or isinstance(flux, numbers.Real):
         for it in items:
             it.flux = None if flux is None else float(flux)
@@ -226,7 +230,7 @@ def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, rep
             if report is not None:
                 report.skipped(sum(it.skip for it in items), len(items), table,
                                sum(it.key in tab.retried for it in items))
-        args = dict(budget_s=budget_s, tol=tol, verify=verify, gradients=gradients, **size)
+        args = dict(budget_s=budget_s, tol=tol, verify=verify, gradients=gradients, choices=choices, **size)
         todo = [it for it in items if it.answer is None and not it.skip]
         at_once = min(jobs, len(todo))
         if report is not None and todo:
@@ -274,6 +278,7 @@ class _Job:
         self.overrun = overrun
         self.budget = None           # the budget the process stated, once it has
         self.stopped = False         # stopped by the batch, past the limit of its own watchdog
+        self.choices = None          # torux.load's which= and currents= for its source
 
 
 def _child_env():
@@ -331,7 +336,9 @@ def _start(it, k, tmp, env, args):
     # stdin stays open as a lifeline: when this process goes, the worker sees it close and stops
     proc = subprocess.Popen([sys.executable, "-c", _WORKER, base + ".job", base + ".out"], stdin=subprocess.PIPE,
                             stdout=subprocess.DEVNULL, stderr=errfh, env=env, close_fds=True)
-    return _Job(it, proc, base + ".out", base + ".err", errfh, time.time(), _OVERRUN)
+    j = _Job(it, proc, base + ".out", base + ".err", errfh, time.time(), _OVERRUN)
+    j.choices = args.get("choices")              # what the answer's engine is loaded with again, when it is used
+    return j
 
 
 def _overdue(j):
@@ -389,7 +396,7 @@ def _collect(j):
                 out = pickle.load(fh)
             ans = out["answer"]
             if out.get("engine") is not None:
-                ans._engine = _Engine(it.payload, out["engine"])
+                ans._engine = _Engine(it.payload, out["engine"], j.choices)
             row = out["row"]
             row.update(source=it.name, id=it.quasr)
             return ans, row
@@ -440,32 +447,33 @@ def _watchdog(rc, err, wall, budget, j):
 class _Engine:
     """The field engine of an answer solved in another process, rebuilt from its source when first used."""
 
-    def __init__(self, source, dmin):
-        self._source, self._dmin, self._e = source, dmin, None
+    def __init__(self, source, dmin, choices=None):
+        self._source, self._dmin, self._choices, self._e = source, dmin, choices, None
 
     def __getattr__(self, k):
-        if k.startswith("__") or k in ("_source", "_dmin", "_e"):
+        if k.startswith("__") or k in ("_source", "_dmin", "_choices", "_e"):
             raise AttributeError(k)
         if self._e is None:
             from .field import FieldEngine
-            self._e = FieldEngine(_load_payload(self._source), dmin=self._dmin)
+            self._e = FieldEngine(_load_payload(self._source, self._choices), dmin=self._dmin)
         return getattr(self._e, k)
 
     def __getstate__(self):
-        return dict(_source=self._source, _dmin=self._dmin, _e=None)
+        return dict(_source=self._source, _dmin=self._dmin, _choices=self._choices, _e=None)
 
     def __setstate__(self, d):
         self.__dict__.update(d)
 
 
-def _load_payload(s):
+def _load_payload(s, choices=None):
+    """The source of a design: torux.load's, with its which= and currents= (choices) for a file."""
     from .source import Source
     from .sources import load
     if isinstance(s, Source):
         return s
     if isinstance(s, tuple):
-        return load(*s)
-    return load(s)
+        return load(*s, **(choices or {}))
+    return load(s, **(choices or {}))
 
 
 # --------------------------------------------------------------------------- one design, in its own process
@@ -487,7 +495,7 @@ def _work(job):
     t0 = time.time()
     src, request, budget = None, job["flux"], None
     try:
-        src = _load_payload(job["source"])
+        src = _load_payload(job["source"], job.get("choices"))
         sized = job.get("minor_radius") is not None or job.get("volume") is not None or job.get("largest")
         if request is None and not sized:
             request = (src.request or {}).get("flux_Wb")
@@ -720,6 +728,8 @@ def add_parser(sub):
     m.add_argument("--jobs", type=int, metavar="N", help="designs at once (default: the cores divided by "
                                                          "TORUX_THREADS)")
     m.add_argument("--save", metavar="DIR", help="a folder where each answer is also written as JSON")
+    from .check import add_source_choices
+    add_source_choices(m)
     return m
 
 
@@ -750,8 +760,9 @@ def main(a, out=None):
     out = out or sys.stdout
     rep = _Report(out)
     try:
+        from .check import source_choices
         _run(a.files, a.flux, a.jobs, a.table, a.save, a.budget, 3e-15, True, False, rep,
-             dict(minor_radius=a.minor_radius, volume=a.volume, largest=a.largest))
+             dict(minor_radius=a.minor_radius, volume=a.volume, largest=a.largest), source_choices(a))
     except KeyboardInterrupt:
         print("stopped: every design not in the table yet is solved when the same command runs again",
               file=sys.stderr)
