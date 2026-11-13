@@ -102,7 +102,7 @@ torux.many(files, table="answers.csv")        # a folder of designs, one row eac
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="visuals/plot-dark.png">
-    <img src="visuals/plot-light.png" width="760" alt="What s.plot draws for the surface above: on the left the flux surface as a green torus, shaded by the strength of the field on it, threaded through its four copper coils. On the right are its cross-sections at three toroidal angles, an ellipse lying flat, a rounded triangle and an ellipse standing upright, and the scale of the field strength, about 0.9 to 1.1 tesla.">
+    <img src="visuals/plot-light.png" width="760" alt="What s.plot draws for the surface above: on the left the verified flux surface as a green torus, shaded by the strength of the field on it, threaded through its four copper coils. On the right are its cross-sections at three toroidal angles, an ellipse lying flat, a rounded triangle and an ellipse standing upright, and the scale of the field strength, about 0.9 to 1.1 tesla.">
   </picture>
 </p>
 
