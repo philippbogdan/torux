@@ -711,8 +711,12 @@ def symmetric_average(source, torus, general, parts):
         for _ in range(k):
             x = f(x)
         return x
-    for name, back in (("the rotation", times(rot, n, probe)), ("the flip", flip(flip(probe))),
-                       ("flip and rotation", flip(rot(flip(rot(probe)))))):
+    closes = [("the rotation", times(rot, n, probe))]
+    if F is not None:
+        # with the flip, the group is dihedral: flip twice and (flip, rotation) twice are each the identity. Without
+        # it the group is the rotations alone, closed by the first
+        closes += [("the flip", flip(flip(probe))), ("flip and rotation", flip(rot(flip(rot(probe)))))]
+    for name, back in closes:
         if max(float(np.abs(x[k] - y[k]).max(initial=0.0)) for x, y in zip(back, probe) for k in x if k != "kind") > 1e-9:
             raise NoMap(f"the maps found for the source's copies do not close: {name} is not the identity")
     if F is not None:

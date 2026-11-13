@@ -269,3 +269,56 @@ def test_the_maps_are_the_symmetry(quasr_954):
         for k in a:
             if k != "kind":
                 assert np.abs(np.asarray(a[k]) - np.asarray(b[k])).max() <= 1e-13
+
+
+# --------------------------------------------------------------------------- field periods without stellarator symmetry
+def _three_periods():
+    """QUASR 219457 with its coils of negative current at 3% more: three field periods, no stellarator symmetry."""
+    from conftest import example
+    from torux.io._stellcommon import apply_verified_symmetry
+    q = torux.load(example("quasr_0219457.json"))
+    p = q.parts[0]
+    src = torux.Source("219457 at +3% in its negative currents",
+                       [torux.FourierCurves(p.coef, np.where(p.current < 0, 1.03, 1.0) * p.current)])
+    apply_verified_symmetry(src, [q.nfp])
+    assert src.nfp == 3 and not src.stellsym
+    return src, float(q.request["flux_Wb"])
+
+
+def test_three_periods_without_stellarator_symmetry_have_per_coil_numbers():
+    """With field periods and no flip, the group is the rotations alone: torux 0.1.4 tested the flip's closure with
+    the identity for a flip, which is the rotation twice, and gave no per-coil numbers for three periods or more."""
+    from types import SimpleNamespace
+    from torux.gradients import _action
+    from torux.source import rotation_z
+    src, _ = _three_periods()
+    g = _fake(src)
+    out = iota_gradients(src, SimpleNamespace(nfp=3, phi0=0.0), True, g)
+    assert "per_coil" not in out and "one_period" not in out
+    rot = _action(src, rotation_z(2 * np.pi / 3), 1.0)
+    acc = cur = g["parts"]
+    for _ in range(2):
+        cur = rot(cur)
+        acc = [{k: (a[k] + c[k] if k != "kind" else a[k]) for k in a} for a, c in zip(acc, cur)]
+    want = acc[0]["d_current"] / 3
+    assert np.abs(out["d_iota_d_current"] - want).max() <= 1e-14 * np.abs(want).max()
+    d = out["d_iota_d_current"]                                         # coil k + 4 is coil k turned by a period
+    assert np.abs(d[4:8] - d[0:4]).max() <= 1e-14 * np.abs(d).max() and np.abs(d[8:] - d[:4]).max() <= 1e-14 * np.abs(d).max()
+
+
+# the central differences' own truncation at a step of 1e-4 of the entry is 3e-5 of them here (1e-3 gives 3e-3)
+TOL_219457 = 1e-4
+
+
+@pytest.mark.slow
+def test_three_periods_without_stellarator_symmetry_against_solves_without_symmetry():
+    """The per-coil numbers of that source against central differences of solves with only one entry changed and no
+    symmetry assumed. The one-period solve's dι/dI of coil 0 is +5.8e-07 per ampere, of the other sign."""
+    src, flux = _three_periods()
+    res = torux.solve(src, flux=flux, gradients=True, budget_s=1500)
+    assert res.status == "surface" and "per_coil" not in res.gradients
+    g, f = res.gradients, res.surface.flux
+    fd = _alone(src, f, "current", 0, 1e-4)
+    assert abs(fd - g["d_iota_d_current"][0]) <= TOL_219457 * abs(fd)
+    fd = _alone(src, f, "coef", (1, 0, 2), 1e-4)
+    assert abs(fd - g["d_iota_d_coef"][1, 0, 2]) <= TOL_219457 * abs(fd)
