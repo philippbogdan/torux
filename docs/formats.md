@@ -8,7 +8,7 @@
 |---|---|---|
 | **QUASR download** (`serial*.json`) | coils as Fourier filaments, the design's stored surfaces, and the request | the flux of the outermost stored surface becomes the request, and nothing else is needed |
 | **QUASR by number** (`"quasr:954"`) | the same, downloaded once | kept in torux's cache, and needs the network the first time only |
-| **SIMSOPT JSON** | every coil of a `BiotSavart` object | `CurveXYZFourier`, `RotatedCurve`, `CurvePlanarFourier`, `CurveXYZFourierSymmetries` and its earlier name `CurveXYZHelical` converted exactly, framed and winding-surface curves by FFT with a measured error. Several coil sets in one file: `which=` picks one |
+| **SIMSOPT JSON** | every coil of a `BiotSavart` object | `CurveXYZFourier`, `RotatedCurve`, `CurvePlanarFourier`, `CurveXYZFourierSymmetries` and its earlier name `CurveXYZHelical` converted exactly, framed and winding-surface curves by FFT with a measured error. Several coil sets in one file: `which=` picks one (`--coils` on the command line). A `Current` whose two values differ is refused until `currents=` chooses one ([below](#a-current-with-two-values)) |
 | **SIMSOPT objects** | a live `BiotSavart`, `Coil` or list of `Coil`s | through SIMSOPT's own `save`, then as the JSON |
 | **Fourier-filament JSON** | closed filaments | `{"nfp", "stellarator_symmetric", "coils": [{"xc", "xs", "yc", "ys", "zc", "zs", "current_A"}]}`, every coil of the device written out, and optionally `"requested_toroidal_flux_Wb"` |
 | **MAKEGRID** (`coils.*`) | closed polygons | circular coils on the axis become rings |
@@ -39,6 +39,14 @@ A claimed symmetry is used only after it has been verified on the parts themselv
 | **DESC objects** | `FourierRZToroidalSurface`, or an `Equilibrium`, whose `Psi` is the flux it states |
 | **VMEC++ objects** | the output of `vmecpp.run`, or its `wout` |
 | **a torux answer** | |
+
+## SIMSOPT files torux refuses rather than guess
+
+### A `Current` with two values
+
+SIMSOPT writes a `Current` object's value twice: as its `current`, the value it held when the file was saved, and in its degrees of freedom, the value SIMSOPT itself takes when it reads the file back. In a file written the ordinary way they are the same number. A value set past the degrees of freedom makes them differ, and then the file does not say which current its coils carried. torux refuses such a file and names the object and both values. `torux.load(path, currents="saved")` takes the value each object held when saved, `currents="dofs"` the one SIMSOPT reads back, and on the command line `--currents saved` or `--currents dofs`. A check of a surface against coils read either way says which was taken.
+
+CSX's `CSX_boozer_surface.json` and `boozer_surface_scaled_current.json` are such files: the interlinked coils' current is 9,880.06 A a filament as saved and 2,499.85 A in the degrees of freedom, while the poloidal-field coils' scale was raised by the same factor, 3.952. With the saved values the field across the file's own Boozer surface is 3.0 × 10⁻³ of |B| at worst, as on CSX's `boozer_surface_finite_build.json`, whose two values agree. With the degrees of freedom it is 6.8 × 10⁻¹, and SIMSOPT, reading the file back, takes the degrees of freedom too.
 
 ## What an answer writes
 

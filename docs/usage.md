@@ -196,6 +196,8 @@ The first row of numbers is the leak: the largest |B·n|/|B| at 4,096 random poi
 
 `check` takes the coils and a surface and measures, with the independent evaluator alone, how much of the field crosses the surface and how much flux it encloses. It pronounces no verdict. The surface is a VMEC or VMEC++ `wout` file, a VMEC input file, a SIMSOPT or QUASR JSON file, a saved torux answer, or a live object: a SIMSOPT `SurfaceRZFourier` or `SurfaceXYZTensorFourier`, a DESC `FourierRZToroidalSurface` or `Equilibrium`, a VMEC++ output, a torux answer ([formats](formats.md)). From the shell: `torux check coils.json wout_mine.nc`.
 
+A file holding several coil sets needs `which=` in `torux.load`, or `--coils` on the command line, and the error names the set each `BoozerSurface` of the file was computed with.
+
 ## Export: VMEC input, JSON, VTK
 
 ```python
@@ -342,11 +344,13 @@ Parts: `FourierCurves`, `PolylineCurves`, `Segments`, `Dipoles`, `Rings`, `Axisy
 ```text
 torux solve SOURCE [SOURCE ...] [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S] [--nfp N]
             [--kind stellarator|tokamak|dipole] [--gradients] [--no-verify] [--trace-lines N]
-            [--save FILE] [--mpol N] [--ntor N] [--plot FILE] [--boozer]
-torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME]
+            [--save FILE] [--mpol N] [--ntor N] [--plot FILE] [--boozer] [--coils NAME] [--currents saved|dofs]
+torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME] [--coils NAME] [--currents saved|dofs]
 torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --volume M3 | --largest]
             [--budget S] [--jobs N] [--save DIR]
 ```
+
+`--coils` and `--currents` are what `torux.load` takes as `which=` and `currents=` for a SIMSOPT JSON source: the coil set of a file holding several, by its `BiotSavart`'s name or index, and which of a `Current` object's two values to take where they differ ([formats](formats.md#simsopt-files-torux-refuses-rather-than-guess)). In `check`, `--which` is the surface's: `torux check file.json file.json --coils BiotSavart6 --which SurfaceXYZTensorFourier3`.
 
 `solve` prints the answer on standard output and says on standard error what it is asking and, in a search, each request as it ends. It exits with 0 for a surface or a certified or proved no-surface, 2 for anything undetermined and nothing else, 1 for an error, a command line it cannot read included.
 

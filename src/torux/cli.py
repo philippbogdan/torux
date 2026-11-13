@@ -2,8 +2,9 @@
 
     torux solve SOURCE [SOURCE ...] [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S] [--nfp N]
                 [--kind K] [--gradients] [--no-verify] [--trace-lines N] [--save FILE ...] [--mpol N] [--ntor N]
-                [--plot FILE] [--boozer]
-    torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME]
+                [--plot FILE] [--boozer] [--coils NAME] [--currents saved|dofs]
+    torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME] [--coils NAME]
+                [--currents saved|dofs]
     torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S]
                [--jobs N] [--save DIR]
     torux version
@@ -13,6 +14,8 @@ to --mpol and --ntor when they are given), *.vtk (the surface with |B|). --save 
 search (a size, the largest) says on stderr what it asks, how long it may take and each request as it ends.  The exit
 code is 0 for a verified surface, a certified or proved no-surface or a verified range, 2 for anything undetermined,
 1 for an error, a command line that cannot be read included.  Each subcommand is a pair of functions in COMMANDS.
+--coils and --currents are torux.load's which= and currents= for a SIMSOPT JSON source: which coil set of a file
+holding several, and which of a Current object's two values where they differ.  check's --which is the surface's.
 """
 from __future__ import annotations
 
@@ -101,6 +104,8 @@ def _solve_args(sub):
     s.add_argument("--plot", metavar="FILE", help="draw the surface inside its coils to FILE: .png, .pdf or .svg")
     s.add_argument("--boozer", action="store_true", help="also the Boozer spectrum of |B| on the surface and its "
                                                          "quasi-symmetry")
+    from .check import add_source_choices
+    add_source_choices(s)
     s.add_argument("--out", help=argparse.SUPPRESS)
 
 
@@ -129,7 +134,8 @@ def _solve(a):
         ask.one_question(a.flux, a.minor_radius, a.volume, a.largest)
         if a.budget is not None and not (a.budget > 0 and a.budget < float("inf")):
             raise ValueError(f"--budget {a.budget:g}: give the seconds for the whole question as a positive number")
-        src = torux.load(*a.files, nfp=a.nfp, kind=a.kind)
+        from .check import source_choices
+        src = torux.load(*a.files, nfp=a.nfp, kind=a.kind, **source_choices(a))
         own = a.flux if a.flux is not None else (src.request or {}).get("flux_Wb")
         if own is not None and a.minor_radius is None and a.volume is None and not a.largest:
             from .api import estimate_budget          # one request. A search says what it asks itself

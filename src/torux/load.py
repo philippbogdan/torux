@@ -9,9 +9,12 @@
 The format is read from the file itself.  What each format gives:
 
   SIMSOPT JSON         every coil of a BiotSavart object, each curve class converted exactly to a Fourier
-                       filament.  A QUASR download also carries its optimisation surfaces: they become the start
-                       of the solve, and the flux QUASR's own definition assigns to the outermost one becomes
-                       the request (Source.request), so torux.solve(path) needs nothing else.
+                       filament (framed and winding-surface curves by FFT with a measured error).  A file with
+                       several BiotSavart objects needs which=.  A Current object whose two values differ (the
+                       one it held when saved and its degrees of freedom) needs currents=.  A QUASR download
+                       also carries its optimisation surfaces: they become the start of the solve, and the
+                       flux QUASR's own definition assigns to the outermost one becomes the request
+                       (Source.request), so torux.solve(path) needs nothing else.
   Fourier-filament JSON  {"nfp", "stellarator_symmetric", "coils": [{"xc", "xs", "yc", "ys", "zc", "zs",
                        "current_A"}, ...]}, r(t) = c[0] + sum_k c[k] cos 2 pi k t + s[k] sin 2 pi k t, every coil
                        of the device written out; optional "requested_toroidal_flux_Wb".
@@ -113,34 +116,28 @@ def _design_request(src, surfs, provenance):
     src.request = {"flux_Wb": float(flux), "provenance": provenance}
 
 
-def _load_json(path, name, nfp, which):
+def _load_json(path, name, nfp, which, currents=None):
     with open(path, "rb") as fh:
         d = json.loads(fh.read())
     if isinstance(d, dict) and "simsopt_objs" in d:
         from .io.simsopt_json import Simson, load_quasr_serial, load_simson_sources
         from .io.surfaces import simson_surfaces
-        sim = Simson(d, str(path))
+        sim = Simson(d, str(path), currents)
         if sim.graph_coil_list() is not None:
-            src, sim = load_quasr_serial(str(path), name)
+            src, sim = load_quasr_serial(str(path), name, currents=currents)
             surfs = simson_surfaces(sim, [r["value"] for r in sim.graph[0]])
             if surfs:
                 src._design_surfaces = surfs
                 _design_request(src, surfs, "the flux enclosed by the file's outermost stored surface "
                                             "(loop integral of A at its own quadrature points)")
             return src
-        srcs = load_simson_sources(str(path), name, extra_nfp=(nfp,) if nfp else ())
-        if not srcs:
+        from .io.simsopt_json import coil_sets, pick_coil_set
+        sets = coil_sets(sim, name)
+        if not sets:
             raise ValueError(f"{path}: no BiotSavart object with coils")
-        if len(srcs) > 1:
-            if which is None:
-                raise ValueError(f"{path}: {len(srcs)} coil sets ({[s.id for s in srcs]}); choose one with which=")
-            pick = [s for s in srcs if s.id == which or s.id.endswith("#" + str(which))]
-            if isinstance(which, int) and not pick:
-                pick = [srcs[which]]
-            if len(pick) != 1:
-                raise ValueError(f"{path}: which={which!r} matches {len(pick)} of {[s.id for s in srcs]}")
-            return pick[0]
-        return srcs[0]
+        sid = pick_coil_set(sim, sets, which)[0]
+        return load_simson_sources(str(path), name, extra_nfp=(nfp,) if nfp else (), which=sid,
+                                   currents=currents)[0]
     if isinstance(d, dict) and isinstance(d.get("coils"), list) and d["coils"] and "xc" in d["coils"][0]:
         from .io.fourier_json import load_fourier_json
         src = load_fourier_json(str(path), source_id=name, request_from_file=True,
@@ -162,10 +159,10 @@ def _load_json(path, name, nfp, which):
     raise ValueError(f"{path}: a JSON file, but not SIMSOPT, Fourier-filament or torux JSON")
 
 
-def _load_one(path, name, nfp, which):
+def _load_one(path, name, nfp, which, currents=None):
     fmt = _sniff(path)
     if fmt == "json":
-        return _load_json(path, name, nfp, which), None
+        return _load_json(path, name, nfp, which, currents), None
     if fmt == "makegrid":
         from .io.makegrid import load_makegrid
         kw = dict(nfp_candidates=[nfp]) if nfp else {}
@@ -210,20 +207,23 @@ def _load_one(path, name, nfp, which):
     raise ValueError(f"{path}: format {fmt} not handled")
 
 
-def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None):
+def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None, currents=None):
     """A Source from one file, or from several whose parts add up to one source.
 
-    nfp    field periods, for formats that do not state them (FOCUS tables) and as the symmetry to verify
-    kind   'stellarator' (default), 'tokamak' or 'dipole'
-    flux   the requested full toroidal flux in Wb, kept with the source (Source.request)
-    which  for a SIMSOPT JSON file holding several coil sets: the one to take (its name or index)
-    name   the source's id (default: the first file's name)"""
+    nfp       field periods, for formats that do not state them (FOCUS tables) and as the symmetry to verify
+    kind      'stellarator' (default), 'tokamak' or 'dipole'
+    flux      the requested full toroidal flux in Wb, kept with the source (Source.request)
+    which     for a SIMSOPT JSON file holding several coil sets: the one to take (its name or index)
+    name      the source's id (default: the first file's name)
+    currents  for a SIMSOPT JSON file whose Current objects state two different values: 'saved' (the value the
+              object held when the file was saved) or 'dofs' (the value SIMSOPT reads back). Without it such a
+              file is refused"""
     if kind is not None and kind not in KINDS:
         raise ValueError(f"kind must be one of {KINDS}")
     name = name or _name(path)
-    src, default_kind = _load_one(path, name, nfp, which)
+    src, default_kind = _load_one(path, name, nfp, which, currents)
     for p in more:
-        other, k2 = _load_one(p, _name(p), nfp, None)
+        other, k2 = _load_one(p, _name(p), nfp, None, currents)
         src.parts = list(src.parts) + list(other.parts)
         src.provenance.setdefault("files", []).extend(other.provenance.get("files", [str(p)]))
         for k, v in other.meta.items():

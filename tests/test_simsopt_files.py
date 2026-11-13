@@ -1,19 +1,138 @@
-"""SIMSOPT JSON files as their owners write them: the helical curve classes.
+"""SIMSOPT JSON files as their owners write them: what torux reads, and what it refuses rather than guess.
 
-Each file here is written by the test from curves given by hand, so that what it should read is known without torux.
-The truth is the curves' definition in SIMSOPT, written out again below. Where SIMSOPT imports, its own
+Each file here is written by the test from the bundled QUASR 954 download or from curves given by hand, so that
+what it should read is known without torux: the coils of a BoozerSurface file (the coils its surface was computed
+for), a Current object stating two values, several coil sets in one file, and the helical curve classes. The truth
+for the helical curves is their definition in SIMSOPT, written out again below. Where SIMSOPT imports, its own
 CurveXYZFourierSymmetries is compared too.
 """
+import argparse
 import json
 
 import numpy as np
 import pytest
 
+from conftest import example
+
 import torux
+from torux.check import add_command, check, run_command
 
 
 def _ref(name):
     return {"$type": "ref", "value": name}
+
+
+def _quasr_954():
+    with open(example("quasr_0000954.json")) as fh:
+        return json.load(fh)
+
+
+def _boozer_file(path, change=None):
+    """QUASR 954 written as SIMSOPT writes a BoozerSurface: its coils as BiotSavart1, its outermost stored surface
+    as the surface of BoozerSurface1, and the graph the BoozerSurface. ``change(d)`` edits the file first."""
+    d = _quasr_954()
+    surfaces, coils = d["graph"]
+    outer = surfaces[-1]["value"]
+    o = d["simsopt_objs"]
+    o["BiotSavart1"] = {"@module": "simsopt.field.biotsavart", "@class": "BiotSavart", "@name": "BiotSavart1",
+                        "coils": coils}
+    o["Volume1"] = {"@module": "simsopt.geo.surfaceobjectives", "@class": "Volume", "@name": "Volume1",
+                    "surface": _ref(outer)}
+    o["BoozerSurface1"] = {"@module": "simsopt.geo.boozersurface", "@class": "BoozerSurface",
+                           "@name": "BoozerSurface1", "biotsavart": _ref("BiotSavart1"), "surface": _ref(outer),
+                           "label": _ref("Volume1"), "targetlabel": 0.1, "constraint_weight": None}
+    d["graph"] = _ref("BoozerSurface1")
+    if change is not None:
+        change(d)
+    with open(path, "w") as fh:
+        json.dump(d, fh)
+    return str(path)
+
+
+def _coil_current(d, coil):
+    """The current a coil of the file carries, as SIMSOPT resolves it (A)."""
+    o = d["simsopt_objs"]
+
+    def value(name):
+        c = o[name]
+        if c["@class"] == "ScaledCurrent":
+            return c["scale"] * value(c["current_to_scale"]["value"])
+        x = o[c["dofs"]["value"]]["x"]
+        return (x["data"] if isinstance(x, dict) else x)[0]
+    return value(o[coil]["current"]["value"])
+
+
+def _two_valued(saved_over_dofs):
+    """An edit: the first coil carries a Current of its own, whose DOFs hold the coil's current and whose
+    'current' key holds that times saved_over_dofs, as in a file whose current was set past its DOFs."""
+    def change(d):
+        o = d["simsopt_objs"]
+        first = d["simsopt_objs"]["BiotSavart1"]["coils"][0]["value"]
+        i0 = _coil_current(d, first)
+        o["dofs_of_Current9"] = {"@module": "simsopt._core.optimizable", "@class": "DOFs", "@name": "dofs_of_Current9",
+                                 "x": [i0], "names": ["x0"]}
+        o["Current9"] = {"@module": "simsopt.field.coil", "@class": "Current", "@name": "Current9",
+                         "current": i0 * saved_over_dofs, "dofs": _ref("dofs_of_Current9")}
+        o[first]["current"] = _ref("Current9")
+    return change
+
+
+# --------------------------------------------------------------------------- a Current with two values
+def test_a_current_with_two_values_is_refused_until_chosen(tmp_path, quasr_954):
+    """CSX's CSX_boozer_surface.json: the 'current' key of its Current1 is 3.95 times its DOFs. torux 0.1.3 took the
+    DOFs without a word and measured 6.8e-01 of |B| across the owners' own surface. The file does not say which."""
+    f = _boozer_file(tmp_path / "two.json", change=_two_valued(3.95))
+    with pytest.raises(ValueError, match="Current9 states two values") as e:
+        torux.load(f)
+    assert "currents='saved'" in str(e.value) and "--currents" in str(e.value)
+    with pytest.raises(ValueError, match="two values"):
+        check(f, f)
+    dofs = torux.load(f, currents="dofs")
+    saved = torux.load(f, currents="saved")
+    assert np.array_equal(dofs.parts[0].current, quasr_954.parts[0].current)
+    assert saved.parts[0].current[0] == pytest.approx(3.95 * quasr_954.parts[0].current[0], rel=1e-15)
+    assert np.array_equal(saved.parts[0].current[1:], quasr_954.parts[0].current[1:])
+    assert saved.meta["currents"]["taken"] == "saved" and "Current9" in saved.meta["currents"]["differing"]
+    a, b = check(dofs, f), check(saved, f)                   # each against its own file read the same way
+    assert a.leak < 1e-5 and b.leak > 1e-2
+    assert any("'saved' ones were taken" in n for n in b.notes)
+    with pytest.raises(ValueError, match="currents="):
+        torux.load(f, currents="key")
+
+
+def test_a_current_whose_two_values_agree_to_rounding_is_read(tmp_path, quasr_954):
+    f = _boozer_file(tmp_path / "ulp.json", change=_two_valued(1 + 2 ** -52))
+    src = torux.load(f)
+    assert np.array_equal(src.parts[0].current, quasr_954.parts[0].current) and "currents" not in src.meta
+
+
+# --------------------------------------------------------------------------- several coil sets
+def _two_sets(d):
+    o = d["simsopt_objs"]
+    o["BiotSavart2"] = dict(o["BiotSavart1"], **{"@name": "BiotSavart2"})
+
+
+def test_several_coil_sets_name_the_choice_and_the_command_line_takes_it(tmp_path, capsys):
+    f = _boozer_file(tmp_path / "sets.json", change=_two_sets)
+    with pytest.raises(ValueError, match="--coils") as e:
+        torux.load(f)
+    assert "BoozerSurface1 was computed with BiotSavart1" in str(e.value)
+    assert torux.load(f, which="BiotSavart2").meta["field_object"] == "BiotSavart2"
+    assert torux.load(f, which=0).meta["field_object"] == "BiotSavart1"
+    with pytest.raises(ValueError, match="matches 0"):
+        torux.load(f, which="BiotSavart3")
+    ap = argparse.ArgumentParser(prog="torux")
+    add_command(ap.add_subparsers(dest="cmd"))
+    assert run_command(ap.parse_args(["check", f, f])) == 1
+    assert "--coils" in capsys.readouterr().err
+    assert run_command(ap.parse_args(["check", f, f, "--coils", "BiotSavart2"])) == 0
+    assert run_command(ap.parse_args(["check", f, f, "--coils", "1", "--which", "0"])) == 0
+    assert capsys.readouterr().out.startswith("surface")
+    g = _boozer_file(tmp_path / "two.json", change=_two_valued(3.95))
+    assert run_command(ap.parse_args(["check", g, g, "--currents", "dofs"])) == 0
+    from torux.cli import main
+    assert main(["solve", f, "--coils", "BiotSavart3"]) == 1    # refused before any solve
+    assert "matches 0" in capsys.readouterr().err
 
 
 # --------------------------------------------------------------------------- helical curves

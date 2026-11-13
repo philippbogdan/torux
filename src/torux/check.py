@@ -114,6 +114,10 @@ def measure_at(src, S, theta, phi, sections, flux=None) -> Check:
     x, xt, xp = S.eval(theta, phi)
     nv = np.cross(xt, xp)
     B = np.asarray(F.evaluate(x, grad=False)["B"], float)
+    taken = ((getattr(src, "meta", None) or {}).get("currents") or {})
+    if taken.get("differing"):
+        notes.append(f"the source's file states two values for {', '.join(taken['differing'])}: the "
+                     f"{taken['taken']!r} ones were taken, as asked")
     with np.errstate(invalid="ignore", divide="ignore"):
         bn = np.abs(np.sum(B * nv, -1)) / (np.linalg.norm(B, axis=-1) * np.linalg.norm(nv, axis=-1))
     ok = np.isfinite(bn)
@@ -687,7 +691,26 @@ def add_command(sub):
                                                         "state them")
     c.add_argument("--which", metavar="NAME", help="the surface to take from a file holding several: its name or "
                                                    "index (default: the outermost)")
+    add_source_choices(c)
     return c
+
+
+def add_source_choices(c):
+    """--coils and --currents: what torux.load's which= and currents= say, for a SIMSOPT JSON source."""
+    c.add_argument("--coils", metavar="NAME", help="the coil set to take from a SIMSOPT JSON file holding several: "
+                                                   "its BiotSavart's name or index")
+    c.add_argument("--currents", choices=("saved", "dofs"), help="for a SIMSOPT JSON file whose Current objects "
+                                                                 "state two different values: the one each held "
+                                                                 "when the file was saved, or the one SIMSOPT reads "
+                                                                 "back from its degrees of freedom")
+
+
+def source_choices(a):
+    """torux.load's which= and currents= from --coils and --currents."""
+    which = a.coils
+    if which is not None and which.lstrip("-").isdigit():
+        which = int(which)
+    return dict(which=which, currents=a.currents)
 
 
 def run_command(a):
@@ -695,7 +718,7 @@ def run_command(a):
     import sys
     try:
         from .sources import load
-        src = load(*a.files, nfp=a.nfp)
+        src = load(*a.files, nfp=a.nfp, **source_choices(a))
         which = a.which
         if which is not None and which.lstrip("-").isdigit():
             which = int(which)

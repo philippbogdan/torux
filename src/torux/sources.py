@@ -28,7 +28,7 @@ _QUASR = re.compile(r"^\s*quasr\s*[:#/_ -]?\s*(?:serial)?\s*([0-9][0-9,_ ]*?)\s*
 _GROUPED = re.compile(r"^[0-9]{1,3}(?:([,_ ])[0-9]{3})?(?:\1[0-9]{3})*$")
 
 
-def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None):
+def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None, currents=None):
     """The source of a field: a coil or magnet file, a QUASR design ("quasr:954"), a live SIMSOPT BiotSavart, Coil
     or list of Coils, a live DESC CoilSet, MixedCoilSet or coil, or several of these whose parts add up.
 
@@ -37,6 +37,8 @@ def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None):
     flux   a full toroidal flux in Wb to ask for, kept with the source as its request
     which  for a SIMSOPT file holding several coil sets: the one to take, by name or index
     name   the source's id (default: the first file's name)
+    currents  for a SIMSOPT file whose Current objects state two different values: 'saved', the value each object
+           held when the file was saved, or 'dofs', the value SIMSOPT reads back. Without it such a file is refused
 
     A DESC coil set's field comes out larger than DESC's own by 1.3 parts in 10^10: torux takes mu_0 = 4 pi 1e-7
     H/m, as SIMSOPT and VMEC do, and DESC takes CODATA's."""
@@ -47,7 +49,7 @@ def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None):
         if name is None and made is not None:
             name = made["name"]
         src = _base_load(first, *[f for f, _ in rest], nfp=nfp, kind=kind, flux=flux, which=which,
-                                name=name)
+                                name=name, currents=currents)
         files = src.provenance.get("files")
         if isinstance(files, list):
             # a temporary file says nothing once it is gone: name the object it was written from instead

@@ -6,8 +6,13 @@ framedcurve.py, surfacexyztensorfourier.py/.h).
 What is resolved
 ----------------
 Currents (signed, A):
-  Current        -> its DOFs x[0] (the ``current`` key is ignored when a DOFs object is
-                    linked: where they differ, the DOFs value is the one the object uses)
+  Current        -> its value.  A Current object with a linked DOFs object states it twice: its
+                    ``current`` key is the value the object held when the file was saved (what its
+                    field was computed with), and its DOFs x[0] is what SIMSOPT takes when it reads the
+                    file back.  They agree in a file SIMSOPT wrote in the ordinary way.  Where they
+                    differ (a value set past the DOFs, as in the CSX scaled-current files), the file does
+                    not say which the coils carried: the reader refuses unless told, with
+                    currents='saved' or currents='dofs'.
   ScaledCurrent  -> scale * resolve(current_to_scale), recursively
   CurrentSum     -> resolve(current_a) + resolve(current_b)
 Coils: Coil, RegularizedCoil, CircularRegularizedCoil, RectangularRegularizedCoil
@@ -60,7 +65,8 @@ Public API:
   read_simson(path) -> Simson
   Simson.biotsavarts(), .coils_of(name), .surfaces(), .boozer_surfaces()
   coils_to_source(sim, coil_names, source_id, ...) -> Source
-  load_simson_sources(path, id_prefix, ...) -> list[Source]   (one per distinct BiotSavart)
+  coil_sets(sim, id_prefix), pick_coil_set(sim, sets, which)
+  load_simson_sources(path, id_prefix, ..., which=None, currents=None) -> list[Source]   (one per BiotSavart)
   load_quasr_serial(path, source_id) -> Source  (fast path, graph [surfaces, coils])
 """
 from __future__ import annotations
@@ -86,16 +92,24 @@ def _arr(v):
     return v
 
 
+CURRENTS = (None, "saved", "dofs")
+DOF_ROUNDING = 4 * 2.0 ** -52          # a Current's two values closer than this agree
+
+
 class Simson:
-    def __init__(self, d, path=None):
+    def __init__(self, d, path=None, currents=None):
         if d.get("@class") != "SIMSON":
             raise ValueError(f"{path}: not a SIMSON file")
+        if currents not in CURRENTS:
+            raise ValueError(f"currents={currents!r}: give 'saved' (the value each Current object held when the "
+                             f"file was saved) or 'dofs' (the value SIMSOPT reads back from its degrees of freedom)")
         self.path = str(path) if path is not None else None
         self.graph = d["graph"]
         self.objs = d["simsopt_objs"]
         self.version = d.get("@version")
         self._cur = {}
-        self.use_current_key = False   # True: Current value from its 'current' key (non-default)
+        self.currents = currents       # which of a Current's two values to take where they differ (None: refuse)
+        self.differing = {}            # Current name -> (saved, dofs) for those that differ and were read
 
     def obj(self, ref):
         if isinstance(ref, dict) and ref.get("$type") == "ref":
@@ -124,12 +138,24 @@ class Simson:
         o = self.obj(ref)
         c = o["@class"]
         if c == "Current":
-            if self.use_current_key and "current" in o:
-                v = float(o["current"])
-            elif "dofs" in o and o["dofs"] is not None:
-                v = float(self.dofs_x(o)[0])
+            saved = float(o["current"]) if o.get("current") is not None else None
+            dofs = float(self.dofs_x(o)[0]) if o.get("dofs") is not None else None
+            if dofs is None or saved is None:
+                if dofs is None and saved is None:
+                    raise ValueError(f"{self.path}: {nm} states no value")
+                v = saved if dofs is None else dofs
+            elif abs(saved - dofs) <= DOF_ROUNDING * max(abs(saved), abs(dofs)):
+                v = dofs
             else:
-                v = float(o["current"])
+                self.differing[nm] = (saved, dofs)
+                if self.currents is None:
+                    raise ValueError(
+                        f"{self.path}: the SIMSOPT Current object {nm} states two values: {saved!r} as the value "
+                        f"it held when the file was saved, and {dofs!r} in its degrees of freedom, which SIMSOPT "
+                        f"takes when it reads the file back. The file does not say which one its coils carried, "
+                        f"and torux does not guess: choose with currents='saved' or currents='dofs' (on the "
+                        f"command line, --currents saved or --currents dofs)")
+                v = saved if self.currents == "saved" else dofs
         elif c == "ScaledCurrent":
             v = float(o["scale"]) * self.current(o["current_to_scale"])
         elif c == "CurrentSum":
@@ -138,16 +164,6 @@ class Simson:
             raise NotImplementedError(f"current class {c}")
         self._cur[nm] = v
         return v
-
-    def current_stale(self, ref):
-        """Differences between stored ``current`` keys and DOFs values."""
-        out = []
-        for k, o in self.objs.items():
-            if o["@class"] == "Current" and "dofs" in o and o["dofs"] is not None:
-                xv = float(self.dofs_x(o)[0])
-                if "current" in o and float(o["current"]) != xv:
-                    out.append((k, float(o["current"]), xv))
-        return out
 
     # ---------------------------------------------------------------- graph search
     def _walk(self, node, seen, out_cls, acc):
@@ -206,11 +222,11 @@ class Simson:
         return curve_from_obj(self, self.obj(ref))
 
 
-def read_simson(path):
+def read_simson(path, currents=None):
     p = data_path(path)
     with open(p, "rb") as fh:
         d = json.loads(fh.read())
-    return Simson(d, p)
+    return Simson(d, p, currents)
 
 
 # --------------------------------------------------------------------------- curve representations
@@ -674,9 +690,10 @@ def coils_to_source(sim, coil_names, source_id, nfp_candidates=(1,), stellsym_cl
     notes = sorted({info["note"] for *_, info in res if "note" in info})
     if notes:
         meta["curve_notes"] = notes
-    stale = sim.current_stale(None)
-    if stale:
-        meta["stale_current_keys"] = stale[:20]
+    if sim.differing:
+        # the Current objects whose two values differ, and the one taken as the caller chose
+        meta["currents"] = {"taken": sim.currents,
+                            "differing": {k: {"saved": a, "dofs": b} for k, (a, b) in sim.differing.items()}}
     files = [rel_path(sim.path)] + [rel_path(f) for f in extra_files]
     src = Source(id=source_id, parts=parts, family=family,
                  provenance={"files": files, "loader": loader, "format": "SIMSOPT SIMSON JSON"}, meta=meta)
@@ -701,12 +718,9 @@ def nfp_hints(sim):
     return sorted(c)
 
 
-def load_simson_sources(path, id_prefix, family="", check_symmetry=True, extra_nfp=()):
-    """One Source per BiotSavart object of the file (or the graph's coil list), in graph order.
-
-    Ids: id_prefix if there is one field object, else f"{id_prefix}#{BiotSavartName}".
-    """
-    sim = read_simson(path)
+def coil_sets(sim, id_prefix):
+    """[(id, field object name, coil names)]: one per BiotSavart object of the file (or the graph's coil list), in
+    graph order.  Ids: id_prefix if there is one, else f"{id_prefix}#{BiotSavartName}"."""
     groups = []
     gl = sim.graph_coil_list()
     if gl is not None:
@@ -717,19 +731,54 @@ def load_simson_sources(path, id_prefix, family="", check_symmetry=True, extra_n
         coils = sim.find(COIL_CLASSES)
         if coils:
             groups.append(("coils", coils))
+    return [(id_prefix if len(groups) == 1 else f"{id_prefix}#{name}", name, coils) for name, coils in groups]
+
+
+def boozer_pairs(sim):
+    """{BoozerSurface or QFMSurface name: (the name of the field it was computed for, its surface's name)}."""
+    out = {}
+    for nm in sim.find({"BoozerSurface", "QFMSurface"}):
+        o = sim.objs[nm]
+        out[nm] = (sim.name(o.get("biotsavart")), sim.name(o.get("surface")))
+    return out
+
+
+def pick_coil_set(sim, sets, which):
+    """The one of coil_sets(...) that ``which`` names (its id, its BiotSavart's name or its index)."""
+    ids = [i for i, _, _ in sets]
+    if len(sets) == 1 and which is None:
+        return sets[0]
+    if which is None:
+        said = ", ".join(f"its {b} was computed with {bs}" for b, (bs, _) in boozer_pairs(sim).items())
+        raise ValueError(f"{sim.path}: {len(sets)} coil sets ({ids}): choose one with which= (on the command line, "
+                         f"--coils NAME), by its name or index" + (f". In the file, {said}" if said else ""))
+    pick = [t for t in sets if t[0] == which or t[1] == str(which) or t[0].endswith("#" + str(which))]
+    if isinstance(which, (int, np.integer)) and not isinstance(which, bool) and not pick and -len(sets) <= which < len(sets):
+        pick = [sets[which]]
+    if len(pick) != 1:
+        raise ValueError(f"{sim.path}: which={which!r} matches {len(pick)} of the file's coil sets {ids}")
+    return pick[0]
+
+
+def load_simson_sources(path, id_prefix, family="", check_symmetry=True, extra_nfp=(), which=None, currents=None):
+    """The Source of each coil set of the file (see coil_sets), or with ``which`` of that one only.  ``currents``:
+    see Simson."""
+    sim = read_simson(path, currents)
+    sets = coil_sets(sim, id_prefix)
+    if which is not None:
+        sets = [pick_coil_set(sim, sets, which)]
     cands = sorted(set(nfp_hints(sim)) | set(extra_nfp) | {1})
     out = []
-    for name, coils in groups:
-        sid = id_prefix if len(groups) == 1 else f"{id_prefix}#{name}"
+    for sid, name, coils in sets:
         src = coils_to_source(sim, coils, sid, nfp_candidates=cands, check_symmetry=check_symmetry, family=family)
         src.meta["field_object"] = name
         out.append(src)
     return out
 
 
-def load_quasr_serial(path, source_id, check_symmetry=True, family=""):
+def load_quasr_serial(path, source_id, check_symmetry=True, family="", currents=None):
     """Fast path for QUASR serial files (graph = [surfaces, coils])."""
-    sim = read_simson(path)
+    sim = read_simson(path, currents)
     coils = sim.graph_coil_list()
     if coils is None:
         raise ValueError(f"{path}: not a QUASR-style graph")
