@@ -38,14 +38,26 @@ def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None, cur
     which  for a SIMSOPT file holding several coil sets: the one to take, by name or index
     name   the source's id (default: the first file's name)
     currents  for a SIMSOPT file whose Current objects state two different values: 'saved', the value each object
-           held when the file was saved, or 'dofs', the value SIMSOPT reads back. Without it such a file is refused
+           held when the file was saved, or 'dofs', the value SIMSOPT reads back. Without it such a file is refused.
+           A live SIMSOPT object needs none: each Current is read with the value it holds, get_value(), the one
+           SIMSOPT computes its field with
 
     A DESC coil set's field comes out larger than DESC's own by 1.3 parts in 10^10: torux takes mu_0 = 4 pi 1e-7
     H/m, as SIMSOPT and VMEC do, and DESC takes CODATA's."""
+    from .io.simsopt_json import CURRENTS, LIVE
+    from .load import per_file
     first, made = _as_file(path)
     rest = [_as_file(p) for p in more]
-    temps = [t for t in [made] + [m for _, m in rest] if t is not None]
+    every = [made] + [m for _, m in rest]
+    temps = [t for t in every if t is not None]
     try:
+        for c in (currents if isinstance(currents, (list, tuple)) else [currents]):
+            if c not in CURRENTS:
+                raise ValueError(f"currents={c!r}: give 'saved' (the value each Current object held when the file "
+                                 f"was saved) or 'dofs' (the value SIMSOPT reads back from its degrees of freedom)")
+        # a live SIMSOPT object computes with the value each Current holds: its file is read with that, unasked
+        currents = [LIVE if (t or {}).get("simsopt") else c for c, t in zip(per_file(currents, len(every), "currents"),
+                                                                              every)]
         if name is None and made is not None:
             name = made["name"]
         src = _base_load(first, *[f for f, _ in rest], nfp=nfp, kind=kind, flux=flux, which=which,
@@ -69,6 +81,15 @@ def load(path, *more, nfp=None, kind=None, flux=None, which=None, name=None, cur
         if live:
             raise ValueError(f"{live[0]['what']} holds a part torux cannot convert exactly ({e}). "
                              f"{live[0]['hint']}") from e
+        raise
+    except ValueError as e:
+        # a temporary file is gone once this returns: a refusal names the object it was written from
+        said = str(e)
+        for t in temps:
+            if t.get("temporary"):
+                said = said.replace(t["path"], t["what"])
+        if said != str(e):
+            raise ValueError(said) from e
         raise
     finally:
         for t in temps:
@@ -208,6 +229,7 @@ def _simsopt_file(x):
                          f"{type(x).__name__}")
     t = _temp(what, name, ".json", "SIMSOPT can save it with simsopt.save(obj, 'coils.json') for a look at "
                                    "what it holds")
+    t["simsopt"] = True
     try:
         simsopt.save(obj, t["path"])
     except BaseException:

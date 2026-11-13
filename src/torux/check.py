@@ -119,7 +119,10 @@ def measure_at(src, S, theta, phi, sections, flux=None) -> Check:
     if S.own_coils is not None:
         notes += _against_own_coils(S, src, x, B)
     taken = ((getattr(src, "meta", None) or {}).get("currents") or {})
-    if taken.get("differing"):
+    if taken.get("differing") and taken.get("taken") == "live":
+        notes.append(f"the SIMSOPT object's {', '.join(taken['differing'])} hold a value their degrees of freedom do "
+                     f"not: the value each holds, which SIMSOPT computes with, was taken")
+    elif taken.get("differing"):
         notes.append(f"the source's file states two values for {', '.join(taken['differing'])}: the "
                      f"{taken['taken']!r} ones were taken, as asked")
     with np.errstate(invalid="ignore", divide="ignore"):

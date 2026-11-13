@@ -329,7 +329,7 @@ torux.solve(BiotSavart(coils), flux=0.05)          # a SIMSOPT BiotSavart, a Coi
 torux.check(coils, surfaces[-1])                   # and a SIMSOPT surface against them
 ```
 
-A DESC `CoilSet`, `MixedCoilSet` or single coil is given the same way. SIMSOPT's own field of QUASR's coils, at the 160 quadrature points their files carry, differs from torux's by 1.5 × 10⁻¹², the error of its trapezoid rule, and by 2.8 × 10⁻¹⁵ at 4,096 points: a torux surface tested with SIMSOPT's `BiotSavart` needs the finer rule to show what it is. Several files whose parts add up are one source: `torux.load(coils_file, magnets_file, nfp=2)`.
+A SIMSOPT object is read with the current each `Current` holds, `get_value()`, the one SIMSOPT computes its field with. A DESC `CoilSet`, `MixedCoilSet` or single coil is given the same way. SIMSOPT's own field of QUASR's coils, at the 160 quadrature points their files carry, differs from torux's by 1.5 × 10⁻¹², the error of its trapezoid rule, and by 2.8 × 10⁻¹⁵ at 4,096 points: a torux surface tested with SIMSOPT's `BiotSavart` needs the finer rule to show what it is. Several files whose parts add up are one source: `torux.load(coils_file, magnets_file, nfp=2)`.
 
 A source can also be built in code:
 

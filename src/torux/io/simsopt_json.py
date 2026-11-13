@@ -12,7 +12,9 @@ Currents (signed, A):
                     file back.  They agree in a file SIMSOPT wrote in the ordinary way.  Where they
                     differ (a value set past the DOFs), the file does
                     not say which the coils carried: the reader refuses unless told, with
-                    currents='saved' or currents='dofs'.
+                    currents='saved' or currents='dofs'.  A file written here from a live object
+                    (currents='live') takes the saved value, the one the object held and SIMSOPT
+                    computed with.
   ScaledCurrent  -> scale * resolve(current_to_scale), recursively
   CurrentSum     -> resolve(current_a) + resolve(current_b)
 Coils: Coil, RegularizedCoil, CircularRegularizedCoil, RectangularRegularizedCoil
@@ -93,6 +95,8 @@ def _arr(v):
 
 
 CURRENTS = (None, "saved", "dofs")
+LIVE = "live"                          # a file SIMSOPT wrote from a live object: the value each Current holds, the
+                                       # one SIMSOPT computes with, is the saved one, and nothing is asked
 DOF_ROUNDING = 4 * 2.0 ** -52          # a Current's two values closer than this agree
 
 
@@ -100,7 +104,7 @@ class Simson:
     def __init__(self, d, path=None, currents=None):
         if d.get("@class") != "SIMSON":
             raise ValueError(f"{path}: not a SIMSON file")
-        if currents not in CURRENTS:
+        if currents not in CURRENTS + (LIVE,):
             raise ValueError(f"currents={currents!r}: give 'saved' (the value each Current object held when the "
                              f"file was saved) or 'dofs' (the value SIMSOPT reads back from its degrees of freedom)")
         self.path = str(path) if path is not None else None
@@ -156,7 +160,7 @@ class Simson:
                         f"takes when it reads the file back. The file does not say which one its coils carried, "
                         f"and torux does not guess: choose with currents='saved' or currents='dofs' (on the "
                         f"command line, --currents saved or --currents dofs)")
-                v = saved if self.currents == "saved" else dofs
+                v = dofs if self.currents == "dofs" else saved
         elif c == "ScaledCurrent":
             v = float(o["scale"]) * self.current(o["current_to_scale"])
         elif c == "CurrentSum":

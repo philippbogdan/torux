@@ -281,3 +281,35 @@ def test_several_files_of_several_coil_sets(tmp_path, capsys):
     assert main(["check", f, g, q, "--coils", "BiotSavart1", "--coils", "BiotSavart2"]) == 0
     assert main(["check", q, g, q, "--coils", "-", "--coils", "0"]) == 0
     assert capsys.readouterr().out.count("toroidal flux") == 2
+
+
+# --------------------------------------------------------------------------- live SIMSOPT objects
+
+
+def test_a_live_current_set_past_its_dofs_is_read_as_simsopt_computes(tmp_path):
+    """A Current whose value was set past its degrees of freedom (simsoptpp's set_dofs): torux 0.1.4 refused the live
+    object, naming a temporary file it had deleted. SIMSOPT computes with the value the object holds, and so does
+    torux now, unasked. A file of it still does not say which, and is still refused."""
+    pytest.importorskip("simsopt")
+    from simsopt import save
+    from simsopt.field import BiotSavart, Current, coils_via_symmetries
+    from simsopt.geo import create_equally_spaced_curves
+    from torux.reference import fast64
+    curves = create_equally_spaced_curves(3, 2, stellsym=True, R0=1.0, R1=0.5, order=4)
+    currents = [Current(1e5) for _ in curves]
+    coils = coils_via_symmetries(curves, currents, 2, True)
+    currents[0].set_dofs(np.array([1.2e5]))
+    assert currents[0].get_value() == 1.2e5 and currents[0].full_x[0] == 1e5
+    bs = BiotSavart(coils)
+    src = torux.load(bs)
+    rng = np.random.default_rng(1)
+    R, ph, z = 1.0 + 0.3 * rng.random(200), 2 * np.pi * rng.random(200), 0.3 * (rng.random(200) - 0.5)
+    x = np.stack([R * np.cos(ph), R * np.sin(ph), z], 1)
+    bs.set_points(x)
+    B = np.asarray(fast64.Field(src).evaluate(x, grad=False)["B"])
+    assert np.max(np.linalg.norm(B - bs.B(), axis=1) / np.linalg.norm(bs.B(), axis=1)) < 1e-11
+    assert src.meta["currents"]["taken"] == "live" and src.provenance["files"] == ["a SIMSOPT BiotSavart object"]
+    f = str(tmp_path / "bs.json")
+    save(bs, f)
+    with pytest.raises(ValueError, match="states two values"):
+        torux.load(f)
