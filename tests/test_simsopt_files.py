@@ -91,7 +91,7 @@ def test_a_boozer_surface_with_its_own_coils_reads_as_quasr_does(tmp_path, quasr
 
 def test_a_boozer_surface_against_other_coils_is_refused(tmp_path, quasr_954, quasr_954_mirrored):
     """A surface checked against coils it was not computed for: torux 0.1.3 measured the mismatch of the files and
-    printed it as the surface's leak (CNT's boozer_surface.json against biotsavart_cnt32_symm.json, 9.5e-01)."""
+    printed it as the surface's leak."""
     f = _boozer_file(tmp_path / "boozer.json")
     with pytest.raises(ValueError, match="was not computed for these coils"):
         check(quasr_954_mirrored, f)                         # one coil of a pair at 3% more current
@@ -107,8 +107,8 @@ def test_a_boozer_surface_against_other_coils_is_refused(tmp_path, quasr_954, qu
 
 # --------------------------------------------------------------------------- a Current with two values
 def test_a_current_with_two_values_is_refused_until_chosen(tmp_path, quasr_954):
-    """CSX's CSX_boozer_surface.json: the 'current' key of its Current1 is 3.95 times its DOFs. torux 0.1.3 took the
-    DOFs without a word and measured 6.8e-01 of |B| across the owners' own surface. The file does not say which."""
+    """A file whose Current states 'current' at 3.95 times its DOFs. torux 0.1.3 took the DOFs without a word, and
+    the field across the file's own surface came out of order one. The file does not say which."""
     f = _boozer_file(tmp_path / "two.json", change=_two_valued(3.95))
     with pytest.raises(ValueError, match="Current9 states two values") as e:
         torux.load(f)

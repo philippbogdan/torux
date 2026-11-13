@@ -10,7 +10,7 @@ Currents (signed, A):
                     ``current`` key is the value the object held when the file was saved (what its
                     field was computed with), and its DOFs x[0] is what SIMSOPT takes when it reads the
                     file back.  They agree in a file SIMSOPT wrote in the ordinary way.  Where they
-                    differ (a value set past the DOFs, as in the CSX scaled-current files), the file does
+                    differ (a value set past the DOFs), the file does
                     not say which the coils carried: the reader refuses unless told, with
                     currents='saved' or currents='dofs'.
   ScaledCurrent  -> scale * resolve(current_to_scale), recursively
