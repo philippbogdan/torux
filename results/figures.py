@@ -7,7 +7,6 @@ accuracy   every coil set of the 300-coil comparison (compare300.csv) as one dot
            surface the tool returned, measured by the common evaluator.
 time       every coil set of the comparison as one dot per tool: seconds until the tool had the surface it returned.
 refinement how the error falls as a surface is refined, one line a coil set (refinement.csv).
-answers    the three answers a request can get, as a flow.
 
 A tool appears as soon as compare300.csv holds its 300 rows. Nothing else needs to change.
 """
@@ -214,44 +213,6 @@ def refinement():
     return len(by)
 
 
-def answers():
-    """The three answers a request can get, as a flow."""
-    W, H = 838, 268
-    for theme in THEMES:
-        t = THEMES[theme]
-        o = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W} {H}" width="{W}" height="{H}" font-family="{FONT}">',
-             f'<defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">'
-             f'<path d="M0 0L10 5L0 10z" fill="{t["muted"]}"/></marker></defs>']
-
-        def box(x, y, w, h, lines, stroke=None, bold=False, fill="none", ink=None):
-            o.append(f'<rect x="{x}" y="{y}" width="{w}" height="{h}" rx="8" fill="{fill}" stroke="{stroke or t["rule"]}" stroke-width="1.3"/>')
-            n = len(lines)
-            for i, ln in enumerate(lines):
-                o.append(f'<text x="{x + w / 2}" y="{y + h / 2 + 5 + 17 * (i - (n - 1) / 2):.1f}" font-size="{14 if i == 0 else 12.5}" '
-                         f'font-weight="{700 if (bold and i == 0) else 400}" fill="{(ink or t["ink"]) if i == 0 else t["muted"]}" text-anchor="middle">{ln}</text>')
-
-        def arrow(x1, y1, x2, y2, label=None, lx=0, ly=-7, anchor="middle"):
-            o.append(f'<line x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}" stroke="{t["muted"]}" stroke-width="1.3" marker-end="url(#a)"/>')
-            if label:
-                o.append(f'<text x="{(x1 + x2) / 2 + lx}" y="{(y1 + y2) / 2 + ly}" font-size="12" fill="{t["muted"]}" text-anchor="{anchor}">{label}</text>')
-        box(8, 24, 128, 52, ["coils + a flux"])
-        arrow(136, 50, 176, 50)
-        box(178, 24, 196, 52, ["solve for the surface", "Newton, to the last digit"])
-        arrow(374, 50, 442, 50, "converges")
-        box(444, 24, 196, 52, ["check it again", "different code, 4,096 points"])
-        arrow(640, 50, 696, 50, "agrees")
-        box(698, 24, 132, 52, ["surface"], stroke=t["torux"], bold=True, ink=t["torux_text"])
-        arrow(276, 76, 276, 114, "fails", lx=8, ly=4, anchor="start")
-        box(120, 116, 312, 52, ["find what forbids a surface", "an island chain, or the edge of confinement"])
-        arrow(276, 168, 276, 206, "found and bounded", lx=8, ly=4, anchor="start")
-        box(178, 208, 196, 52, ["no surface", "with a certificate"], stroke=t["ink"], bold=True)
-        arrow(432, 142, 536, 142, "out of time")
-        arrow(604, 76, 604, 114, "disagrees", lx=8, ly=4, anchor="start")
-        box(538, 116, 196, 52, ["undetermined", "never a guess"], bold=True)
-        o.append("</svg>")
-        open(os.path.join(OUT, f"answers-{theme}.svg"), "w").write("\n".join(o) + "\n")
-
-
 if __name__ == "__main__":
     os.makedirs(OUT, exist_ok=True)
     tools = read_compare()
@@ -259,4 +220,3 @@ if __name__ == "__main__":
     print("accuracy:", ", ".join(tool_order(tools, "bn_max")))
     print("time figure:", "written" if times(tools) else "not yet (needs several tools timed on one processor)")
     print("refinement:", refinement(), "coil sets")
-    answers()

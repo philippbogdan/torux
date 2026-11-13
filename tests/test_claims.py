@@ -38,8 +38,6 @@ def test_readme_numbers_are_the_tables():
         f"For {q['island_bands']:,} more it returned a certificate": "QUASR's island-band certificates, the headline",
         f"for another {q['edge_barriers']:,} a weaker one": "QUASR's edge-barrier certificates, beside the headline",
         f"the other {q['undetermined']:,} it calls undetermined": "QUASR undetermined",
-        f"the {q['island_bands']:,} island bands rest on an exact symmetry": "island-band certificates",
-        f"the {q['edge_barriers']:,} weaker ones are edge barriers": "edge-barrier certificates",
         f"median max |B·n|/|B| of {sci(t['bn_median'])}": "torux's median in the comparison",
         f"worst of its {t['surfaces']} is at {sci(t['bn_max'])}": "torux's worst in the comparison",
         f"certify: {t['island_bands']} of these {t['designs']}, and {t['edge_barriers']} more by its weaker kind":

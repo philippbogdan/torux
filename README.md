@@ -60,26 +60,6 @@ The same 300 coil sets on one processor (AMD EPYC 7742), four threads each. A do
 - VMEC++: 1,525 s. On the 177 coil sets both solved it was faster on 1 and more accurate on 0.
 - SIMSOPT QFM: 1,770 s. On the 199 coil sets both solved it was faster on 0 and more accurate on 0.
 
-## How it works
-
-torux does not trace field lines. It solves the invariance equation of a torus of the field, (∂φ + ι ∂θ) X = V(X), for the Fourier coefficients of R and Z and for ι, in straight-field-line angles, by Newton's method. Each refinement takes orders of magnitude off |B·n|/|B|, down to the rounding floor of double precision:
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="visuals/refinement-dark.svg">
-  <img src="visuals/refinement-light.svg" width="838" alt="For 201 coil sets, the field crossing the surface against the number of coefficients describing it. Every line falls steeply, from between 10 to the minus 6 and 10 to the minus 12, and ends just above the limit of double precision near 10 to the minus 15.">
-</picture>
-
-Then a second program, written apart from the first and sharing none of its code, measures |B·n|/|B| at 4,096 random points. Only if both agree is the answer "surface".
-
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="visuals/answers-dark.svg">
-  <img src="visuals/answers-light.svg" width="838" alt="Coils and a flux go to a Newton solve for the surface. If it converges, different code checks it again at 4,096 points. If that agrees, the answer is surface, and if it disagrees, undetermined. If the solve fails, torux looks for what forbids a surface, an island chain or the edge of confinement: found and bounded, the answer is no surface, with a certificate, and out of time it is undetermined.">
-</picture>
-
-When Newton fails, the surface may not be there. Near a resonance the field lines close on themselves and the surfaces break into a chain of islands. Past the edge of confinement the lines wander off and are lost. torux finds the chain or the edge, fences it with curves that no surface can cross, and bounds the flux they forbid: a certificate. That is a theorem with a measured error budget, not a machine-checked proof. Of QUASR's certificates, the 5,206 island bands rest on an exact symmetry of the field, and the 846 weaker ones are edge barriers, which rest on a weaker error model. With neither a surface nor a certificate inside its time budget, torux says so.
-
-[The method, for people who know the field.](docs/method.md) [What is checked, and by what.](docs/verification.md)
-
 ## Use it
 
 ```sh
@@ -103,6 +83,8 @@ time                   0.7 s
 
 The first run compiles for up to a minute. After that, seconds.
 
+Every answer is one of three. A surface, which a second program sharing no code with the solver has checked at 4,096 random points. No surface, with a certificate: the island chain or the edge of confinement that forbids it, and the flux it rules out. Or undetermined, never a guess.
+
 ```python
 import torux
 
@@ -124,7 +106,7 @@ torux.many(files, table="answers.csv")        # a folder of designs, one row eac
   </picture>
 </p>
 
-Nothing to tune: no resolution, no tolerance, no starting guess. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md).
+Nothing to tune: no resolution, no tolerance, no starting guess. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](docs/method.md) and [what is checked, and by what](docs/verification.md).
 
 ## Credit
 

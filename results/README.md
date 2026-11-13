@@ -52,4 +52,4 @@ python results/evaluator/judge.py examples/quasr_0000954.json   # solve with tor
 
 ## `refinement.csv`
 
-For each of torux's 201 surfaces in the comparison: its off-grid \|B·n\|/\|B\| at every resolution `M`, `N` of its refinement. The figure in the README's "How it works".
+For each of torux's 201 surfaces in the comparison: its off-grid \|B·n\|/\|B\| at every resolution `M`, `N` of its refinement. The figure in "The surface" of [the method](../docs/method.md).

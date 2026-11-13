@@ -18,7 +18,7 @@ A closed field line of period q is a Fourier curve solved by Newton with the exa
 
 ## The surface (`torux.torus`, `torux.family`)
 
-An invariant torus X(θ, φ) = (R, Z) in straight-field-line angles satisfies
+torux does not trace field lines. An invariant torus X(θ, φ) = (R, Z) in straight-field-line angles satisfies
 
 (∂φ + ι ∂θ) X = V(X),  V = (R B_R / B_φ, R B_Z / B_φ).
 
@@ -29,6 +29,13 @@ The unknowns are the Fourier coefficients of R and Z and the transform ι. The e
 - next to a resonance, a Tikhonov-filtered step.
 
 The resolution is not guessed: the refinement predicts the (M, N) it needs from the spectral decay of the current torus and jumps there. It stops when |B·n|/|B| on a half-shifted grid, points the solve never used, stops falling. A torus that levels off above 10⁻¹⁴ is not called a surface: nearly always a thin island chain sits at the request.
+
+Each refinement takes orders of magnitude off |B·n|/|B|, down to the rounding floor of double precision:
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../visuals/refinement-dark.svg">
+  <img src="../visuals/refinement-light.svg" width="838" alt="For 201 coil sets, the field crossing the surface against the number of coefficients describing it. Every line falls steeply, from between 10 to the minus 6 and 10 to the minus 12, and ends just above the limit of double precision near 10 to the minus 15.">
+</picture>
 
 A source that comes with design surfaces (a QUASR download) starts from them. Any other starts from its magnetic axis and continues outward in the square root of the flux.
 
