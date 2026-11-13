@@ -394,7 +394,7 @@ class Answer(Result):
             raise ValueError(f"{what} needs a surface, and this answer holds none: the status is {self.status!r}")
         if hasattr(t, "rs"):
             raise ValueError(f"{what} takes a stellarator symmetric surface, and this answer's surface is not "
-                             f"stellarator symmetric")
+                             f"stellarator symmetric: {what}_general takes it")
         rc, zs = np.asarray(rc, dtype=np.float64), np.asarray(zs, dtype=np.float64)
         if rc.ndim != 2 or rc.shape != zs.shape or rc.shape[0] < 2 or rc.shape[1] % 2 != 1:
             raise ValueError(f"rc and zs need one shape (M+1, 2N+1) with M >= 1 and N >= 0: they have {rc.shape} and "
