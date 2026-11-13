@@ -29,7 +29,7 @@ Environment:
 """
 import os as _os
 
-__version__ = "0.1.3"
+__version__ = "0.1.4"
 
 
 def _threads():
