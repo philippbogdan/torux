@@ -1,6 +1,6 @@
 # Where things are
 
-`src/torux`, about 48,000 lines of Python. Each module says in its own docstring what it does and why it is right. This is the map.
+`src/torux`, about 48,000 lines of Python. Each module says in its own docstring what it does and why it is right. This is the map, and [the method](../method/README.md) is the explanation.
 
 | | |
 |---|---|

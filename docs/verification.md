@@ -19,7 +19,7 @@ Across the 231,878 QUASR surfaces: the solver's check reads 1.7 × 10⁻¹⁵ in
 
 ## No surface
 
-A certificate is a theorem whose hypotheses are established numerically, with an error budget that is part of the record ([method.md](method.md) states the two theorems). What is and is not rigorous:
+A certificate is a theorem whose hypotheses are established numerically, with an error budget that is part of the record ([the method](../method/README.md#4-where-there-is-no-surface-a-proof) states the two theorems). What is and is not rigorous:
 
 - **Island bands** (5,206 of QUASR's certificates). The theorem is exact: reversibility puts heteroclinic points on the symmetry plane. The curves are computed by a tracer whose error model is measured in the same call and checked against the independent tracer. The numerics are validated, not interval arithmetic.
 - **Edge barriers** (846). Some of their error terms are strict bounds and some are validated models (`torux.barrier` lists which). This is the weakest class: if a certificate is ever wrong, look here first.

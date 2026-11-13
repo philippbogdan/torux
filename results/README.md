@@ -52,4 +52,9 @@ python results/evaluator/judge.py examples/quasr_0000954.json   # solve with tor
 
 ## `refinement.csv`
 
-For each of torux's 201 surfaces in the comparison: its off-grid \|B·n\|/\|B\| at every resolution `M`, `N` of its refinement. The figure in "The surface" of [the method](../docs/method.md).
+For each of torux's 201 surfaces in the comparison: its off-grid \|B·n\|/\|B\| at every resolution `M`, `N` of its refinement. Each refinement takes orders of magnitude off, down to the rounding floor of double precision, and [the method](../method/README.md#3-everything-converges-geometrically-so-it-is-run-to-the-floor) says why.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="../visuals/refinement-dark.svg">
+  <img src="../visuals/refinement-light.svg" width="838" alt="For 201 coil sets, the field crossing the surface against the number of coefficients describing it. Every line falls steeply, from between 10 to the minus 6 and 10 to the minus 12, and ends just above the limit of double precision near 10 to the minus 15.">
+</picture>
