@@ -293,10 +293,33 @@ def _vjp_source(engine, prob, u, flux, flux_scale, lam, fast=True):
     return out
 
 
+def _every_coil(out, source, unit_vjp):
+    """The adjoint's result with every Fourier coil in it: a coil of zero current makes no field, so the engine and the
+    product in the coils leave it out, and its entries come back zero. Zero is true of its coefficients, as its field
+    is, and not of its current, in which the field grows as that of the coil at one ampere: d_current is minus
+    unit_vjp(coefficients), lambda^T dF/dI along that field (answer.vjp's _unit_current_vjp). d_coef and d_current
+    then hold every Fourier coil in the order of the source, those with current as the product gave them."""
+    fc = []
+    for g, sp in zip(out["parts"], source.parts):
+        if sp.kind != "fourier":
+            continue
+        fc.append(g)
+        zero = np.flatnonzero(np.asarray(sp.current) == 0.0)
+        if zero.size:
+            d = np.array(g["d_current"], dtype=np.float64)
+            d[zero] = -np.asarray(unit_vjp(np.asarray(sp.coef)[zero]), dtype=np.float64)
+            g["d_current"] = d
+    if fc:
+        out["d_coef"] = np.concatenate([g["d_coef"] for g in fc])
+        out["d_current"] = np.concatenate([g["d_current"] for g in fc])
+    return out
+
+
 def adjoint_gradient(engine: FieldEngine, torus: TorusState, objective="iota"):
     """d objective / d (coil coefficients, currents, flux) at a converged torus (dense adjoint).
 
-    Returns dict(value, d_coef (ncoil, 3, 2K+1), d_current (ncoil,), d_flux)."""
+    Returns dict(value, d_coef (ncoil, 3, 2K+1), d_current (ncoil,), d_flux), every Fourier coil in the order of the
+    source, one of zero current included."""
     prob = TorusProblem(engine, torus.nfp, torus.M, torus.N, phi0=torus.phi0)
     b = prob.basis
     u = b.pack(torus.rc, torus.zs, torus.iota)
@@ -310,6 +333,8 @@ def adjoint_gradient(engine: FieldEngine, torus: TorusState, objective="iota"):
         f, g = jax.value_and_grad(lambda uu: objective(*b.unpack(uu)))(u)
     lam = jnp.linalg.solve(J.T, g)
     out = _vjp_source(engine, prob, u, torus.flux, flux_scale, lam)
+    from .answer import _unit_current_vjp
+    _every_coil(out, engine.source, lambda c: _unit_current_vjp(engine, prob, u, torus.flux, flux_scale, lam, c))
     out.update(value=f, residual=float(jnp.max(jnp.abs(F))))
     return out
 
@@ -340,6 +365,8 @@ def adjoint_gradient_mf(engine: FieldEngine, torus: TorusState, objective="iota"
                                               restart=restart, maxiter=maxiter, solve_method="batched")
     lin_res = float(jnp.max(jnp.abs(JT(lam)[0] - g)) / max(float(jnp.max(jnp.abs(g))), 1e-300))
     out = _vjp_source(engine, prob, u, torus.flux, flux_scale, lam)
+    from .answer import _unit_current_vjp
+    _every_coil(out, engine.source, lambda c: _unit_current_vjp(engine, prob, u, torus.flux, flux_scale, lam, c))
     out.update(value=f, adjoint_residual=lin_res)
     return out
 
@@ -444,6 +471,9 @@ def adjoint_gradient_general(engine: FieldEngine, torus, objective="iota"):
     lam = sla.lu_solve(lu, g, check_finite=False)
     del lu
     out = _vjp_source_general(engine, eq, u, float(torus.flux), flux_scale, lam)
+    from .answer import _unit_current_vjp_general
+    _every_coil(out, engine.source,
+                lambda c: _unit_current_vjp_general(engine, eq, u, float(torus.flux), flux_scale, lam, c))
     out.update(value=float(u[-1]), residual=residual)
     return out
 
@@ -737,9 +767,10 @@ ONE_PERIOD = ("the derivatives of the solve on one field period: exact for every
 
 def iota_gradients(source, torus, general, g):
     """answer.gradients from an adjoint's result g (adjoint_gradient and its kin): d_iota_d_flux, parts and, for
-    Fourier coils with current, d_iota_d_coef and d_iota_d_current, each element's entries the derivatives of iota in
-    that element alone (symmetric_average). When the source's copies cannot be mapped those keys are left out:
-    per_coil says why, and one_period holds the one-period solve's derivatives under the same names."""
+    Fourier coils, d_iota_d_coef and d_iota_d_current, every coil in the order of the source (one of zero current
+    included), each element's entries the derivatives of iota in that element alone (symmetric_average). When the
+    source's copies cannot be mapped those keys are left out: per_coil says why, and one_period holds the one-period
+    solve's derivatives under the same names."""
     out = dict(objective="iota", d_iota_d_flux=g["d_flux"])
     try:
         parts = symmetric_average(source, torus, general, g["parts"])
@@ -757,7 +788,6 @@ def iota_gradients(source, torus, general, g):
     out["parts"] = parts
     fc = [(p, sp) for p, sp in zip(parts, source.parts) if sp.kind == "fourier"]
     if fc:
-        keep = [np.nonzero(sp.current != 0.0)[0] for _, sp in fc]
-        out["d_iota_d_coef"] = np.concatenate([p["d_coef"][k] for (p, _), k in zip(fc, keep)])
-        out["d_iota_d_current"] = np.concatenate([p["d_current"][k] for (p, _), k in zip(fc, keep)])
+        out["d_iota_d_coef"] = np.concatenate([p["d_coef"] for p, _ in fc])
+        out["d_iota_d_current"] = np.concatenate([p["d_current"] for p, _ in fc])
     return out

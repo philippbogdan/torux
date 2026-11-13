@@ -325,6 +325,42 @@ def test_three_periods_without_stellarator_symmetry_against_solves_without_symme
     assert abs(fd - g["d_iota_d_coef"][1, 0, 2]) <= TOL_219457 * abs(fd)
 
 
+# --------------------------------------------------------------------------- coils of zero current, parts of no coil
+def test_a_coil_of_zero_current_has_its_numbers(request, quasr_954):
+    """QUASR 954 and a copy of each of its coils at zero current. torux 0.1.4 left the copies out of the arrays (4
+    entries for 8 coils) and gave zero for their current in parts. A zero-current copy of coil k makes the field of
+    coil k as its current grows, so its dι/dI is coil k's, which the solves of the test above hold to the truth, and
+    the solve again with only its current changed and no symmetry assumed says the same. Its coefficients make no
+    field: zero."""
+    p = quasr_954.parts[0]
+    src = torux.Source("954 and its coils at zero current", [torux.FourierCurves(np.concatenate([p.coef, p.coef]),
+                                                                                 np.concatenate([p.current,
+                                                                                                 np.zeros(p.n)]))],
+                       nfp=2, stellsym=True)
+    res = torux.solve(src, flux=QUASR_954["flux_Wb"], gradients=True)
+    g = res.gradients
+    assert res.status == "surface" and "per_coil" not in g
+    assert g["d_iota_d_current"].shape == (8,) and g["d_iota_d_coef"].shape == (8,) + p.coef.shape[1:]
+    _, plain = _with_gradients(request, "quasr_954", None)
+    d0 = plain.gradients["d_iota_d_current"]
+    d = g["d_iota_d_current"]
+    assert np.abs(d[:4] - d0).max() <= 1e-9 * np.abs(d0).max()        # the same coils, solved from their axis
+    assert np.abs(d[4:] - d[:4]).max() <= 1e-12 * np.abs(d0).max()
+    assert not np.any(g["d_iota_d_coef"][4:]) and not np.any(g["parts"][0]["d_coef"][4:])
+    assert np.array_equal(g["parts"][0]["d_current"], g["d_iota_d_current"])
+    h = 1e-4 * abs(p.current[0])                                       # the truth: coil 4's current alone
+    io = []
+    for s in (1, -1):
+        cur = src.parts[0].current.copy()
+        cur[4] = s * h
+        alone = torux.Source("954 alone", [torux.FourierCurves(src.parts[0].coef, cur)])
+        r = torux.solve(alone, flux=res.surface.flux, verify=False, budget_s=600)
+        assert alone.nfp == 1 and not alone.stellsym and r.status == "surface", r.status
+        io.append(r.iota)
+    fd = (io[0] - io[1]) / (2 * h)
+    assert abs(fd - g["d_iota_d_current"][4]) <= 1e-5 * abs(fd)
+
+
 def test_a_fourier_part_of_no_coil(quasr_954):
     """A source of QUASR 954's coils and a Fourier part holding none: torux 0.1.4 failed in the symmetric average
     (a reduction of no element), and the gradients were an error, dι/dΨ lost with the rest."""
