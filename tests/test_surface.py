@@ -48,3 +48,23 @@ def test_result_round_trips_through_json(solved_954, tmp_path):
     s = d["surface"]
     assert np.array_equal(np.array(s["rc"]), np.asarray(solved_954.surface.rc))
     assert s["M"] == solved_954.surface.M and s["N"] == solved_954.surface.N
+
+
+def test_a_source_without_stellarator_symmetry_has_a_verified_surface(quasr_954):
+    """QUASR 954 with the mirrored copy of its coil at 3% more current: two field periods, no stellarator symmetry."""
+    import torux
+    from torux.io._stellcommon import apply_verified_symmetry
+    from torux.torus_general import GeneralTorus
+    p = quasr_954.parts[0]
+    nb = p.n // (2 * quasr_954.nfp)                       # the coils of one half period, then their mirror images
+    current = np.array([c * (1.03 if (k // nb) % 2 else 1.0) for k, c in enumerate(p.current)])
+    src = torux.Source("quasr/954 mirrored at +3%", [torux.FourierCurves(p.coef, current)])
+    apply_verified_symmetry(src, [quasr_954.nfp])
+    assert src.nfp == 2 and not src.stellsym
+    res = torux.solve(src, flux=0.05)
+    assert res.status == "surface"
+    assert isinstance(res.surface, GeneralTorus)
+    check = res.evidence["independent"]
+    assert check["ok"]
+    assert max(check["bn_max"], check["bn_sup"]) < 2e-14
+    assert check["flux_rel_err"] < 1e-12

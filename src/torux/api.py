@@ -241,8 +241,10 @@ def _solve(req, src, surfs, budget, t0, deadline):
             if time.time() < v_deadline:
                 if general:
                     from .verify_general import verify_general
-                    out.evidence["independent"] = verify_general(src, T, nlines=int(req.trace_lines), nperiods=100,
-                                                                 deadline=v_deadline)
+                    from .verify import acceptance
+                    v = verify_general(src, T, nlines=int(req.trace_lines), nperiods=100, deadline=v_deadline)
+                    v["ok"] = acceptance(v)
+                    out.evidence["independent"] = v
                 else:
                     from .verify import verify_torus, acceptance
                     v = verify_torus(src, T, nlines=int(req.trace_lines), nperiods=100, deadline=v_deadline)
