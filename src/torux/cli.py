@@ -4,7 +4,7 @@
                 [--kind K] [--gradients] [--no-verify] [--trace-lines N] [--save FILE ...] [--mpol N] [--ntor N]
                 [--plot FILE] [--boozer] [--coils NAME] [--currents saved|dofs]
     torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME] [--coils NAME]
-                [--currents saved|dofs]
+                [--currents saved|dofs] [--surface-currents saved|dofs] [--mismatched-coils]
     torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S]
                [--jobs N] [--save DIR]
     torux version
@@ -16,7 +16,8 @@ code is 0 for a verified surface, a certified or proved no-surface or a verified
 1 for an error, a command line that cannot be read included.  Each subcommand is a pair of functions in COMMANDS.
 --coils and --currents are torux.load's which= and currents= for a SIMSOPT JSON source: which coil set of a file
 holding several (with several files, --coils once per file, - for one that needs none), and which of a Current
-object's two values where they differ.  check's --which is the surface's.
+object's two values where they differ.  check's --which is the surface's, and
+--surface-currents and --mismatched-coils are check's surface_currents= and mismatched_coils=True.
 """
 from __future__ import annotations
 

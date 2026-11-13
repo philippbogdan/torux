@@ -93,7 +93,7 @@ def test_a_boozer_surface_against_other_coils_is_refused(tmp_path, quasr_954, qu
     """A surface checked against coils it was not computed for: torux 0.1.3 measured the mismatch of the files and
     printed it as the surface's leak."""
     f = _boozer_file(tmp_path / "boozer.json")
-    with pytest.raises(ValueError, match="was not computed for these coils"):
+    with pytest.raises(ValueError, match="could account for what crosses the surface"):
         check(quasr_954_mirrored, f)                         # one coil of a pair at 3% more current
     scaled = copy.deepcopy(quasr_954)
     scaled.parts[0].current = scaled.parts[0].current * (1 + 1e-6)
@@ -260,6 +260,77 @@ def test_a_helical_curve_in_another_layout_is_refused(tmp_path):
         torux.load(f)
 
 
+# --------------------------------------------------------------------------- how far other coils may be from its own
+def _makegrid(path, src, n):
+    """The coils of src as a MAKEGRID file of n points each, as SIMSOPT's coils_to_makegrid writes them."""
+    p = src.parts[0]
+    x = np.asarray(p.points(np.arange(n) / n)[0], dtype=float).tolist()
+    rows = ["periods 1", "begin filament", "mirror NIL"]
+    for k in range(p.n):
+        for j in range(n):
+            rows.append(f"{x[k][j][0]!r} {x[k][j][1]!r} {x[k][j][2]!r} {float(p.current[k])!r}")
+        rows.append(f"{x[k][0][0]!r} {x[k][0][1]!r} {x[k][0][2]!r} 0.0 {k + 1} coil{k + 1}")
+    rows.append("end")
+    with open(path, "w") as fh:
+        fh.write("\n".join(rows) + "\n")
+    return str(path)
+
+
+def test_coils_close_to_its_own_are_measured_and_others_only_when_asked(tmp_path, quasr_954, capsys):
+    """The surface of a BoozerSurface leaks 9.4e-6 of |B| against its own coils. torux 0.1.4 refused any coils whose
+    field differs from theirs by more than 1e-9 of |B|, the same coils with their currents rounded to float32
+    included. A difference under a tenth of the leak cannot account for it: measured, and the result says by how
+    much. One of a tenth or more is refused unless asked for, and then measured with the difference said."""
+    f = _boozer_file(tmp_path / "boozer.json")
+    near = copy.deepcopy(quasr_954)
+    near.parts[0].current = near.parts[0].current.astype(np.float32).astype(np.float64)
+    c = check(near, f)
+    own = check(quasr_954, f)
+    assert own.coils_differ <= 1e-14 and "BiotSavart1" in own.own_coils
+    assert 1e-9 < c.coils_differ < 0.1 * c.leak and c.leak == pytest.approx(own.leak, rel=1e-6) and not c.notes
+    assert "its own coils" in str(c) and f"{c.coils_differ:.1e} of |B|" in str(c)
+    mg = _makegrid(tmp_path / "coils.q954", quasr_954, 64)           # a coarse polygon of the same coils
+    with pytest.raises(ValueError, match="mismatched_coils=True") as e:
+        check(mg, f)
+    assert "--mismatched-coils" in str(e.value) and "could account for" in str(e.value)
+    d = check(mg, f, mismatched_coils=True)
+    assert d.coils_differ >= 0.1 * d.leak and any("measured as asked" in n for n in d.notes)
+    ap = argparse.ArgumentParser(prog="torux")
+    add_command(ap.add_subparsers(dest="cmd"))
+    assert run_command(ap.parse_args(["check", mg, f])) == 1
+    assert "--mismatched-coils" in capsys.readouterr().err
+    assert run_command(ap.parse_args(["check", mg, f, "--mismatched-coils"])) == 0
+    out = capsys.readouterr().out
+    assert "its own coils" in out and "measured as asked" in out
+
+
+def test_a_surface_whose_own_coils_state_two_values_is_measured_once_told_which(tmp_path, quasr_954, capsys):
+    """The surface's own coils hold a Current with two values. torux 0.1.4 read them with the currents= of the source,
+    none for another file, could not compare, and measured with a note. Now the comparison is made once the reading
+    of the surface's file is given, and not before."""
+    f = _boozer_file(tmp_path / "two.json", change=_two_valued(3.95))
+    with pytest.raises(ValueError, match="surface_currents='saved'") as e:
+        check(quasr_954, f)
+    assert "Current9" in str(e.value) and "--surface-currents saved" in str(e.value)
+    with pytest.raises(ValueError, match="surface_currents='saved'"):
+        check(quasr_954, f, mismatched_coils=True)                 # no reading, no comparison
+    a = check(quasr_954, f, surface_currents="dofs")              # its coils as their DOFs have them: 954's own
+    assert a.coils_differ <= 1e-14 and a.leak < 1e-5
+    with pytest.raises(ValueError, match="could account for"):
+        check(quasr_954, f, surface_currents="saved")             # its first coil at 3.95 times the current
+    b = check(quasr_954, f, surface_currents="saved", mismatched_coils=True)
+    assert b.coils_differ > 0.1 and b.leak == pytest.approx(a.leak, rel=1e-12)
+    with pytest.raises(ValueError, match="surface_currents="):
+        check(quasr_954, f, surface_currents="key")
+    q = example("quasr_0000954.json")
+    ap = argparse.ArgumentParser(prog="torux")
+    add_command(ap.add_subparsers(dest="cmd"))
+    assert run_command(ap.parse_args(["check", q, f])) == 1
+    assert "--surface-currents" in capsys.readouterr().err
+    assert run_command(ap.parse_args(["check", q, f, "--surface-currents", "dofs"])) == 0
+    assert run_command(ap.parse_args(["check", f, f, "--currents", "dofs"])) == 0    # the same file: its reading
+
+
 # --------------------------------------------------------------------------- several files of several coil sets
 def test_several_files_of_several_coil_sets(tmp_path, capsys):
     """torux 0.1.4 gave which= and --coils to the first file alone, and the second file's refusal said to use
@@ -284,6 +355,37 @@ def test_several_files_of_several_coil_sets(tmp_path, capsys):
 
 
 # --------------------------------------------------------------------------- live SIMSOPT objects
+def _simsopt_954():
+    pytest.importorskip("simsopt")
+    from simsopt import load
+    from simsopt.field import BiotSavart
+    from simsopt.geo import BoozerSurface, Volume
+    surfaces, coils = load(example("quasr_0000954.json"))
+    s = surfaces[-1]
+    vol = Volume(s)
+    return BoozerSurface(BiotSavart(coils), s, vol, vol.J()), coils
+
+
+def test_a_live_boozer_surface_is_compared_with_its_own_coils(tmp_path):
+    """torux 0.1.4 measured the surface of a live BoozerSurface against any coils, where its file saved by SIMSOPT
+    was refused. The two now behave alike."""
+    pytest.importorskip("simsopt")
+    from simsopt import save
+    from simsopt.field import BiotSavart, Coil, Current
+    boz, coils = _simsopt_954()
+    f = str(tmp_path / "boozer.json")
+    save(boz, f)
+    other = BiotSavart([Coil(c.curve, Current(c.current.get_value() * (1.5 if k == 0 else 1.0)))
+                        for k, c in enumerate(coils)])
+    for b in (f, boz):
+        with pytest.raises(ValueError, match="makes a different field on it"):
+            check(other, b)
+    own = [check(BiotSavart(coils), b) for b in (boz, f)]
+    assert own[0].leak == pytest.approx(own[1].leak, rel=1e-9) and all(c.coils_differ <= 1e-14 for c in own)
+    assert "BiotSavart it holds" in own[0].own_coils and "SIMSOPT BoozerSurface" in str(own[0])
+    told = [check(other, b, mismatched_coils=True) for b in (boz, f)]
+    assert told[0].leak == pytest.approx(told[1].leak, rel=1e-9)
+    assert told[0].coils_differ == pytest.approx(told[1].coils_differ, rel=1e-9) and told[0].coils_differ > 0.1
 
 
 def test_a_live_current_set_past_its_dofs_is_read_as_simsopt_computes(tmp_path):

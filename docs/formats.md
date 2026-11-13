@@ -35,7 +35,7 @@ A claimed symmetry is used only after it has been verified on the parts themselv
 | **VMEC input** (`input.*`) | its boundary, with `PHIEDGE` as the flux it states |
 | **SIMSOPT or QUASR JSON**, or `"quasr:954"` | the outermost surface in the file, or `which=` by name or index. The surface of a `BoozerSurface` or `QFMSurface` is checked only against the coils it was computed for ([below](#a-surface-and-the-coils-it-was-computed-for)) |
 | **a saved torux answer** (`.json`) | |
-| **SIMSOPT objects** | `SurfaceRZFourier`, `SurfaceXYZTensorFourier`, anything with a `.surface` such as a `BoozerSurface` |
+| **SIMSOPT objects** | `SurfaceRZFourier`, `SurfaceXYZTensorFourier`, anything with a `.surface`. A `BoozerSurface` or `QFMSurface` is checked against the coils it holds as its file is ([below](#a-surface-and-the-coils-it-was-computed-for)) |
 | **DESC objects** | `FourierRZToroidalSurface`, or an `Equilibrium`, whose `Psi` is the flux it states |
 | **VMEC++ objects** | the output of `vmecpp.run`, or its `wout` |
 | **a torux answer** | |
@@ -50,7 +50,14 @@ A live SIMSOPT object is not a file: SIMSOPT computes its field with the value e
 
 ### A surface and the coils it was computed for
 
-A `BoozerSurface` or `QFMSurface` in a SIMSOPT file names the `BiotSavart` it was computed for. `torux.check` of its surface against other coils compares their field with that `BiotSavart`'s on the surface, and if they differ by more than 10⁻⁹ of |B| it refuses: what crosses the surface then measures the mismatch of the two coil sets, not the surface. Give the surface's file as the source too, with `which=` (`--coils`) naming its coils where the file holds several.
+A `BoozerSurface` or `QFMSurface` names the `BiotSavart` it was computed for, in its file or as a live SIMSOPT object. `torux.check` of its surface compares the source's field on it with that `BiotSavart`'s, at the points where it measures the leak, the largest |B·n|/|B|. A difference of fields can account for a leak only up to its own size, so:
+
+- where the two fields differ by less than a tenth of the leak (or agree to rounding, 10⁻¹⁴ of |B|), `check` measures, and the result says by how much they differ: `c.coils_differ`, a fraction of |B|, and a line of its print.
+- where they differ by a tenth of the leak or more, it refuses, since what crosses the surface may then be the difference of the two coil sets and not the surface. `check(source, surface, mismatched_coils=True)`, or `--mismatched-coils` on the command line, measures all the same, and the result still says by how much the fields differ.
+
+The surface's own coils are best given as the source: its file, with `which=` (`--coils`) naming them where the file holds several. Coils of the surface that torux cannot read are refused the same way, and `mismatched_coils=True` measures without the comparison and says so.
+
+Where a `Current` of the surface's own coils states two values ([above](#a-current-with-two-values)), their field depends on which one they carried, and `check` refuses until told: `surface_currents="saved"` or `"dofs"`, `--surface-currents saved` or `--surface-currents dofs`. A source read from the surface's own file with `currents=` lends it that reading.
 
 ## What an answer writes
 

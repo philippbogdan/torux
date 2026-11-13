@@ -196,7 +196,7 @@ The first row of numbers is the leak: the largest |B·n|/|B| at 4,096 random poi
 
 `check` takes the coils and a surface and measures, with the independent evaluator alone, how much of the field crosses the surface and how much flux it encloses. It pronounces no verdict. The surface is a VMEC or VMEC++ `wout` file, a VMEC input file, a SIMSOPT or QUASR JSON file, a saved torux answer, or a live object: a SIMSOPT `SurfaceRZFourier` or `SurfaceXYZTensorFourier`, a DESC `FourierRZToroidalSurface` or `Equilibrium`, a VMEC++ output, a torux answer ([formats](formats.md)). From the shell: `torux check coils.json wout_mine.nc`.
 
-A SIMSOPT `BoozerSurface` or `QFMSurface` names the coils it was computed for, and `check` measures its surface only against those: other coils, whose field on it differs, are refused with what the difference is. A file holding several coil sets needs `which=` in `torux.load`, or `--coils` on the command line, and the error names the set each `BoozerSurface` of the file was computed with.
+A SIMSOPT `BoozerSurface` or `QFMSurface`, in a file or live, names the coils it was computed for, and `check` compares the source's field on its surface with theirs. Where they differ by less than a tenth of the leak measured, the difference cannot account for the leak: `check` measures, and says by how much they differ (`c.coils_differ`). Where they differ by a tenth of it or more, it refuses, unless asked with `mismatched_coils=True` (`--mismatched-coils`), and then the result still says by how much. Where a `Current` of the surface's own coils states two values, `surface_currents=` (`--surface-currents`) says which they carried ([formats](formats.md#a-surface-and-the-coils-it-was-computed-for)). A file holding several coil sets needs `which=` in `torux.load`, or `--coils` on the command line, and the error names the set each `BoozerSurface` of the file was computed with.
 
 ## Export: VMEC input, JSON, VTK
 
@@ -348,11 +348,12 @@ torux solve SOURCE [SOURCE ...] [--flux WB | --minor-radius M | --volume M3 | --
             [--kind stellarator|tokamak|dipole] [--gradients] [--no-verify] [--trace-lines N]
             [--save FILE] [--mpol N] [--ntor N] [--plot FILE] [--boozer] [--coils NAME] [--currents saved|dofs]
 torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME] [--coils NAME] [--currents saved|dofs]
+            [--surface-currents saved|dofs] [--mismatched-coils]
 torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --volume M3 | --largest]
             [--budget S] [--jobs N] [--save DIR]
 ```
 
-`--coils` and `--currents` are what `torux.load` takes as `which=` and `currents=` for a SIMSOPT JSON source: the coil set of a file holding several, by its `BiotSavart`'s name or index, and which of a `Current` object's two values to take where they differ ([formats](formats.md#simsopt-files-torux-refuses-rather-than-guess)). With several source files, `--coils` once is the first file's, and given once per file, in order, it is each file's, `-` for a file that needs none: `torux check a.json b.json surface.json --coils BiotSavart1 --coils BiotSavart2`, as `which=["BiotSavart1", "BiotSavart2"]` in Python. In `check`, `--which` is the surface's: `torux check file.json file.json --coils BiotSavart6 --which SurfaceXYZTensorFourier3`.
+`--coils` and `--currents` are what `torux.load` takes as `which=` and `currents=` for a SIMSOPT JSON source: the coil set of a file holding several, by its `BiotSavart`'s name or index, and which of a `Current` object's two values to take where they differ ([formats](formats.md#simsopt-files-torux-refuses-rather-than-guess)). With several source files, `--coils` once is the first file's, and given once per file, in order, it is each file's, `-` for a file that needs none: `torux check a.json b.json surface.json --coils BiotSavart1 --coils BiotSavart2`, as `which=["BiotSavart1", "BiotSavart2"]` in Python. In `check`, `--which` is the surface's: `torux check file.json file.json --coils BiotSavart6 --which SurfaceXYZTensorFourier3`, and `--surface-currents` and `--mismatched-coils` are its `surface_currents=` and `mismatched_coils=True`.
 
 `solve` prints the answer on standard output and says on standard error what it is asking and, in a search, each request as it ends. It exits with 0 for a surface or a certified or proved no-surface, 2 for anything undetermined and nothing else, 1 for an error, a command line it cannot read included.
 
