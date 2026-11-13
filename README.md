@@ -16,6 +16,8 @@
 
 <p align="center"><sub>(The aspiration. torux is in development, and vacuum only for now: no finite pressure.)</sub></p>
 
+<p align="center"><a href="method/README.md"><b>The method</b></a> · <a href="docs/usage.md">Usage</a> · <a href="docs/verification.md">What is checked</a> · <a href="results/README.md">Results</a></p>
+
 **Coils in, vacuum flux surface out: max |B·n|/|B| of 10⁻¹⁵, in seconds, with nothing to tune.**
 
 It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org). A second evaluator, sharing no code with the solver, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after less than a minute's work.
@@ -59,6 +61,21 @@ The same 300 coil sets on one processor (AMD EPYC 7742), four threads each. A do
 - DESC: 885 s. On the 141 coil sets both solved it was faster on 0 and more accurate on 0.
 - VMEC++: 1,525 s. On the 177 coil sets both solved it was faster on 1 and more accurate on 0.
 - SIMSOPT QFM: 1,770 s. On the 199 coil sets both solved it was faster on 0 and more accurate on 0.
+
+## The method
+
+<p align="center">
+  <a href="method/README.md">
+    <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="method/figures/surface-a-dark.svg">
+    <img src="method/figures/surface-a-light.svg" width="838" alt="Left, an ink drawing of the flux surface of HSX in perspective: a twisted, flattened tube bent into a ring with four field periods, hidden lines removed, a twelfth of it cut away so that a hatched cross-section faces the reader. A net of thin curves of constant theta and constant phi covers it, and one heavy field line runs round it, starting from a dot on the cut. Arrows show phi increasing round the ring and theta round the cross-section. Right, the square of the two angles, phi across and theta up, each from 0 to 2 pi, ruled in a 12 by 12 grid: the same field line is a straight heavy line from theta 0 on the left edge, rising with slope iota, leaving through the top and re-entering at the bottom. A small triangle marks the slope: 1 across, iota up. Above the square: theta = theta 0 + iota phi.">
+    </picture>
+  </a>
+</p>
+
+The surface is a Fourier series: R and Z in cos and sin of mθ − nN<sub>fp</sub>φ, the series VMEC, DESC and SIMSOPT read. φ is the cylindrical angle and θ the poloidal angle in which field lines are straight. The coefficients and ι are the unknowns of one square system, solved by Newton's method on the coils' Biot-Savart field: no finite elements, and no fit to traced lines. Where a flux surface exists it is the quadratic-flux-minimising surface, with the angle pinned so that the solution is unique.
+
+**[The method, in five figures](method/README.md)**: the equation, the start from the magnetic axis with no initial guess, why the answer reaches rounding error, and the proofs that there is no surface.
 
 ## Use it
 
@@ -106,7 +123,7 @@ torux.many(files, table="answers.csv")        # a folder of designs, one row eac
   </picture>
 </p>
 
-Nothing to tune: no resolution, no tolerance, no starting guess. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](docs/method.md) and [what is checked, and by what](docs/verification.md).
+Nothing to tune: no resolution, no tolerance, no starting guess. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](method/README.md) and [what is checked, and by what](docs/verification.md).
 
 ## Credit
 
