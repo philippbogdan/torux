@@ -326,22 +326,20 @@ def test_three_periods_without_stellarator_symmetry_have_per_coil_numbers():
     assert np.abs(d[4:8] - d[0:4]).max() <= 1e-14 * np.abs(d).max() and np.abs(d[8:] - d[:4]).max() <= 1e-14 * np.abs(d).max()
 
 
-# the central differences' own truncation at a step of 1e-4 of the entry is 3e-5 of them here (1e-3 gives 3e-3)
-TOL_219457 = 1e-4
-
-
 @pytest.mark.slow
 def test_three_periods_without_stellarator_symmetry_against_solves_without_symmetry():
     """The per-coil numbers of that source against central differences of solves with only one entry changed and no
-    symmetry assumed. The one-period solve's dι/dI of coil 0 is +5.8e-07 per ampere, of the other sign."""
+    symmetry assumed. Their own error here is 3e-5 of them at a step of 1e-4 of the entry and a hundred times that at
+    1e-3, and the two together take it away. The one-period solve's dι/dI of coil 0 is +5.8e-07 per ampere, of the
+    other sign."""
     src, flux = _three_periods()
     res = torux.solve(src, flux=flux, gradients=True, budget_s=1500)
     assert res.status == "surface" and "per_coil" not in res.gradients
     g, f = res.gradients, res.surface.flux
-    fd = _alone(src, f, "current", 0, 1e-4)
-    assert abs(fd - g["d_iota_d_current"][0]) <= TOL_219457 * abs(fd)
-    fd = _alone(src, f, "coef", (1, 0, 2), 1e-4)
-    assert abs(fd - g["d_iota_d_coef"][1, 0, 2]) <= TOL_219457 * abs(fd)
+    for key, index, got in (("current", 0, g["d_iota_d_current"][0]), ("coef", (1, 0, 2), g["d_iota_d_coef"][1, 0, 2])):
+        fine, coarse = _alone(src, f, key, index, 1e-4), _alone(src, f, key, index, 1e-3)
+        assert abs(fine - got) <= 1e-4 * abs(got)
+        assert abs((100 * fine - coarse) / 99 - got) <= 1e-5 * abs(got)
 
 
 # --------------------------------------------------------------------------- coils of zero current, parts of no coil
