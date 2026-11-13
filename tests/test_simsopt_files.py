@@ -7,6 +7,7 @@ for the helical curves is their definition in SIMSOPT, written out again below. 
 CurveXYZFourierSymmetries is compared too.
 """
 import argparse
+import copy
 import json
 
 import numpy as np
@@ -75,6 +76,33 @@ def _two_valued(saved_over_dofs):
                          "current": i0 * saved_over_dofs, "dofs": _ref("dofs_of_Current9")}
         o[first]["current"] = _ref("Current9")
     return change
+
+
+# --------------------------------------------------------------------------- the coils a surface was computed for
+def test_a_boozer_surface_with_its_own_coils_reads_as_quasr_does(tmp_path, quasr_954):
+    f = _boozer_file(tmp_path / "boozer.json")
+    a = check(f, f)
+    b = check(quasr_954, example("quasr_0000954.json"))       # the same coils and surface, from QUASR's own file
+    assert a.leak == pytest.approx(b.leak, rel=1e-9) and a.flux == pytest.approx(b.flux, rel=1e-12)
+    assert a.leak < 1e-5 and not a.notes
+    c = check(quasr_954, f)                                  # the same coils from another file: the same field
+    assert c.leak == pytest.approx(b.leak, rel=1e-9)
+
+
+def test_a_boozer_surface_against_other_coils_is_refused(tmp_path, quasr_954, quasr_954_mirrored):
+    """A surface checked against coils it was not computed for: torux 0.1.3 measured the mismatch of the files and
+    printed it as the surface's leak (CNT's boozer_surface.json against biotsavart_cnt32_symm.json, 9.5e-01)."""
+    f = _boozer_file(tmp_path / "boozer.json")
+    with pytest.raises(ValueError, match="was not computed for these coils"):
+        check(quasr_954_mirrored, f)                         # one coil of a pair at 3% more current
+    scaled = copy.deepcopy(quasr_954)
+    scaled.parts[0].current = scaled.parts[0].current * (1 + 1e-6)
+    with pytest.raises(ValueError, match="BoozerSurface1"):
+        check(scaled, f)
+    ap = argparse.ArgumentParser(prog="torux")
+    add_command(ap.add_subparsers(dest="cmd"))
+    g = _boozer_file(tmp_path / "boozer_mirror.json", change=_two_valued(1.0))   # the same coils, written again
+    assert run_command(ap.parse_args(["check", g, f])) == 0
 
 
 # --------------------------------------------------------------------------- a Current with two values

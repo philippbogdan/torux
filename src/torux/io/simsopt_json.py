@@ -104,6 +104,7 @@ class Simson:
             raise ValueError(f"currents={currents!r}: give 'saved' (the value each Current object held when the "
                              f"file was saved) or 'dofs' (the value SIMSOPT reads back from its degrees of freedom)")
         self.path = str(path) if path is not None else None
+        self.raw = d
         self.graph = d["graph"]
         self.objs = d["simsopt_objs"]
         self.version = d.get("@version")

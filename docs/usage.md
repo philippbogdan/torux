@@ -196,7 +196,7 @@ The first row of numbers is the leak: the largest |B·n|/|B| at 4,096 random poi
 
 `check` takes the coils and a surface and measures, with the independent evaluator alone, how much of the field crosses the surface and how much flux it encloses. It pronounces no verdict. The surface is a VMEC or VMEC++ `wout` file, a VMEC input file, a SIMSOPT or QUASR JSON file, a saved torux answer, or a live object: a SIMSOPT `SurfaceRZFourier` or `SurfaceXYZTensorFourier`, a DESC `FourierRZToroidalSurface` or `Equilibrium`, a VMEC++ output, a torux answer ([formats](formats.md)). From the shell: `torux check coils.json wout_mine.nc`.
 
-A file holding several coil sets needs `which=` in `torux.load`, or `--coils` on the command line, and the error names the set each `BoozerSurface` of the file was computed with.
+A SIMSOPT `BoozerSurface` or `QFMSurface` names the coils it was computed for, and `check` measures its surface only against those: other coils, whose field on it differs, are refused with what the difference is. A file holding several coil sets needs `which=` in `torux.load`, or `--coils` on the command line, and the error names the set each `BoozerSurface` of the file was computed with.
 
 ## Export: VMEC input, JSON, VTK
 

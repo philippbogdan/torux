@@ -86,7 +86,9 @@ def check(source, surface, flux=None, *, which=None) -> Check:
     """How close ``surface`` is to a flux surface of ``source``: |B.n|/|B| at 4,096 random points and the
     toroidal flux it encloses (Wb).  ``source``: anything torux.load reads, or a torux.Source.  ``flux``: a
     flux to compare with (Wb, by default the one the surface's file states).  ``which``: the surface to take,
-    by name or index, from a file holding several (default: the outermost)."""
+    by name or index, from a file holding several (default: the outermost).  The surface of a SIMSOPT BoozerSurface
+    or QFMSurface is measured only against the coils its file says it was computed for: a source whose field on it
+    differs is refused (ValueError)."""
     if flux is not None and (isinstance(flux, bool) or not isinstance(flux, (int, float, np.integer, np.floating))
                              or not math.isfinite(flux) or flux == 0):
         raise ValueError(f"flux={flux!r}: give the flux to compare with in Wb, as a number other than zero")
@@ -114,6 +116,8 @@ def measure_at(src, S, theta, phi, sections, flux=None) -> Check:
     x, xt, xp = S.eval(theta, phi)
     nv = np.cross(xt, xp)
     B = np.asarray(F.evaluate(x, grad=False)["B"], float)
+    if S.own_coils is not None:
+        notes += _against_own_coils(S, src, x, B)
     taken = ((getattr(src, "meta", None) or {}).get("currents") or {})
     if taken.get("differing"):
         notes.append(f"the source's file states two values for {', '.join(taken['differing'])}: the "
@@ -149,6 +153,38 @@ def measure_at(src, S, theta, phi, sections, flux=None) -> Check:
                  leak_median=leak_med, at=(float(theta[k]), float(phi[k])), rounding=rounding, flux=fmean,
                  flux_spread=spread, flux_stated=stated if stated else None, flux_stated_by=by if stated else None,
                  flux_error=err, npts=int(theta.size), nsec=int(fl.size), notes=notes)
+
+
+OWN_FIELD_TOL = 1e-9         # the same coils, however written, make the same field to rounding
+
+
+def _against_own_coils(S, src, x, B):
+    """A SIMSOPT BoozerSurface or QFMSurface was computed for the coils its own file holds with it: if the source
+    given makes a different field on the surface, the two files do not belong together and a leak measured against
+    the source says nothing about the surface. Refused. Returns notes when the comparison cannot be made."""
+    from .io.simsopt_json import Simson, coils_to_source
+    from .reference import fast64
+    own = S.own_coils
+    taken = ((getattr(src, "meta", None) or {}).get("currents") or {}).get("taken")
+    try:
+        sim = Simson(own["dict"], own["origin"], taken)
+        mine = coils_to_source(sim, sim.coils_of(own["biotsavart"]), own["biotsavart"], check_symmetry=False)
+    except (ValueError, NotImplementedError, KeyError, TypeError) as e:
+        return [f"{own['boozer']} was computed for its file's {own['biotsavart']}, which torux cannot read to compare "
+                f"with the source given ({e})"]
+    Bo = np.asarray(fast64.Field(mine).evaluate(x, grad=False)["B"], float)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        gap = np.linalg.norm(B - Bo, axis=-1) / np.linalg.norm(Bo, axis=-1)
+    gap = float(np.nanmax(gap)) if np.any(np.isfinite(gap)) else float("inf")
+    if not gap <= OWN_FIELD_TOL:
+        raise ValueError(
+            f"{own['origin']}: {own['surface']} is the surface of {own['boozer']}, which its file says was computed "
+            f"for the file's own coils, {own['biotsavart']}. The source given makes a different field on it, by up to "
+            f"{gap:.1e} of |B|: the surface was not computed for these coils, and what crosses it measures the "
+            f"mismatch of the two coil sets, not the surface. Check it against its own coils: {own['biotsavart']} of "
+            f"{own['origin']}, as the source torux.load(path, which={own['biotsavart']!r}) or "
+            f"`torux check {own['origin']} {own['origin']} --coils {own['biotsavart']}`")
+    return []
 
 
 def _rounding(src, x):
@@ -196,6 +232,9 @@ def _source(source):
 class Surface:
     """A surface as complex Fourier series in its own angles:  u = x + i y = sum U[m, k] exp(i (m theta + k phi)),
     z = sum Z[m, k] exp(i (m theta + k phi)) (Z Hermitian: z real), m = -M..M, k = -K..K."""
+
+    own_coils = None             # a SIMSOPT BoozerSurface's or QFMSurface's: the coils its file says it was
+                                 # computed for
 
     def __init__(self, terms_u, terms_z, origin, kind, size, flux=None, flux_by=None):
         mu, ku, cu = (np.asarray(a) for a in terms_u)
@@ -599,7 +638,7 @@ def _simson_one(sim, nm, origin):
         from .io.surfaces import SurfaceXYZTensorFourier as XYZ
         t = XYZ.from_gson(o, sim.dofs_x(o), nm)
         u, z = _tensor_xyz(t.x, t.y, t.z, t.mpol, t.ntor, t.nfp, t.clamped_dims)
-        return Surface(u, z, origin, label, f"M, N = {t.mpol}, {t.ntor}")
+        return _boozer_of(sim, nm, origin, Surface(u, z, origin, label, f"M, N = {t.mpol}, {t.ntor}"))
     if cls == "SurfaceRZFourier":
         mpol, ntor, nfp = int(o["mpol"]), int(o["ntor"]), int(o["nfp"])
         dofs = sim.obj(o["dofs"])
@@ -616,9 +655,19 @@ def _simson_one(sim, nm, origin):
         m = np.repeat(np.arange(mpol + 1), 2 * ntor + 1)
         n = np.tile(np.arange(-ntor, ntor + 1), mpol + 1) * nfp
         u, z = _rz(m, n, *(coef[k].ravel() for k in ("rc", "rs", "zc", "zs")))
-        return Surface(u, z, origin, label, f"M, N = {mpol}, {ntor}")
+        return _boozer_of(sim, nm, origin, Surface(u, z, origin, label, f"M, N = {mpol}, {ntor}"))
     raise ValueError(f"{origin}: {nm} is a SIMSOPT {cls}. torux.check reads SurfaceRZFourier and "
                      "SurfaceXYZTensorFourier")
+
+
+def _boozer_of(sim, nm, origin, S):
+    """S, with the coils a BoozerSurface or QFMSurface of the file computed it for, when one holds it."""
+    from .io.simsopt_json import boozer_pairs
+    for b, (bs, surf) in boozer_pairs(sim).items():
+        if surf == nm and bs in sim.objs and sim.objs[bs]["@class"] == "BiotSavart":
+            S.own_coils = dict(dict=sim.raw, origin=origin, boozer=b, biotsavart=bs, surface=nm)
+            break
+    return S
 
 
 def _simson(d, origin, which):
