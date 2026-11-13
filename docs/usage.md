@@ -281,7 +281,7 @@ The two pieces an adjoint needs, as SIMSOPT's `BoozerSurface` objectives use the
 
 `d["coef"]` (ncoil, 3, 2K+1), in `CurveXYZFourier`'s order, and `d["current"]` are the coils in the order of the source, for a `BiotSavart` that of `bs.coils`. `d["d_coef"]`, `d["d_current"]` and `d["d_flux"]` are λᵀ∂F/∂coef, λᵀ∂F/∂I and λᵀ∂F/∂Ψ₀. A coil of zero current is kept, with its true derivatives: zero in its coefficients, as its field is, and the derivative of F in its current. Both calls need the source and a surface, so an answer read from a file or settled by proof raises a `ValueError`, and `vjp` takes Fourier coils alone.
 
-F is the equations on one field period. So for a source with field periods or stellarator symmetry, the product in one coil is that coil's part of a change made to all its copies, as in the gradients above: exact where the copies share their dofs, as SIMSOPT's `coils_via_symmetries` makes them, and not the effect of one coil whose dofs are its own.
+F is the equations on one field period. So for a source with field periods or stellarator symmetry, the product in one coil is that coil's part of a change made to all its copies, unlike the gradients above, which are averaged over the symmetry: exact where the copies share their dofs, as SIMSOPT's `coils_via_symmetries` makes them, and not the effect of one coil whose dofs are its own.
 
 Without stellarator symmetry:
 
