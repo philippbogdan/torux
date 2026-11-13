@@ -83,8 +83,10 @@ When Newton fails, the surface may not be there. Near a resonance the field line
 ## Use it
 
 ```sh
-pip install torux
+pip install torux                    # or: conda install -c conda-forge torux
 torux solve quasr:954
+
+uvx torux solve quasr:954            # or run it once, with nothing installed
 ```
 
 ```

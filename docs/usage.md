@@ -2,6 +2,7 @@
 
 ```sh
 pip install torux      # Python 3.12 or later. "torux[plot]" adds the picture, "torux[hdf5]" the .h5 formats, "torux[all]" both
+conda install -c conda-forge torux    # or from conda-forge
 git clone https://github.com/philippbogdan/torux && cd torux    # only for the example files used below
 uvx torux solve quasr:954    # or with nothing installed, if you have uv: one QUASR design, solved and checked
 ```
