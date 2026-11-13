@@ -15,7 +15,7 @@
     res.evidence      solver checks (off-grid B.n, refinement history, resonance guard, quadrature error),
                       independent verification (reference B.n, flux, double-double tier; reference-traced lines
                       with trace_lines=8), certificates
-    res.gradients     d iota / d (every source parameter: coil coefficients / points / currents, dipole
+    res.gradients     d iota / d (every source parameter, each alone: coil coefficients / points / currents, dipole
                       positions / moments, ...; and the flux) by the adjoint method
     res.field(x)      B at Cartesian points (the solver's engine)
     res.points(theta, phi)   Cartesian points of the surface
@@ -256,26 +256,22 @@ def _solve(req, src, surfs, budget, t0, deadline):
             if time.time() > deadline - 0.05 * budget:
                 out.gradients = dict(skipped="no time left in the budget")
             else:
-                from .gradients import adjoint_gradient_general
+                from .gradients import adjoint_gradient_general, iota_gradients
                 try:
                     g = adjoint_gradient_general(out._engine, T, "iota")
-                    out.gradients = dict(objective="iota", d_iota_d_flux=g["d_flux"], parts=g["parts"])
-                    if "d_coef" in g:
-                        out.gradients.update(d_iota_d_coef=g["d_coef"], d_iota_d_current=g["d_current"])
+                    out.gradients = iota_gradients(out._engine.source, T, True, g)
                 except Exception as e:  # noqa: BLE001
                     out.gradients = dict(error=repr(e))
         elif req.gradients and status in ("surface", "range"):
             if time.time() > deadline - 0.05 * budget:
                 out.gradients = dict(skipped="no time left in the budget")
             else:
-                from .gradients import adjoint_gradient, adjoint_gradient_mf
+                from .gradients import adjoint_gradient, adjoint_gradient_mf, iota_gradients
                 try:
                     # dense adjoint up to the dense Newton's size, matrix-free above
                     n_unk = 2 * T.M * (2 * T.N + 1) + 2 * T.N + 2
                     g = (adjoint_gradient if n_unk <= 6000 else adjoint_gradient_mf)(out._engine, T, "iota")
-                    out.gradients = dict(objective="iota", d_iota_d_flux=g["d_flux"], parts=g["parts"])
-                    if "d_coef" in g:
-                        out.gradients.update(d_iota_d_coef=g["d_coef"], d_iota_d_current=g["d_current"])
+                    out.gradients = iota_gradients(out._engine.source, T, False, g)
                 except Exception as e:  # noqa: BLE001
                     out.gradients = dict(error=repr(e))
     if rec.get("certificate"):

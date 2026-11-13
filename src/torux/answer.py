@@ -901,6 +901,9 @@ def _surface_rows(a, ev, rec):
             rows.append(("gradients", f"skipped: {g['skipped']}"))
         elif isinstance(g, dict) and g.get("error"):
             rows.append(("gradients", f"failed: {g['error']}"))
+        elif isinstance(g, dict) and g.get("per_coil"):
+            rows.append(("gradients", f"of iota in the flux. Per coil {g['per_coil']}. The one-period solve's: "
+                                      f"answer.gradients['one_period']"))
         else:
             rows.append(("gradients", "of iota in every source parameter and the flux: answer.gradients"))
     if a.status == "range":

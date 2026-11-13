@@ -446,3 +446,314 @@ def adjoint_gradient_general(engine: FieldEngine, torus, objective="iota"):
     out = _vjp_source_general(engine, eq, u, float(torus.flux), flux_scale, lam)
     out.update(value=float(u[-1]), residual=residual)
     return out
+
+
+# --------------------------------------------------------------------------- the derivatives in one coil alone
+# A source with field periods or stellarator symmetry is solved on one period, and the adjoint above differentiates
+# that solve: it is exact along every change that keeps the symmetry the solve assumed, and a coil's entry is its
+# part of a change made alike to it and all its copies. iota at a fixed flux is invariant under that symmetry group
+# G, so its true gradient is G-invariant, and with G acting orthogonally on the parameters the true gradient is the
+# group average of the one-period one: (P g).v = g.(P v) = grad.(P v) = (P grad).v = grad.v for every direction v.
+# The average needs G's action on the parameters, which coil each coil's copy is and how their coefficients relate,
+# and it is found here by matching the parts against their own images.
+
+class NoMap(Exception):
+    """A source whose copies are not images of its own elements in a way that maps their parameters."""
+
+
+def _group(torus, general):
+    """(alpha, n, F): the rotation by alpha about z and its order n, and the flip F (None without stellarator
+    symmetry), that the solve of the torus assumed: rotation by 2 pi / nfp of the torus (an island torus's nfp may
+    be a fraction p / q, and its rotation by 2 pi q / p has order p), and the rotation by pi about the line at phi0
+    in the plane Z = 0 on the stellarator-symmetric basis."""
+    from fractions import Fraction
+    from .source import FLIP, rotation_z
+    v = float(torus.nfp)
+    f = Fraction(v).limit_denominator(1000)
+    if not (v > 0 and abs(float(f) - v) <= 1e-12 * v):
+        raise NoMap(f"the torus has {v} field periods, which is no rotation of finite order")
+    phi0 = float(getattr(torus, "phi0", 0.0))
+    F = None if general else rotation_z(2 * phi0) @ FLIP
+    return 2 * np.pi * f.denominator / f.numerator, int(f.numerator), F
+
+
+def _fourier_match(D, C, tol):
+    """(o, e) with C the curve D traversed backwards when o = -1, its parameter then shifted, the shift
+    w_k -> w_k e^k on w_k = c_k + i s_k of harmonic k, or None when C is no reparametrisation of D of that kind."""
+    if np.abs(D[:, 0] - C[:, 0]).max() > tol:
+        return None
+    K = (D.shape[1] - 1) // 2
+    k = np.arange(1, K + 1)
+    wC = C[:, 2::2] + 1j * C[:, 1::2]
+    for o in (1, -1):
+        Do = D.copy()
+        if o < 0:
+            Do[:, 1::2] *= -1
+        wD = Do[:, 2::2] + 1j * Do[:, 1::2]
+        if K == 0 or np.abs(wD - wC).max() <= tol:
+            return o, 1.0 + 0.0j
+        big = np.nonzero(np.abs(wD).max(axis=0) > 1e3 * tol)[0]
+        if not len(big):
+            continue
+        k0 = int(big[0])
+        r = np.vdot(wD[:, k0], wC[:, k0])
+        if abs(r) == 0.0:
+            continue
+        a = np.angle(r)
+        for m in range(k0 + 1):
+            e = np.exp(1j * (a + 2 * np.pi * m) / (k0 + 1))
+            if np.abs(wD * e ** k[None, :] - wC).max() <= tol:
+                return o, e
+    return None
+
+
+def _apply_fourier(G, M, o, e):
+    """The map of _fourier_match on one coil's coefficients (or their gradient: the map is orthogonal)."""
+    D = M @ G
+    if o < 0:
+        D[:, 1::2] *= -1
+    if e != 1.0:
+        K = (D.shape[1] - 1) // 2
+        w = (D[:, 2::2] + 1j * D[:, 1::2]) * e ** np.arange(1, K + 1)[None, :]
+        D[:, 2::2], D[:, 1::2] = w.real, w.imag
+    return D
+
+
+def _cyclic_order(q, n):
+    """+1 or -1 when the positions q (in a loop of n points) follow each other forwards or backwards, else 0."""
+    if len(q) != n:
+        return 0
+    d = np.mod(np.diff(np.append(q, q[0])), n)
+    if np.all(d == 1 % n):
+        return 1
+    if np.all(d == (n - 1) % n):
+        return -1
+    return 0
+
+
+def _action(source, M, s, tol=1e-8):
+    """The parameters' map of the symmetry x -> M x of the source (s = -1: with the currents reversed, the flip of
+    stellarator symmetry), as a function on per-part dicts of arrays keyed as torux.gradients' parts are
+    (d_coef, d_current, d_points, ...). It maps gradients as it maps parameters, being orthogonal. Raises NoMap when
+    an element's image is no element of the source of the same kind with a parameter map of the kinds matched here:
+    Fourier coils up to a shift and a reversal of their parameter, polygon loops up to their first point and
+    direction, segments up to their direction, dipoles and rings as they are."""
+    from scipy.spatial import cKDTree
+    parts = source.parts
+    turn = 1.0 if M[2, 2] > 0 else -1.0              # -1: the map turns the toroidal direction round
+    steps = []                                       # functions (gin, gout) filling gout from gin
+    by_kind = {}
+    for ip, p in enumerate(parts):
+        by_kind.setdefault(p.kind, []).append(ip)
+
+    def cat(g, ips, key):
+        return np.concatenate([np.asarray(g[ip][key], dtype=np.float64) for ip in ips])
+
+    def put(gout, ips, key, arr):
+        k = 0
+        for ip in ips:
+            n = len(gout[ip][key])
+            gout[ip][key] = arr[k:k + n]
+            k += n
+
+    def unique(idx):
+        return len(np.unique(idx)) == len(idx)
+
+    def worst(x, ref):
+        return float(np.abs(x).max(initial=0.0)) / max(float(np.abs(ref).max(initial=0.0)), 1e-300)
+
+    for kind, ips in by_kind.items():
+        P = [parts[ip] for ip in ips]
+        if kind == "fourier":
+            coils = [(k, i) for k in range(len(P)) for i in range(P[k].n)]
+            scale = max(max(float(np.abs(p.coef).max()) for p in P), 1e-300)
+            Iscale = max(max(float(np.abs(p.current).max(initial=0.0)) for p in P), 1e-300)
+            used, maps = set(), []
+            for k, i in coils:
+                D = M @ P[k].coef[i]
+                hit = None
+                for kq, j in coils:
+                    q = P[kq]
+                    if (kq, j) in used or q.coef.shape[2] != P[k].coef.shape[2]:
+                        continue
+                    m = _fourier_match(D, q.coef[j], tol * scale)
+                    if m is not None and abs(q.current[j] - s * m[0] * P[k].current[i]) <= tol * Iscale:
+                        hit = (kq, j, m[0], m[1])
+                        break
+                if hit is None:
+                    raise NoMap(f"the image of coil {i} of part {ips[k]} is none of the source's coils with its "
+                                f"coefficients mapped")
+                used.add(hit[:2])
+                maps.append((ips[k], i, ips[hit[0]], hit[1], hit[2], hit[3]))
+
+            def step(gin, gout, maps=maps):
+                for ip, i, jp, j, o, e in maps:
+                    gout[jp]["d_coef"][j] = _apply_fourier(np.asarray(gin[ip]["d_coef"][i], dtype=np.float64), M, o, e)
+                    gout[jp]["d_current"][j] = s * o * gin[ip]["d_current"][i]
+            steps.append(step)
+        elif kind == "polyline":
+            pts = np.concatenate([p.points for p in P])
+            off = np.cumsum([0] + [len(p.points) for p in P])
+            nloops = np.cumsum([0] + [p.n for p in P])
+            loop_of = np.concatenate([np.repeat(np.arange(p.n), np.diff(p.start)) + nloops[k] for k, p in enumerate(P)])
+            first = np.concatenate([off[k] + p.start[:-1] for k, p in enumerate(P)])
+            size = np.concatenate([np.diff(p.start) for p in P])
+            I = np.concatenate([p.current for p in P])
+            d, idx = cKDTree(pts).query(pts @ M.T)
+            if worst(d, pts) > tol or not unique(idx):
+                raise NoMap("the points of the source's polygon loops are not their own images")
+            tgt = np.empty(len(I), dtype=np.int64)
+            o = np.empty(len(I))
+            for L in range(len(I)):
+                t = idx[first[L]:first[L] + size[L]]
+                j = int(loop_of[t[0]])
+                o[L] = _cyclic_order(t - first[j], int(size[j])) if np.all(loop_of[t] == j) else 0
+                tgt[L] = j
+            if np.any(o == 0) or not unique(tgt) or worst(I[tgt] - s * o * I, I) > tol:
+                raise NoMap("the source's polygon loops are not their own images point for point")
+
+            def step(gin, gout, ips=ips, idx=idx, tgt=tgt, o=o):
+                gp, gI = cat(gin, ips, "d_points"), cat(gin, ips, "d_current")
+                op, oI = np.empty_like(gp), np.empty_like(gI)
+                op[idx] = gp @ M.T
+                oI[tgt] = s * o * gI
+                put(gout, ips, "d_points", op)
+                put(gout, ips, "d_current", oI)
+            steps.append(step)
+        elif kind == "segments":
+            a = np.concatenate([p.a for p in P])
+            b = np.concatenate([p.b for p in P])
+            I = np.concatenate([p.current for p in P])
+            n = len(a)
+            key = np.concatenate([np.concatenate([a, b], 1), np.concatenate([b, a], 1)])
+            d, idx = cKDTree(key).query(np.concatenate([a @ M.T, b @ M.T], 1))
+            o = np.where(idx < n, 1.0, -1.0)
+            idx = np.mod(idx, n)
+            if worst(d, key) > tol or not unique(idx) or worst(I[idx] - s * o * I, I) > tol:
+                raise NoMap("the source's segments are not their own images")
+
+            def step(gin, gout, ips=ips, idx=idx, o=o):
+                ga, gb, gI = (cat(gin, ips, k) for k in ("d_a", "d_b", "d_current"))
+                ma, mb = ga @ M.T, gb @ M.T
+                fw = (o > 0)[:, None]
+                oa, ob, oI = np.empty_like(ga), np.empty_like(gb), np.empty_like(gI)
+                oa[idx], ob[idx] = np.where(fw, ma, mb), np.where(fw, mb, ma)
+                oI[idx] = s * o * gI
+                for k, arr in (("d_a", oa), ("d_b", ob), ("d_current", oI)):
+                    put(gout, ips, k, arr)
+            steps.append(step)
+        elif kind == "dipoles":
+            pos = np.concatenate([p.pos for p in P])
+            mom = np.concatenate([p.moment for p in P])
+            d, idx = cKDTree(pos).query(pos @ M.T)
+            if worst(d, pos) > tol or not unique(idx) or worst(mom[idx] - s * mom @ M.T, mom) > tol:
+                raise NoMap("the source's dipoles are not their own images")
+
+            def step(gin, gout, ips=ips, idx=idx):
+                gp, gm = cat(gin, ips, "d_pos"), cat(gin, ips, "d_moment")
+                op, om = np.empty_like(gp), np.empty_like(gm)
+                op[idx], om[idx] = gp @ M.T, s * (gm @ M.T)
+                put(gout, ips, "d_pos", op)
+                put(gout, ips, "d_moment", om)
+            steps.append(step)
+        elif kind == "rings":
+            R = np.concatenate([p.R for p in P])
+            Z = np.concatenate([p.Z for p in P])
+            I = np.concatenate([p.current for p in P])
+            RZ = np.stack([R, Z], 1)
+            d, idx = cKDTree(RZ).query(np.stack([R, turn * Z], 1))
+            if worst(d, RZ) > tol or not unique(idx) or worst(I[idx] - s * turn * I, I) > tol:
+                raise NoMap("the source's rings are not their own images")
+
+            def step(gin, gout, ips=ips, idx=idx):
+                gR, gZ, gI = (cat(gin, ips, k) for k in ("d_R", "d_Z", "d_current"))
+                oR, oZ, oI = np.empty_like(gR), np.empty_like(gZ), np.empty_like(gI)
+                oR[idx], oZ[idx], oI[idx] = gR, turn * gZ, s * turn * gI
+                for k, arr in (("d_R", oR), ("d_Z", oZ), ("d_current", oI)):
+                    put(gout, ips, k, arr)
+            steps.append(step)
+        elif kind == "toroidal":
+            def step(gin, gout, ips=ips):
+                for ip in ips:
+                    gout[ip]["d_RB"] = s * turn * np.asarray(gin[ip]["d_RB"], dtype=np.float64)
+            steps.append(step)
+        else:
+            raise NoMap(f"no map for {kind} parts")
+
+    def act(gin):
+        gout = [{k: (np.array(v, dtype=np.float64) if k != "kind" else v) for k, v in g.items()} for g in gin]
+        for st in steps:
+            st(gin, gout)
+        return gout
+    return act
+
+
+def symmetric_average(source, torus, general, parts):
+    """The group average of per-part gradients (torux.gradients' parts) over the symmetry the solve of the torus
+    assumed: for the one-period solve's gradient of a quantity that symmetry leaves unchanged, the true gradient,
+    every element's entries those of changing that element alone. None when the group is the identity alone.
+    Raises NoMap when the source's copies give no map between their parameters, or maps that do not close into
+    the group (a rotation n times over, the flip twice, and flip, rotation, flip, rotation each the identity)."""
+    alpha, n, F = _group(torus, general)
+    if n == 1 and F is None:
+        return None
+    from .source import rotation_z
+
+    def lin(a, b, wa, wb):
+        return [{k: (wa * x[k] + wb * y[k] if k != "kind" else x[k]) for k in x} for x, y in zip(a, b)]
+    g = [{k: (np.asarray(v, dtype=np.float64) if k != "kind" else v) for k, v in p.items()} for p in parts]
+    rng = np.random.default_rng(0)
+    probe = [{k: (rng.standard_normal(np.shape(v)) if k != "kind" else v) for k, v in p.items()} for p in g]
+    flip = _action(source, F, -1.0) if F is not None else (lambda x: x)
+    rot = _action(source, rotation_z(alpha), 1.0) if n > 1 else (lambda x: x)
+
+    def times(f, k, x):
+        for _ in range(k):
+            x = f(x)
+        return x
+    for name, back in (("the rotation", times(rot, n, probe)), ("the flip", flip(flip(probe))),
+                       ("flip and rotation", flip(rot(flip(rot(probe)))))):
+        if max(float(np.abs(x[k] - y[k]).max(initial=0.0)) for x, y in zip(back, probe) for k in x if k != "kind") > 1e-9:
+            raise NoMap(f"the maps found for the source's copies do not close: {name} is not the identity")
+    if F is not None:
+        g = lin(g, flip(g), 0.5, 0.5)
+    if n > 1:
+        acc, cur = g, g
+        for _ in range(n - 1):
+            cur = rot(cur)
+            acc = lin(acc, cur, 1.0, 1.0)
+        g = lin(acc, acc, 1.0 / n, 0.0)
+    return g
+
+
+ONE_PERIOD = ("the derivatives of the solve on one field period: exact for every change that keeps the source's "
+              "symmetry, and a coil's entries are its part of a change made alike to it and all its copies, which "
+              "only their sum over the copies means")
+
+
+def iota_gradients(source, torus, general, g):
+    """answer.gradients from an adjoint's result g (adjoint_gradient and its kin): d_iota_d_flux, parts and, for
+    Fourier coils with current, d_iota_d_coef and d_iota_d_current, each element's entries the derivatives of iota in
+    that element alone (symmetric_average). When the source's copies cannot be mapped those keys are left out:
+    per_coil says why, and one_period holds the one-period solve's derivatives under the same names."""
+    out = dict(objective="iota", d_iota_d_flux=g["d_flux"])
+    try:
+        parts = symmetric_average(source, torus, general, g["parts"])
+    except NoMap as e:
+        one = dict(meaning=ONE_PERIOD, parts=g["parts"])
+        if "d_coef" in g:
+            one.update(d_iota_d_coef=g["d_coef"], d_iota_d_current=g["d_current"])
+        out.update(per_coil=f"not given: {e}, so the derivatives in one coil alone are not known", one_period=one)
+        return out
+    if parts is None:
+        out["parts"] = g["parts"]
+        if "d_coef" in g:
+            out.update(d_iota_d_coef=g["d_coef"], d_iota_d_current=g["d_current"])
+        return out
+    out["parts"] = parts
+    fc = [(p, sp) for p, sp in zip(parts, source.parts) if sp.kind == "fourier"]
+    if fc:
+        keep = [np.nonzero(sp.current != 0.0)[0] for _, sp in fc]
+        out["d_iota_d_coef"] = np.concatenate([p["d_coef"][k] for (p, _), k in zip(fc, keep)])
+        out["d_iota_d_current"] = np.concatenate([p["d_current"][k] for (p, _), k in zip(fc, keep)])
+    return out
