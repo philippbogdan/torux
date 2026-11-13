@@ -5,6 +5,8 @@
     s.iota, s.volume, s.minor_radius           # SI. With no verified surface these raise ValueError
     s.profile                                  # (flux, iota) of the surfaces the solve followed
     s.section(phi=0.0)                         # R, Z of the cross-section at a cylindrical angle
+    F, J = s.system(rc, zs, iota)              # torux's equations at any surface, and their Jacobian
+    s.vjp(rc, zs, iota, lam)                   # lam^T dF / d(coils, flux)
     s.save("input.mine")                       # VMEC input (VMEC, VMEC++, DESC, SIMSOPT). Also *.json, *.vtk
     torux.Answer.read("answer.json")           # an answer saved as JSON, back
 
@@ -187,6 +189,70 @@ class Answer(Result):
         out = [np.asarray(Result.field(self, flat[i:i + FIELD_SLAB])) for i in range(0, len(flat), FIELD_SLAB)]
         return np.concatenate(out).reshape(x.shape)
 
+    def system(self, rc, zs, iota):
+        """The residual F and Jacobian J of torux's equations for a flux surface of the source, at any surface.
+
+        rc, zs (M+1, 2N+1), M >= 1, N >= 0: R = sum rc[m, n+N] cos(m theta - n nfp (phi - phi0)), Z the same with zs
+        and sin, phi0 = answer.surface.phi0, and iota its rotational transform.  The unknowns u are a stellarator
+        symmetric SurfaceRZFourier's dofs in SIMSOPT's order, then iota: rc[0, n >= 0], rc[m >= 1, every n] row by
+        row, zs[0, n >= 1], zs[m >= 1, every n], iota.  rc[0, n < 0] and zs[0, n <= 0] are not unknowns and are
+        ignored.
+
+        F (len(u),): the projections of R_phi + iota R_theta - R B_R / B_phi on sin(m theta - n nfp (phi - phi0)),
+        indexed like zs in u, then those of Z_phi + iota Z_theta - R B_Z / B_phi on cos(...), indexed like rc (twice
+        the mean over a field period, the mean itself for m = n = 0), then the flux row
+        (Psi(u) - Psi0) rc[0, N] / |Psi0|, Psi(u) the toroidal flux through the surface and Psi0 =
+        answer.surface.flux.  F = 0 on a flux surface of that flux.
+
+        J (len(u), len(u)), dense: dF/du as torux's Newton method takes it.  Its flux row holds the factor
+        rc[0, N] / |Psi0| fixed and differentiates the flux as the integral of B_phi over the cross-section, so it
+        differs from the exact derivative of F by F[-1] / rc[0, N] in J[-1, 0], zero on a solution, and in the rest of
+        the row by the quadrature error of torux's grid: 4e-6 of the row at M = 5, N = 4, below the 1e-10 finite
+        differences resolve at M = 12, N = 10.  The other rows match finite differences to their precision."""
+        prob, u, flux, scale = self._equations(rc, zs, iota, "answer.system")
+        F, J, _, _ = prob.system(u if prob.np_path else _jnp().asarray(u), flux, scale)
+        return np.asarray(F, dtype=np.float64), np.asarray(J, dtype=np.float64)
+
+    def vjp(self, rc, zs, iota, lam):
+        """lam^T dF/dp for F = answer.system(rc, zs, iota)[0], p the coils and the flux, at fixed rc, zs and iota.
+
+        Returns a dict.  coef (ncoil, 3, 2K+1) and current (ncoil,): the coils, in the order of the source (for a
+        SIMSOPT BiotSavart, the order of bs.coils), the x, y and z coefficients of each in CurveXYZFourier's order
+        [c0, s1, c1, ..., sK, cK].  d_coef and d_current, of the same shapes: lam^T dF/dcoef and lam^T dF/dcurrent.
+        d_flux: lam^T dF/dPsi0, Psi0 = answer.surface.flux.  A coil of zero current is kept: its d_coef is zero, as
+        its field is, and its d_current is the derivative of F in its current.  On a surface with F = 0 and
+        J^T lam = df/du, the derivative of f(u) in the coils and the flux is minus these.  The source must be made of
+        Fourier coils alone, of one order K."""
+        prob, u, flux, scale = self._equations(rc, zs, iota, "answer.vjp")
+        lam = np.asarray(lam, dtype=np.float64)
+        if lam.shape != u.shape:
+            raise ValueError(f"lam has shape {lam.shape}: it needs one entry per equation, {u.shape}")
+        eng = self._engine
+        parts = list(eng.source.parts)
+        other = sorted({p.kind for p in parts if p.kind != "fourier"}) + (["analytic"] if eng.analytic else [])
+        if other or not parts:
+            raise ValueError(f"answer.vjp takes its derivatives in Fourier coils alone, and this source holds "
+                             f"{', '.join(other) + ' parts' if other else 'no parts'}")
+        if len({p.order for p in parts}) > 1:
+            raise ValueError(f"the source holds Fourier coils of orders {sorted({p.order for p in parts})} in separate "
+                             f"parts: give them as one part of one order")
+        from .gradients import _vjp_source
+        out = _vjp_source(eng, prob, u, flux, scale, lam)
+        coef = np.concatenate([p.coef for p in parts])
+        current = np.concatenate([p.current for p in parts])
+        d_coef = -np.concatenate([g["d_coef"] for g in out["parts"]])
+        d_current = -np.concatenate([g["d_current"] for g in out["parts"]])
+        zero = np.flatnonzero(current == 0.0)
+        if zero.size:
+            d_current[zero] = _unit_current_vjp(eng, prob, u, flux, scale, lam, coef[zero])
+        # the flux row (Psi(u) - Psi0) rc[0, N] / |Psi0| has d/dPsi0 = -rc[0, N] / |Psi0| - sign(Psi0) F[-1] / |Psi0|
+        b = prob.basis
+        rcu, zsu = (np.zeros(b.mask_c.shape) for _ in range(2))
+        rcu.ravel()[b.ic], zsu.ravel()[b.is_] = u[:b.nc], u[b.nc:b.nc + b.ns]
+        last = (prob.flux_of(rcu, zsu) - flux) * scale
+        d_flux = float(lam[-1] * (-scale - math.copysign(1.0, flux) * last / max(abs(flux), 1e-300)))
+        return dict(coef=coef, current=current, d_coef=d_coef, d_current=d_current, d_flux=d_flux)
+
     def plot(self, path=None, *, dark=False):
         """The surface inside its coils, coloured by |B| in tesla, beside three cross-sections in metres: the
         matplotlib figure, or with ``path`` (.png, .pdf, .svg) the file, whose path is returned. ``dark=True`` for
@@ -267,6 +333,30 @@ class Answer(Result):
         return a
 
     # ------------------------------------------------------------------ internals
+    def _equations(self, rc, zs, iota, what):
+        """(problem, u, Psi0, rc[0, N] / |Psi0|) of system and vjp at the surface rc, zs, iota."""
+        if self._engine is None:
+            raise ValueError(f"{what} needs the source, which this answer does not hold (it was read from a file or "
+                             f"settled by proof): solve the source again")
+        t = self.surface
+        if t is None:
+            raise ValueError(f"{what} needs a surface, and this answer holds none: the status is {self.status!r}")
+        if hasattr(t, "rs"):
+            raise ValueError(f"{what} takes a stellarator symmetric surface, and this answer's surface is not "
+                             f"stellarator symmetric")
+        rc, zs = np.asarray(rc, dtype=np.float64), np.asarray(zs, dtype=np.float64)
+        if rc.ndim != 2 or rc.shape != zs.shape or rc.shape[0] < 2 or rc.shape[1] % 2 != 1:
+            raise ValueError(f"rc and zs need one shape (M+1, 2N+1) with M >= 1 and N >= 0: they have {rc.shape} and "
+                             f"{zs.shape}")
+        iota = float(iota)
+        M, N = rc.shape[0] - 1, (rc.shape[1] - 1) // 2
+        from .torus import TorusProblem
+        prob = TorusProblem(self._engine, t.nfp, M, N, phi0=float(getattr(t, "phi0", 0.0)))
+        b = prob.basis
+        u = np.concatenate([rc.ravel()[b.ic], zs.ravel()[b.is_], [iota]])
+        flux = float(t.flux)
+        return prob, u, flux, float(rc[0, N]) / max(abs(flux), 1e-300)
+
     def _geometry(self):
         self._need()
         g = self.__dict__.get("_geo")
@@ -286,6 +376,34 @@ class Answer(Result):
 
 def _float(v):
     return float("nan") if v is None else float(v)
+
+
+def _jnp():
+    import jax.numpy as jnp
+    return jnp
+
+
+def _unit_current_vjp(engine, prob, u, flux, scale, lam, coefs):
+    """lam^T dF/dI of coils of zero current, coefficients coefs (k, 3, 2K+1): F is linearised in the field at the
+    points of its grid, and each coil's field there at unit current, built as the engine builds a coil, is the
+    direction."""
+    import jax
+    from .field import FieldEngine
+    from .gradients import _grid_x, _residual_from_field
+    from .source import FourierCurves, Source
+    jnp = _jnp()
+    uj = jnp.asarray(u)
+    x = np.asarray(_grid_x(prob.c, uj, prob.symmetric), dtype=np.float64)
+    o = engine.evaluate(x, grad=False, A=True)
+    _, pull = jax.vjp(lambda B, A: _residual_from_field(prob.c, uj, B, A, flux, scale, prob.symmetric),
+                      jnp.asarray(o["B"]), jnp.asarray(o["A"]))
+    gB, gA = (np.asarray(g) for g in pull(jnp.asarray(lam)))
+    out = []
+    for c in coefs:
+        one = FieldEngine(Source("unit current", [FourierCurves(c[None], np.ones(1))]), dmin=engine.dmin)
+        q = one.evaluate(x, grad=False, A=True)
+        out.append(float(np.sum(gB * np.asarray(q["B"])) + np.sum(gA * np.asarray(q["A"]))))
+    return np.array(out)
 
 
 def save_format(path):

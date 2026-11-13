@@ -263,6 +263,19 @@ g["d_iota_d_flux"]        # dι/dΨ, per weber
 
 The derivative of ι in every parameter of the source and in the flux, by the adjoint method. They are saved with the answer's JSON.
 
+## The equations at any surface
+
+```python
+F, J = s.system(rc, zs, iota)      # torux's equations at a surface of any resolution, and their Jacobian
+d = s.vjp(rc, zs, iota, lam)       # λᵀ ∂F/∂(coils, flux)
+```
+
+The two pieces an adjoint needs, as SIMSOPT's `BoozerSurface` objectives use them: the Jacobian, to solve Jᵀλ = ∂f/∂u, and the product in the coils. On a solution the derivative of f in the coils is then minus that product.
+
+`rc` and `zs` (M+1, 2N+1) are a stellarator-symmetric surface at any M ≥ 1, N ≥ 0, in the series of `s.surface`, and `iota` its rotational transform. The unknowns u are a stellarator-symmetric `SurfaceRZFourier`'s dofs in SIMSOPT's order, then ι: 2M(2N+1) + 2N + 2 of them. F holds the sine projections of R_φ + ι R_θ − R B_R/B_φ, indexed like zs, the cosine projections of Z_φ + ι Z_θ − R B_Z/B_φ, indexed like rc, and the flux row (Ψ(u) − Ψ₀) rc[0, N]/|Ψ₀|, Ψ₀ = `s.surface.flux`. On the surface torux found F = 0 to rounding. J = ∂F/∂u is the Jacobian of torux's own Newton method. Its flux row holds rc[0, N]/|Ψ₀| fixed, which matters only off a solution, and differentiates the flux as the integral of B_φ over the cross-section, which F's quadrature follows to 4 × 10⁻⁶ of the row at M = 5, N = 4 and closer than finite differences resolve at M = 12, N = 10.
+
+`d["coef"]` (ncoil, 3, 2K+1), in `CurveXYZFourier`'s order, and `d["current"]` are the coils in the order of the source, for a `BiotSavart` that of `bs.coils`. `d["d_coef"]`, `d["d_current"]` and `d["d_flux"]` are λᵀ∂F/∂coef, λᵀ∂F/∂I and λᵀ∂F/∂Ψ₀. A coil of zero current is kept, with its true derivatives: zero in its coefficients, as its field is, and the derivative of F in its current. Both calls need the source and a surface, so an answer read from a file or settled by proof raises a `ValueError`, and `vjp` takes Fourier coils alone.
+
 ## Batch runs
 
 ```sh

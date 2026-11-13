@@ -5,7 +5,7 @@
 | | |
 |---|---|
 | **The tool** | |
-| `answer.py` | `solve` and its `Answer`: the words, the numbers, the files it writes |
+| `answer.py` | `solve` and its `Answer`: the words, the numbers, the files it writes, the equations at any surface |
 | `ask.py` | a surface asked for by its size, and the largest the coils hold |
 | `check.py` | `check`: a surface from another code, measured against the coils |
 | `batch.py` | `many`: every design in a process of its own, one row each |
