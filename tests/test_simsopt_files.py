@@ -220,8 +220,8 @@ HELICAL = [("CurveXYZHelical", 4, True, None), ("CurveXYZFourierSymmetries", 4, 
 
 @pytest.mark.parametrize("cls,nfp,stellsym,ntor", HELICAL, ids=[f"{c}-{n}-{s}-{t}" for c, n, s, t in HELICAL])
 def test_helical_curves_read_exactly(tmp_path, cls, nfp, stellsym, ntor):
-    """The helical coil sets of Jorge's simple-coil paper (CurveXYZHelical, SIMSOPT 1.4.1.dev38) did not load in
-    torux 0.1.3: 'curve class CurveXYZHelical'."""
+    """Helical coil sets written by SIMSOPT 1.4.1.dev38 (CurveXYZHelical) did not load in torux 0.1.3: 'curve class
+    CurveXYZHelical'."""
     order = 5
     rng = np.random.default_rng(nfp)
     x = 0.02 * rng.normal(size=3 * order + 1 if stellsym else 3 * (2 * order + 1))
