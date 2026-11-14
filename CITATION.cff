@@ -6,7 +6,7 @@ abstract: "torux takes an external magnetic source for toroidal confinement (coi
 authors:
   - family-names: Bogdan
     given-names: Philipp
-date-released: 2026-11-13
+date-released: 2026-11-14
 version: 0.1.4
 url: "https://github.com/philippbogdan/torux"
 repository-code: "https://github.com/philippbogdan/torux"
