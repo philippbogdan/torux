@@ -83,6 +83,12 @@ def test_document_numbers_are_the_tables():
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)
     b = m.both()
+    import csv
+    with open(os.path.join(ROOT, "results", "compare300.csv")) as fh:
+        bands = [r["reason"] for r in csv.DictReader(fh) if r["solver"] == "torux" and r["certificate"] == "island_band"]
+    verification = re.sub(r"\s+", " ", open(os.path.join(ROOT, "docs", "verification.md"), encoding="utf-8").read())
+    assert f"The {len(bands)} island bands of the comparison are all of the first" in verification
+    assert all("certificate island_band_manifold" in r for r in bands)                     # the manifold theorem's records
     assert not any(("table surface" in k and "hour no_surface" in k) or ("table no_surface" in k and "hour surface" in k)
                    for k in b)                                                             # the two tables never contradict
     # the usage page's one number from the comparison: what VMEC++ leaks, beside what a cut of torux's file costs
