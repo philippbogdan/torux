@@ -459,6 +459,8 @@ def adjoint_gradient_general(engine: FieldEngine, torus, objective="iota"):
     from .torus_general import GeneralEquations, general_arrays
     if objective != "iota":
         raise NotImplementedError("general basis: objective 'iota' only")
+    from .memory import warn_if_large
+    warn_if_large(int(torus.M), int(torus.N), "gradient", "the gradient's dense Jacobian")
     ref = general_arrays(torus)
     eq = GeneralEquations(engine, torus.nfp, torus.M, torus.N, ref)
     u = eq.pack(*ref, torus.iota)

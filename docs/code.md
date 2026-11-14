@@ -38,5 +38,6 @@
 | `fasttrace.py`, `trace.py`, `cardtrace.py` | field-line tracers |
 | `fast_*.py` | switches for work reductions that leave the answer unchanged |
 | `budget.py`, `envfail.py` | the time budget, and telling a failing machine from a failing solve |
+| `memory.py` | the memory of a dense system without stellarator symmetry, and the warning before one that may not fit |
 
 Tests are in `tests/` and need `pip install ".[test]"`: `python -m pytest` runs the quick ones (minutes), `python -m pytest -m slow` the certificates and the searches for a largest surface (up to three quarters of an hour each). The tests that hold the interface to SIMSOPT, DESC and VMEC++ skip where those are not installed.

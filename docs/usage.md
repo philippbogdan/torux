@@ -270,7 +270,7 @@ Each coil's numbers are what changing that coil alone does, its copies left as t
 
 A coil of zero current makes no field, and its numbers are still there, whether or not the source holds its copies: zero in its coefficients, and in its current the derivative of ι as that coil's field grows from nothing. A zero-current copy of a coil has that coil's dι/dI.
 
-Without stellarator symmetry they come from the adjoint of `system_general` (the next section) on the surface torux found. For QUASR 954 with the mirrored copy of its coil at 3% more current, asked for 0.05 Wb, at M, N = 32, 32, that adds 5.5 s to the solve (an M4 Mac mini, four threads). Its Jacobian is 571 MB, built after the solve's own peak in memory has passed.
+Without stellarator symmetry they come from the adjoint of `system_general` (the next section) on the surface torux found. For QUASR 954 with the mirrored copy of its coil at 3% more current, asked for 0.05 Wb, at M, N = 32, 32, that adds 5.5 s to the solve (an M4 Mac mini, four threads). Its Jacobian is 571 MB, built after the solve's own peak in memory has passed. That memory grows as the square of M N, to 5.0 GB at M, N = 48, 64, and torux warns before it builds a dense system without stellarator symmetry that it estimates at more than half of the machine's memory.
 
 ## The equations at any surface
 

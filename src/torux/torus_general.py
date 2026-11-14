@@ -489,6 +489,8 @@ def _consts(nfp, M, N, oversample=2.5, phi0=0.0):
 class GeneralTorusProblem:
     """The general torus problem at resolution (M, N) for one engine (dense Newton, checks)."""
 
+    warned = False          # whether its dense Newton has said it may need more than half of the machine's memory
+
     def __init__(self, engine, nfp, M, N, oversample=2.5, phi0=0.0):
         self.engine = engine
         self.nfp = nfp
@@ -549,6 +551,10 @@ class GeneralTorusProblem:
         iota = fixed_iota).  ref: the phase reference (default: the start).  filt > 0: Tikhonov-
         filtered SVD steps (lam = filt * s_max), as torux.torus.TorusProblem.newton."""
         b = self.basis
+        if not self.warned:                       # once a problem, before its dense Jacobian is first built
+            from .memory import warn_if_large
+            self.warned = warn_if_large(b.M, b.N, "filtered" if filt > 0 else "solve",
+                                        "the dense Newton method of the solve")
         st = state.resized(b.M, b.N)
         fixed = fixed_iota is not None
         u = b.pack(st.rc, st.rs, st.zc, st.zs, st.iota if not fixed else fixed_iota, 0.0)

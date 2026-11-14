@@ -419,3 +419,43 @@ def test_a_coil_of_zero_current_without_its_copies(request, quasr_954):
     fd = (io[0] - io[1]) / (2 * h)
     assert abs(fd - g["d_iota_d_current"][4]) <= 1e-5 * abs(fd)
 
+
+# --------------------------------------------------------------------------- memory without stellarator symmetry
+def _circle(M, N, nfp):
+    from torux.torus_general import GeneralTorus
+    z = lambda: np.zeros((M + 1, 2 * N + 1))                              # noqa: E731
+    t = GeneralTorus(z(), z(), z(), z(), 0.1, 0.05, M, N, nfp)
+    t.rc[0, N], t.rc[1, N], t.zs[1, N] = 1.0, 0.1, 0.1
+    return t
+
+
+def test_a_dense_system_past_half_the_memory_is_warned_of_before_it_is_built(monkeypatch, quasr_954_mirrored):
+    """A gradient without stellarator symmetry of an HSX-sized design took more than 10 GB, and torux said nothing
+    before. Now the solve's dense Newton and the gradient's dense Jacobian each say, once and before they build it,
+    what they will need where that is more than half of the machine's memory. The machine's memory is made up here,
+    and the warning turned into an error, so that nothing large is built."""
+    import warnings
+    from torux import memory
+    from torux.field import FieldEngine
+    from torux.gradients import adjoint_gradient_general
+    from torux.torus_general import GeneralTorusProblem
+    eng = FieldEngine(quasr_954_mirrored)
+    monkeypatch.setattr(memory, "physical_bytes", lambda: 2 * 2 ** 30)            # a machine of 2 GB
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", memory.MemoryWarning)
+        with pytest.raises(memory.MemoryWarning, match=r"at M, N = 48, 48 needs about \d+\.\d+ GB") as e:
+            adjoint_gradient_general(eng, _circle(48, 48, 2))
+        assert "of this machine's 2.0 GB" in str(e.value)
+        with pytest.raises(memory.MemoryWarning, match=r"at M, N = 30, 30 needs about \d+\.\d+ GB"):
+            GeneralTorusProblem(eng, 2, 30, 30).newton(_circle(30, 30, 2), 0.05, maxit=1)
+    small = memory.dense_bytes(4, 4, "gradient")
+    assert 0 < small < memory.dense_bytes(48, 48, "gradient") and memory.dense_bytes(30, 30, "solve") > 10 ** 9
+    for total, said in ((small, 1), (64 * 10 ** 9, 0)):                         # once a solve, and only past half
+        monkeypatch.setattr(memory, "physical_bytes", lambda: total)
+        with warnings.catch_warnings(record=True) as got:
+            warnings.simplefilter("always")
+            prob = GeneralTorusProblem(eng, 2, 4, 4)
+            for _ in range(2):
+                prob.newton(_circle(4, 4, 2), 0.05, maxit=1)
+        assert sum(issubclass(w.category, memory.MemoryWarning) for w in got) == said
+    assert issubclass(memory.MemoryWarning, UserWarning) and not issubclass(memory.MemoryWarning, RuntimeWarning)

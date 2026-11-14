@@ -279,6 +279,8 @@ class Answer(Result):
         J (len(u), len(u)), dense: dF/du.  Its flux row is answer.system's (rc[0, N] / |Psi0| held fixed, the flux
         differentiated as the integral of B_phi over the cross-section).  The other rows are the derivative of F."""
         eq, u, flux, scale = self._equations_general(rc, rs, zc, zs, iota, "answer.system_general")
+        from .memory import warn_if_large
+        warn_if_large(eq.M, eq.N, "gradient", "the dense Jacobian of answer.system_general")
         return eq.system(u, flux, scale)
 
     def vjp_general(self, rc, rs, zc, zs, iota, lam):
