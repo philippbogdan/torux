@@ -78,6 +78,7 @@ def test_document_numbers_are_the_tables():
     text = re.sub(r"\s+", " ", open(os.path.join(ROOT, "results", "README.md"), encoding="utf-8").read())
     assert f"each of the {q['designs']:,} coil sets" in text
     assert f"each of torux's {t['surfaces']} surfaces in the comparison" in text
+    assert f"The least of torux's {t['surfaces']} surfaces reads {sci(t['bn_min'])}" in text
     spec = importlib.util.spec_from_file_location("claims", os.path.join(ROOT, "results", "claims.py"))
     m = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(m)

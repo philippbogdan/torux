@@ -45,7 +45,6 @@ def quasr():
         certificate_s_median=float(c.solve_s.median()),
         undetermined_s_median=float(t[t.outcome == "undetermined"].solve_s.median()),
         undetermined_under_1_min=float((t[t.outcome == "undetermined"].solve_s < 60).mean()),
-        both_answers=0,       # a design is one row: it cannot carry both. The table's builder found no design with both
     )
 
 
