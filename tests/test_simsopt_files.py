@@ -388,6 +388,52 @@ def test_a_live_boozer_surface_is_compared_with_its_own_coils(tmp_path):
     assert told[0].coils_differ == pytest.approx(told[1].coils_differ, rel=1e-9) and told[0].coils_differ > 0.1
 
 
+def test_a_qfm_surface_is_compared_with_its_own_coils_live_and_saved_by_simsopt(tmp_path):
+    """SIMSOPT's class is QfmSurface. torux 0.1.4 looked for a QFMSurface, a class SIMSOPT does not have, and measured
+    the surface of a QfmSurface against any coils, live or from its file, without comparing them with its own."""
+    pytest.importorskip("simsopt")
+    from simsopt import save
+    from simsopt.field import BiotSavart, Coil, Current
+    from simsopt.geo import QfmSurface
+    boz, coils = _simsopt_954()
+    qfm = QfmSurface(boz.biotsavart, boz.surface, boz.label, boz.targetlabel)
+    f = str(tmp_path / "qfm.json")
+    save(qfm, f)
+    with open(f) as fh:
+        classes = {o["@class"] for o in json.load(fh)["simsopt_objs"].values()}
+    assert "QfmSurface" in classes and "BoozerSurface" not in classes
+    other = BiotSavart([Coil(c.curve, Current(c.current.get_value() * (1.5 if k == 0 else 1.0)))
+                        for k, c in enumerate(coils)])
+    for b in (qfm, f):
+        with pytest.raises(ValueError, match="could account for what crosses the surface") as e:
+            check(other, b)
+        assert "QfmSurface" in str(e.value) and "mismatched_coils=True" in str(e.value)
+    own = [check(BiotSavart(coils), b) for b in (qfm, f)]
+    assert own[0].leak == pytest.approx(own[1].leak, rel=1e-9) and all(c.coils_differ <= 1e-14 for c in own)
+    assert "BiotSavart it holds" in own[0].own_coils and "SIMSOPT QfmSurface" in str(own[0])
+    assert own[1].own_coils.startswith("BiotSavart") and "qfm.json" in own[1].own_coils
+    told = [check(other, b, mismatched_coils=True) for b in (qfm, f)]
+    assert told[0].coils_differ == pytest.approx(told[1].coils_differ, rel=1e-9)
+    assert told[0].coils_differ >= 0.1 * told[0].leak
+
+
+def test_the_qfm_class_is_spelled_as_simsopt_spells_it():
+    """Docs, help and messages name SIMSOPT's QfmSurface, never a QFMSurface."""
+    import importlib
+    import os
+    tc = importlib.import_module("torux.check")
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    texts = [tc.check.__doc__, tc.Check.__doc__ or ""]
+    for p in ("docs/formats.md", "docs/usage.md", "README.md", "src/torux/check.py", "src/torux/io/simsopt_json.py"):
+        with open(os.path.join(root, p), encoding="utf-8") as fh:
+            texts.append(fh.read())
+    ap = argparse.ArgumentParser(prog="torux")
+    add_command(ap.add_subparsers(dest="cmd"))
+    texts.append(ap._subparsers._group_actions[0].choices["check"].format_help())
+    assert not any("QFMSurface" in t for t in texts)
+    assert "QfmSurface" in texts[-1] and "QfmSurface" in tc.check.__doc__
+
+
 def test_a_live_current_set_past_its_dofs_is_read_as_simsopt_computes(tmp_path):
     """A Current whose value was set past its degrees of freedom (simsoptpp's set_dofs): torux 0.1.4 refused the live
     object, naming a temporary file it had deleted. SIMSOPT computes with the value the object holds, and so does

@@ -33,9 +33,9 @@ A claimed symmetry is used only after it has been verified on the parts themselv
 |---|---|
 | **VMEC or VMEC++ `wout`** (`.nc`) | the boundary, or with `which=` a radial index. NetCDF3 needs nothing more, NetCDF4 needs `h5py` or `netCDF4` |
 | **VMEC input** (`input.*`) | its boundary, with `PHIEDGE` as the flux it states |
-| **SIMSOPT or QUASR JSON**, or `"quasr:954"` | the outermost surface in the file, or `which=` by name or index. The surface of a `BoozerSurface` or `QFMSurface` is checked only against the coils it was computed for ([below](#a-surface-and-the-coils-it-was-computed-for)) |
+| **SIMSOPT or QUASR JSON**, or `"quasr:954"` | the outermost surface in the file, or `which=` by name or index. The surface of a `BoozerSurface` or `QfmSurface` is checked only against the coils it was computed for ([below](#a-surface-and-the-coils-it-was-computed-for)) |
 | **a saved torux answer** (`.json`) | |
-| **SIMSOPT objects** | `SurfaceRZFourier`, `SurfaceXYZTensorFourier`, anything with a `.surface`. A `BoozerSurface` or `QFMSurface` is checked against the coils it holds as its file is ([below](#a-surface-and-the-coils-it-was-computed-for)) |
+| **SIMSOPT objects** | `SurfaceRZFourier`, `SurfaceXYZTensorFourier`, anything with a `.surface`. A `BoozerSurface` or `QfmSurface` is checked against the coils it holds as its file is ([below](#a-surface-and-the-coils-it-was-computed-for)) |
 | **DESC objects** | `FourierRZToroidalSurface`, or an `Equilibrium`, whose `Psi` is the flux it states |
 | **VMEC++ objects** | the output of `vmecpp.run`, or its `wout` |
 | **a torux answer** | |
@@ -50,7 +50,7 @@ A live SIMSOPT object is not a file: SIMSOPT computes its field with the value e
 
 ### A surface and the coils it was computed for
 
-A `BoozerSurface` or `QFMSurface` names the `BiotSavart` it was computed for, in its file or as a live SIMSOPT object. `torux.check` of its surface compares the source's field on it with that `BiotSavart`'s, at the points where it measures the leak, the largest |B·n|/|B|. A difference of fields can account for a leak only up to its own size, so:
+A `BoozerSurface` or `QfmSurface` names the `BiotSavart` it was computed for, in its file or as a live SIMSOPT object. `torux.check` of its surface compares the source's field on it with that `BiotSavart`'s, at the points where it measures the leak, the largest |B·n|/|B|. A difference of fields can account for a leak only up to its own size, so:
 
 - where the two fields differ by less than a tenth of the leak (or agree to rounding, 10⁻¹⁴ of |B|), `check` measures, and the result says by how much they differ: `c.coils_differ`, a fraction of |B|, and a line of its print.
 - where they differ by a tenth of the leak or more, it refuses, since what crosses the surface may then be the difference of the two coil sets and not the surface. `check(source, surface, mismatched_coils=True)`, or `--mismatched-coils` on the command line, measures all the same, and the result still says by how much the fields differ.

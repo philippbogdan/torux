@@ -740,11 +740,13 @@ def coil_sets(sim, id_prefix):
 
 
 def boozer_pairs(sim):
-    """{BoozerSurface or QFMSurface name: (the name of the field it was computed for, its surface's name)}."""
+    """{BoozerSurface or QfmSurface: (the name of the field it was computed for, its surface's name)}, each named
+    as SIMSOPT names it, after its class where that name does not begin with it (a QfmSurface's is a number)."""
     out = {}
-    for nm in sim.find({"BoozerSurface", "QFMSurface"}):
+    for nm in sim.find({"BoozerSurface", "QfmSurface"}):
         o = sim.objs[nm]
-        out[nm] = (sim.name(o.get("biotsavart")), sim.name(o.get("surface")))
+        cls = o["@class"]
+        out[nm if nm.startswith(cls) else f"{cls} {nm}"] = (sim.name(o.get("biotsavart")), sim.name(o.get("surface")))
     return out
 
 

@@ -54,7 +54,7 @@ class Check:
     flux_stated: float = None    # the flux given, or stated by the surface's file (Wb)
     flux_stated_by: str = None
     flux_error: float = None     # flux / flux_stated - 1
-    own_coils: str = None        # the coils a SIMSOPT BoozerSurface or QFMSurface was computed for, when it names them
+    own_coils: str = None        # the coils a SIMSOPT BoozerSurface or QfmSurface was computed for, when it names them
     coils_differ: float = None   # the largest |B - B_own| / |B_own| on the points: the source's field against theirs
     npts: int = NPTS
     nsec: int = NSEC
@@ -98,7 +98,7 @@ def check(source, surface, flux=None, *, which=None, surface_currents=None, mism
     flux to compare with (Wb, by default the one the surface's file states).  ``which``: the surface to take,
     by name or index, from a file holding several (default: the outermost).
 
-    The surface of a SIMSOPT BoozerSurface or QFMSurface, from a file or live, was computed for coils it names, and
+    The surface of a SIMSOPT BoozerSurface or QfmSurface, from a file or live, was computed for coils it names, and
     the source's field on it is compared with theirs: the result says by how much they differ (coils_differ).  Where
     they differ by a tenth of the leak measured or more, the difference could account for the leak, and the check is
     refused (ValueError) unless ``mismatched_coils=True``.  ``surface_currents``: 'saved' or 'dofs', the reading of
@@ -204,7 +204,7 @@ def _own_reading(S, src, surface_currents):
 
 
 def _against_own_coils(S, src, x, B, leak, surface_currents, mismatched_coils):
-    """A SIMSOPT BoozerSurface or QFMSurface was computed for coils it names. The leak measured against the source
+    """A SIMSOPT BoozerSurface or QfmSurface was computed for coils it names. The leak measured against the source
     misleads only where the source's field on the surface differs from theirs by enough to account for it: by a tenth
     of the leak or more. Then, and where their coils cannot be read to compare, refused (ValueError) unless
     mismatched_coils. Returns (the coils, by how much the fields differ, notes)."""
@@ -317,7 +317,7 @@ class Surface:
     """A surface as complex Fourier series in its own angles:  u = x + i y = sum U[m, k] exp(i (m theta + k phi)),
     z = sum Z[m, k] exp(i (m theta + k phi)) (Z Hermitian: z real), m = -M..M, k = -K..K."""
 
-    own_coils = None             # a SIMSOPT BoozerSurface's or QFMSurface's: the coils its file says it was
+    own_coils = None             # a SIMSOPT BoozerSurface's or QfmSurface's: the coils its file says it was
                                  # computed for
 
     def __init__(self, terms_u, terms_z, origin, kind, size, flux=None, flux_by=None):
@@ -469,7 +469,7 @@ def read_surface(obj, which=None) -> Surface:
     if mod.startswith("simsopt") and name in ("SurfaceRZFourier", "SurfaceXYZTensorFourier"):
         _no_which(which, "a SIMSOPT surface")
         return _simsopt_live(obj)
-    if mod.startswith("simsopt") and name in ("BoozerSurface", "QFMSurface"):
+    if mod.startswith("simsopt") and name in ("BoozerSurface", "QfmSurface"):
         # computed for the coils it holds, as its file would say: the same comparison with them
         _no_which(which, f"a SIMSOPT {name}")
         S = read_surface(obj.surface)
@@ -753,7 +753,7 @@ def _simson_one(sim, nm, origin, path=None):
 
 
 def _boozer_of(sim, nm, origin, S, path=None):
-    """S, with the coils a BoozerSurface or QFMSurface of the file computed it for, when one holds it."""
+    """S, with the coils a BoozerSurface or QfmSurface of the file computed it for, when one holds it."""
     from .io.simsopt_json import boozer_pairs
     for b, (bs, surf) in boozer_pairs(sim).items():
         if surf == nm and bs in sim.objs and sim.objs[bs]["@class"] == "BiotSavart":
@@ -833,10 +833,10 @@ def add_command(sub):
     c.add_argument("--which", metavar="NAME", help="the surface to take from a file holding several: its name or "
                                                    "index (default: the outermost)")
     c.add_argument("--surface-currents", choices=("saved", "dofs"),
-                   help="for the surface of a SIMSOPT BoozerSurface or QFMSurface whose coils hold a Current object "
+                   help="for the surface of a SIMSOPT BoozerSurface or QfmSurface whose coils hold a Current object "
                         "stating two values: the one its coils carried (--currents for the surface's own file)")
     c.add_argument("--mismatched-coils", action="store_true",
-                   help="measure even where the source's field on a SIMSOPT BoozerSurface or QFMSurface differs from "
+                   help="measure even where the source's field on a SIMSOPT BoozerSurface or QfmSurface differs from "
                         "that of the coils it was computed for by a tenth of the leak or more, or they cannot be read "
                         "to compare. The result says by how much")
     add_source_choices(c)
