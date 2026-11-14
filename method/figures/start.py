@@ -1,4 +1,4 @@
-"""Figure 2 of the method page: no starting guess, from the magnetic axis outward.
+"""Figure 2 of the method page: the solver's own start, from the magnetic axis outward.
 
     python method/figures/start.py              # draw from data/start.json
     python method/figures/start.py --compute    # run the request again, keep what the solver did, then draw
