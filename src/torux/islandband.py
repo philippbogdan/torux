@@ -16,7 +16,7 @@ every plane phi = const once it holds in one (phi has no critical point on Gamma
 flux is the same through every plane, so the plane phi_s may be either symmetry plane.
 
 ASSUMPTION (exact symmetry).  The source is stellarator symmetric: its field satisfies
-B(R, -phi, -Z) = (B_R, -B_phi, -B_Z)(R, phi, Z) exactly (QUASR coil sets are generated from their
+B(R, -phi, -Z) = (-B_R, B_phi, B_Z)(R, phi, Z) exactly (QUASR coil sets are generated from their
 base coils by the symmetry group; the loader checks the claim and every run measures the defect of
 the evaluated field, ~1e-15).  Then P is reversible: S P S = P^-1, so for a periodic orbit X,
 S(W^u(X_k)) = W^s(S X_k), and a point h of an unstable branch of X_k on the line Fix(S) = {Z = 0}
