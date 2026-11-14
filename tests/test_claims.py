@@ -42,14 +42,15 @@ def test_readme_numbers_are_the_tables():
         f"worst of its {t['surfaces']} is at {sci(t['bn_max'])}": "torux's worst in the comparison",
         f"certify: {t['island_bands']} of these {t['designs']}, and {t['edge_barriers']} more by its weaker kind":
             "certificates in the comparison, by kind",
-        f"The other {t['undetermined']} were still undetermined after their hour": "undetermined in the comparison",
+        f"The other {t['undetermined']} stayed undetermined.": "undetermined in the comparison",
+        f"within {t['bn_median'] / floor:.1f} times what an exact surface written in double precision reads":
+            "torux's median against the evaluator's reading of an exact torus",
     }
     missing = [f"{what}: {frag!r}" for frag, what in claims.items() if frag not in text]
     assert not missing, missing
     # the rounded statements
     assert 0.5e-3 < stored["bn_median"] < 2e-3                                             # "about a thousandth"
     assert round(math.log10(stored["bn_median"] / t["bn_median"])) == 12                   # "twelve orders of magnitude"
-    assert t["bn_median"] / floor <= 3.0                                                   # "within three times the least"
     assert 100 < stored["terms_median"] and stored["terms_max"] < 1000 < t["terms_min"]    # "a few hundred ... thousands"
     assert q["bn_solver_max"] <= 1e-14 and q["bn_check_max"] < 2e-14 and q["flux_err_max"] < 1e-12
     assert 0.74 < q["undetermined_under_1_min"] < 0.80                                     # "three in four ... a minute"

@@ -20,9 +20,9 @@
 
 **Coils in, vacuum flux surface out: max |B·n|/|B| of 10⁻¹⁵, in seconds, with nothing to tune.**
 
-It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org). A second evaluator, sharing no code with the solver, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after less than a minute's work.
+It has done that for 231,878 of the 371,701 coil sets in [QUASR](https://quasr.flatironinstitute.org), starting from the surfaces stored with each. A second field evaluator, sharing no code with the solver's, checked every one. For 5,206 more it returned a certificate that the surface asked for cannot exist, a theorem with its hypotheses checked numerically, and for another 846 a weaker one. It never guesses: the other 133,771 it calls undetermined, three in four of them after a solve of under a minute.
 
-Above: twelve kinds of magnet, one solver. Nine carry the surface torux verified for them, drawn as light. The other three (a tokamak's poloidal coils, its perturbation coils, a levitated dipole) carry none, and that is an answer too: their field lines, the thin grey ones, close round the coils and never go round the machine, so no surface can enclose toroidal flux, and torux proves it. (A tokamak's surfaces need the current in its plasma, and a dipole holds its plasma on the closed lines themselves.) [Each one, close up.](visuals/README.md)
+Above: twelve kinds of magnet, one solver. Nine carry the surface torux verified for them, drawn as light. The other three (a tokamak's poloidal coils, its perturbation coils, a levitated dipole) carry none, and that is an answer too: their field lines, the thin grey ones, never go round the machine, so no surface can enclose toroidal flux, and torux proves it. (A tokamak's surfaces need the current in its plasma, and a dipole holds its plasma on the closed lines themselves.) [Each one, close up.](visuals/README.md)
 
 ## Fifteen digits
 
@@ -33,7 +33,7 @@ Above: twelve kinds of magnet, one solver. Nine carry the surface torux verified
 
 Three hundred coil sets drawn at random from QUASR. Every tool gets the same coils, the same requested flux and an hour on four threads for each. The other five need settings, and we chose them: the route each tool's documentation recommends, pushed wherever that paid on six coil sets outside the 300. torux has no settings to choose. One judge: an evaluator that shares no code with any of them, working in extended precision at 4,000 random points of each surface. A dot is a coil set, placed at the largest |B·n|/|B| on its surface. [How each tool was run, and how to run a row again.](results/compare300/README.md)
 
-torux's surfaces have a median max |B·n|/|B| of 1.1 × 10⁻¹⁵, within 2.9 times the least a surface written in double precision can have. The worst of its 201 is at 6.8 × 10⁻¹⁵. On the 199 coil sets both solved, the closest tool, SIMSOPT BoozerExact, is 700,000 times higher: 5 orders of magnitude. The surfaces the designs are stored with, where every solve starts, are at 8.9 × 10⁻⁴: they are coarse, a few hundred Fourier terms each, where torux's take thousands. [Every dot is a row of `results/compare300.csv`.](results/compare300.csv)
+torux's surfaces have a median max |B·n|/|B| of 1.1 × 10⁻¹⁵, within 2.9 times what an exact surface written in double precision reads. The worst of its 201 is at 6.8 × 10⁻¹⁵. On the 199 coil sets both solved, the closest tool, SIMSOPT BoozerExact, is 700,000 times higher: 5 orders of magnitude. The surfaces the designs are stored with, where every solve starts, are at 8.9 × 10⁻⁴: they are coarse, a few hundred Fourier terms each, where torux's take thousands. [Every dot is a row of `results/compare300.csv`.](results/compare300.csv)
 
 | | surfaces returned | median max \|B·n\|/\|B\| | within 10⁻¹² | median seconds |
 |---|---:|---:|---:|---:|
@@ -45,7 +45,7 @@ torux's surfaces have a median max |B·n|/|B| of 1.1 × 10⁻¹⁵, within 2.9 t
 | DESC | 199 of 300 | 2.6 × 10⁻³ | 0 | 885 |
 | QUASR's stored surface | 300 of 300 | 8.9 × 10⁻⁴ | 0 | |
 
-Nobody needs fifteen digits of a flux surface. What you need is never to wonder whether the surface is wrong or the solver. And at this precision "there is no surface" stops being a solve that failed and becomes an answer torux can certify: 22 of these 300, and 16 more by its weaker kind of certificate. The other 61 were still undetermined after their hour.
+Nobody needs fifteen digits of a flux surface. What you need is never to wonder whether the surface is wrong or the solver. And at this precision "there is no surface" stops being a solve that failed and becomes an answer torux can certify: 22 of these 300, and 16 more by its weaker kind of certificate. The other 61 stayed undetermined.
 
 ## Seconds
 
@@ -73,9 +73,9 @@ The same 300 coil sets on one processor (AMD EPYC 7742), four threads each. A do
   </a>
 </p>
 
-The surface is a Fourier series: R and Z in cos and sin of mθ − nN<sub>fp</sub>φ, the series VMEC, DESC and SIMSOPT read. φ is the cylindrical angle and θ the poloidal angle in which field lines are straight. The coefficients and ι are the unknowns of one square system, solved by Newton's method on the coils' Biot-Savart field: no finite elements, and no fit to traced lines. Where a flux surface exists it is the quadratic-flux-minimising surface, with the angle pinned so that the solution is unique.
+The surface is a Fourier series: R and Z in cos and sin of mθ − nN<sub>fp</sub>φ, the series VMEC, DESC and SIMSOPT read. φ is the cylindrical angle and θ the poloidal angle in which field lines are straight. The coefficients and ι are the unknowns of one square system, solved by Newton's method on the coils' Biot-Savart field: no finite elements, and no fit to traced lines. Where a flux surface exists it is the quadratic-flux-minimising surface, in the one parameterisation where field lines are straight.
 
-**[The method, in five figures](method/README.md)**: the equation, the start from the magnetic axis with no initial guess, why the answer reaches rounding error, and the proofs that there is no surface.
+**[The method, in five figures](method/README.md)**: the equation, the start the solver makes for itself from the magnetic axis, why the answer reaches rounding error, and the certificates that there is no surface.
 
 ## Use it
 
@@ -100,7 +100,7 @@ time                   0.7 s
 
 The first run compiles for up to a minute. After that, seconds.
 
-Every answer is one of three. A surface, which a second program sharing no code with the solver has checked at 4,096 random points. No surface, with a certificate: the island chain or the edge of confinement that forbids it, and the flux it rules out. Or undetermined, never a guess.
+Every answer is one of three. A surface, which a second field code sharing none with the solver's has checked at 4,096 random points. No surface, with a certificate: the island chain or the edge of confinement that forbids it, and the flux it rules out. Or undetermined, never a guess.
 
 ```python
 import torux
@@ -123,7 +123,7 @@ torux.many(files, table="answers.csv")        # a folder of designs, one row eac
   </picture>
 </p>
 
-Nothing to tune: no resolution, no tolerance, no starting guess. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](method/README.md) and [what is checked, and by what](docs/verification.md).
+Nothing to tune: torux asks for no resolution, no tolerance and no starting guess. More time (`budget_s`) can settle more. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](method/README.md) and [what is checked, and by what](docs/verification.md).
 
 ## Credit
 
