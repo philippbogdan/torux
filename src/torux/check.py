@@ -851,8 +851,22 @@ def add_command(sub):
     return c
 
 
-def add_source_choices(c):
-    """--coils and --currents: what torux.load's which= and currents= say, for a SIMSOPT JSON source."""
+PER_DESIGN = ("Given once, it applies to every design. Given once per SOURCE, in order, each applies to its own "
+              "design, - for one that needs none")
+
+
+def add_source_choices(c, many=False):
+    """--coils and --currents: what torux.load's which= and currents= say, for a SIMSOPT JSON source. many: as torux
+    many takes them, where every SOURCE is a design of its own (torux.batch.cli_choices)."""
+    if many:
+        c.add_argument("--coils", metavar="NAME", action="append",
+                       help="the coil set to take from a SIMSOPT JSON file holding several: its BiotSavart's name or "
+                            "index. " + PER_DESIGN)
+        c.add_argument("--currents", metavar="{saved,dofs}", action="append", choices=("saved", "dofs", "-"),
+                       help="for a SIMSOPT JSON file whose Current objects state two different values: the one each "
+                            "held when the file was saved, or the one SIMSOPT reads back from its degrees of freedom. "
+                            + PER_DESIGN)
+        return
     c.add_argument("--coils", metavar="NAME", action="append",
                    help="the coil set to take from a SIMSOPT JSON file holding several: its BiotSavart's name or "
                         "index. With several source files, once per file in order, - for a file that needs none")

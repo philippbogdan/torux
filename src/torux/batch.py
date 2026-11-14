@@ -62,8 +62,9 @@ def many(sources, flux=None, *, minor_radius=None, volume=None, largest=False, j
               the designs already in it are not solved again
     save      a folder where each answer is also written as JSON
     which, currents
-              torux.load's, for every design: the coil set of a SIMSOPT file holding several, and which of a Current
-              object's two values to take where they differ
+              torux.load's: the coil set of a SIMSOPT file holding several, and which of a Current object's two
+              values to take where they differ. One value applies to every design. A list gives one entry per
+              source, in order, None for one that needs none
     The rest are torux.solve's.  A design that fails is an answer with status 'error' and the reason.  A design
     already in the table comes back as the answer saved for it in ``save`` when that folder holds it, else None."""
     return _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, None,
@@ -72,12 +73,13 @@ def many(sources, flux=None, *, minor_radius=None, volume=None, largest=False, j
 
 # --------------------------------------------------------------------------- the batch
 class _Item:
-    __slots__ = ("payload", "name", "quasr", "flux", "answer", "skip", "key")
+    __slots__ = ("payload", "name", "quasr", "flux", "answer", "skip", "key", "choices")
 
-    def __init__(self, payload, name, quasr=None):
+    def __init__(self, payload, name, quasr=None, choices=None):
         self.payload, self.name, self.quasr = payload, name, quasr
         self.flux, self.answer, self.skip = None, None, False
         self.key = _key(name)
+        self.choices = choices or {}             # torux.load's which= and currents= for its source
 
 
 def _key(name):
@@ -112,28 +114,58 @@ def _expand(s):
     return found
 
 
-def _items(sources, choices=None):
-    from .source import Source
-    from .sources import load, quasr_number
+WHICH_SAID = dict(which="which=", currents="currents=")        # how an error names them, in Python
+
+
+def _per_source(sources, choices=None, said=None):
+    """[(source, its choices)]: torux.load's which= and currents= of each source argument. One value applies to every
+    source, and a list or tuple gives one entry per source, in order, None for one that needs none. Any other count
+    is an error that names them as ``said`` does (default: which= and currents=)."""
     if isinstance(sources, (str, os.PathLike)):
         sources = [sources]
+    sources = list(sources)
+    said = said or WHICH_SAID
+    n = len(sources)
+    per = [{} for _ in sources]
+    for k, v in (choices or {}).items():
+        if isinstance(v, (list, tuple)):
+            if len(v) != n:
+                if said[k].startswith("--"):
+                    raise ValueError(f"{said[k]} is given {len(v)} times for {n} SOURCE argument{'s' if n != 1 else ''}"
+                                     f": give it once, for every design, or once per SOURCE, in order, - for one that "
+                                     f"needs none")
+                raise ValueError(f"{said[k]} has {len(v)} entr{'y' if len(v) == 1 else 'ies'} for {n} source"
+                                 f"{'s' if n != 1 else ''}: give one value, for every design, or a list of one entry "
+                                 f"per source, in order, None for one that needs none")
+            vals = list(v)
+        else:
+            vals = [v] * n
+        for d, x in zip(per, vals):
+            if x is not None:
+                d[k] = x
+    return list(zip(sources, per))
+
+
+def _items(sources, choices=None, said=None):
+    from .source import Source
+    from .sources import load, quasr_number
     flat = []
-    for x in list(sources):
-        flat += _expand(os.fspath(x)) if isinstance(x, (str, os.PathLike)) else [x]
+    for x, ch in _per_source(sources, choices, said):
+        flat += [(y, ch) for y in (_expand(os.fspath(x)) if isinstance(x, (str, os.PathLike)) else [x])]
     out = []
-    for x in flat:
+    for x, ch in flat:
         if isinstance(x, str):
             n = quasr_number(x) if not os.path.exists(x) else None
-            out.append(_Item(x, f"quasr:{n}" if n is not None else os.path.normpath(x), n))
+            out.append(_Item(x, f"quasr:{n}" if n is not None else os.path.normpath(x), n, ch))
         elif isinstance(x, (tuple, list)) and x and all(isinstance(p, (str, os.PathLike)) for p in x):
             ps = tuple(os.fspath(p) for p in x)
-            out.append(_Item(ps, "+".join(os.path.normpath(p) for p in ps)))
+            out.append(_Item(ps, "+".join(os.path.normpath(p) for p in ps), None, ch))
         elif isinstance(x, Source):
             out.append(_Item(x, x.id))
         else:
             # a live SIMSOPT or DESC object: written and read here, and the Source goes to the worker
             try:
-                src = load(x, **(choices or {}))
+                src = load(x, **ch)
                 out.append(_Item(src, src.id))
             except Exception as e:  # noqa: BLE001
                 it = _Item(None, getattr(x, "name", None) or type(x).__name__)
@@ -175,7 +207,8 @@ def _threads():
     return threads()
 
 
-def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, report, size=None, choices=None):
+def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, report, size=None, choices=None,
+         said=None):
     from .ask import one_question
     size = {**dict(minor_radius=None, volume=None, largest=False), **(size or {})}
     one_question(flux if flux is None or isinstance(flux, numbers.Real) else None, **size)
@@ -189,8 +222,7 @@ def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, rep
                                  or not math.isfinite(budget_s) or budget_s <= 0):
         raise ValueError(f"budget_s={budget_s!r}: give the seconds for each design's whole question as a positive "
                          f"number")
-    choices = {k: v for k, v in (choices or {}).items() if v is not None}     # torux.load's which= and currents=
-    items = _items(sources, choices)
+    items = _items(sources, choices, said)        # each with its torux.load's which= and currents=
     if flux is None or isinstance(flux, numbers.Real):
         for it in items:
             it.flux = None if flux is None else float(flux)
@@ -230,7 +262,7 @@ def _run(sources, flux, jobs, table, save, budget_s, tol, verify, gradients, rep
             if report is not None:
                 report.skipped(sum(it.skip for it in items), len(items), table,
                                sum(it.key in tab.retried for it in items))
-        args = dict(budget_s=budget_s, tol=tol, verify=verify, gradients=gradients, choices=choices, **size)
+        args = dict(budget_s=budget_s, tol=tol, verify=verify, gradients=gradients, **size)
         todo = [it for it in items if it.answer is None and not it.skip]
         at_once = min(jobs, len(todo))
         if report is not None and todo:
@@ -329,7 +361,8 @@ def _pool(todo, jobs, args, finish):
 
 def _start(it, k, tmp, env, args):
     base = os.path.join(tmp, str(k))
-    job = dict(source=it.payload, flux=it.flux, overrun=_OVERRUN, budget_file=base + ".budget", **args)
+    job = dict(source=it.payload, flux=it.flux, overrun=_OVERRUN, budget_file=base + ".budget", choices=it.choices,
+               **args)
     with open(base + ".job", "wb") as fh:
         pickle.dump(job, fh, protocol=pickle.HIGHEST_PROTOCOL)
     errfh = open(base + ".err", "wb")
@@ -337,7 +370,7 @@ def _start(it, k, tmp, env, args):
     proc = subprocess.Popen([sys.executable, "-c", _WORKER, base + ".job", base + ".out"], stdin=subprocess.PIPE,
                             stdout=subprocess.DEVNULL, stderr=errfh, env=env, close_fds=True)
     j = _Job(it, proc, base + ".out", base + ".err", errfh, time.time(), _OVERRUN)
-    j.choices = args.get("choices")              # what the answer's engine is loaded with again, when it is used
+    j.choices = it.choices                       # what the answer's engine is loaded with again, when it is used
     return j
 
 
@@ -729,8 +762,23 @@ def add_parser(sub):
                                                          "TORUX_THREADS)")
     m.add_argument("--save", metavar="DIR", help="a folder where each answer is also written as JSON")
     from .check import add_source_choices
-    add_source_choices(m)
+    add_source_choices(m, many=True)
     return m
+
+
+def cli_choices(a):
+    """(choices, said) of torux many's --coils and --currents: given once, one value for every design, given more
+    often, a list of one entry per SOURCE, - for None. said names them for an error."""
+    def one(w):
+        if w is None or w == "-":
+            return None
+        return int(w) if w.lstrip("-").isdigit() else w
+    ch = {}
+    for k, given in (("which", a.coils), ("currents", a.currents)):
+        given = given or []
+        if given:
+            ch[k] = one(given[0]) if len(given) == 1 else [one(w) for w in given]
+    return ch, dict(which="--coils", currents="--currents")
 
 
 class _Report:
@@ -760,9 +808,9 @@ def main(a, out=None):
     out = out or sys.stdout
     rep = _Report(out)
     try:
-        from .check import source_choices
+        choices, said = cli_choices(a)
         _run(a.files, a.flux, a.jobs, a.table, a.save, a.budget, 3e-15, True, False, rep,
-             dict(minor_radius=a.minor_radius, volume=a.volume, largest=a.largest), source_choices(a))
+             dict(minor_radius=a.minor_radius, volume=a.volume, largest=a.largest), choices, said)
     except KeyboardInterrupt:
         print("stopped: every design not in the table yet is solved when the same command runs again",
               file=sys.stderr)

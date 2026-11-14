@@ -16,7 +16,8 @@ code is 0 for a verified surface, a certified or proved no-surface or a verified
 1 for an error, a command line that cannot be read included.  Each subcommand is a pair of functions in COMMANDS.
 --coils and --currents are torux.load's which= and currents= for a SIMSOPT JSON source: which coil set of a file
 holding several (with several files, --coils once per file, - for one that needs none), and which of a Current
-object's two values where they differ.  In many they apply to every design.  check's --which is the surface's, and
+object's two values where they differ.  In many, given once they apply to every design, and given once per SOURCE,
+in order, each to its own design, - for one that needs none.  check's --which is the surface's, and
 --surface-currents and --mismatched-coils are check's surface_currents= and mismatched_coils=True.
 """
 from __future__ import annotations

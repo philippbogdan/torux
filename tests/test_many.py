@@ -546,3 +546,54 @@ def test_the_advice_of_a_refusal_works_in_many(tmp_path, capsys):
     assert sorted(r["outcome"] for r in rows) == ["surface", "surface"]
     got = batch.many([sets, two], 0.05, which="BiotSavart3", currents="dofs", jobs=2)
     assert all(a.status == "error" and "matches 0" in a.evidence["error"] for a in got)
+
+
+def _renamed_sets(d):
+    """Two coil sets named as another SIMSOPT session would name them: BiotSavart3 and BiotSavart4."""
+    o = d["simsopt_objs"]
+    o["BiotSavart3"] = dict(o.pop("BiotSavart1"), **{"@name": "BiotSavart3"})
+    o["BiotSavart4"] = dict(o["BiotSavart3"], **{"@name": "BiotSavart4"})
+    o["BoozerSurface1"]["biotsavart"] = {"$type": "ref", "value": "BiotSavart3"}
+
+
+def test_coils_and_currents_once_per_source_are_each_its_own_design(tmp_path, capsys):
+    """torux many's help said to give --coils once per source file, and doing so gave every design the whole list,
+    which torux.load refused for a file of one: every design an error, naming which=. Now --coils and --currents
+    given once are every design's, given once per SOURCE each is its own design's, - for one that needs none, and
+    any other count is one error, naming the option, before any design is solved. torux.many takes which= and
+    currents= the same way."""
+    import argparse
+    from test_simsopt_files import _boozer_file, _two_sets, _two_valued
+    from torux.cli import main
+    a = _boozer_file(tmp_path / "a.json", change=_two_sets)                 # BiotSavart1, BiotSavart2
+    b = _boozer_file(tmp_path / "b.json", change=_renamed_sets)             # BiotSavart3, BiotSavart4
+    two = _boozer_file(tmp_path / "two.json", change=_two_valued(3.95))
+    q = example("quasr_0000954.json")
+    table = tmp_path / "t.csv"
+    assert main(["many", a, b, q, "--table", str(table), "--flux", "0.05", "--coils", "BiotSavart1", "--coils",
+                 "BiotSavart3"]) == 1
+    err = capsys.readouterr().err
+    assert "--coils" in err and "which=" not in err and "3 SOURCE" in err and not table.exists()
+    assert main(["many", a, b, "--table", str(table), "--flux", "0.05", "--currents", "dofs", "--currents", "dofs",
+                 "--currents", "saved"]) == 1
+    err = capsys.readouterr().err
+    assert "--currents" in err and "currents=" not in err and not table.exists()
+    assert main(["many", a, b, two, "--table", str(table), "--flux", "0.05", "--jobs", "3", "--coils", "BiotSavart2",
+                 "--coils", "BiotSavart4", "--coils", "-", "--currents", "-", "--currents", "-", "--currents",
+                 "dofs"]) == 0
+    head, rows = _rows(table)
+    assert sorted(r["outcome"] for r in rows) == ["surface"] * 3, [r["note"] for r in rows]
+    with pytest.raises(ValueError, match="which= has 2 entries for 3 sources"):
+        batch.many([a, b, q], 0.05, which=["BiotSavart1", "BiotSavart3"])
+    with pytest.raises(ValueError, match="currents= has 1 entry for 2 sources"):
+        batch.many([a, b], 0.05, which=0, currents=["dofs"])
+    got = batch.many([a, b, q], 0.05, which=["BiotSavart2", "BiotSavart3", None], jobs=3)
+    assert [g.status for g in got] == ["surface"] * 3
+    ap = argparse.ArgumentParser(prog="torux")
+    sub = ap.add_subparsers(dest="cmd")
+    batch.add_parser(sub)
+    from torux.check import add_command
+    add_command(sub)
+    said = {k: " ".join(sub.choices[k].format_help().split()) for k in ("many", "check")}
+    assert "Given once, it applies to every design" in said["many"] and "once per SOURCE" in said["many"]
+    assert "once per file in order" in said["check"]
