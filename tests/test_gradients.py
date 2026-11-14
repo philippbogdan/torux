@@ -388,3 +388,34 @@ def test_a_fourier_part_of_no_coil(quasr_954):
     assert "error" not in g and "per_coil" not in g
     assert np.isfinite(g["d_iota_d_flux"]) and g["d_iota_d_current"].shape == (4,)
     assert g["parts"][1]["d_current"].shape == (0,)
+
+
+def test_a_coil_of_zero_current_without_its_copies(request, quasr_954):
+    """QUASR 954 and one coil of zero current, its first coil made larger by 15%, without the copies the symmetry
+    would give it. It makes no field, so the source keeps its symmetry and is solved on one period, and torux 0.1.4
+    then found no copy of it among the source's coils and gave no per-coil numbers at all, those of the coils that
+    carry current included. Its derivative in one period needs no copy of it in the source: the one-period solve's
+    derivative at each image of its coefficients, averaged over the symmetry. Solving again with only its current
+    changed and no symmetry assumed says the same."""
+    p = quasr_954.parts[0]
+    coef = np.concatenate([p.coef, 1.15 * p.coef[:1]])
+    src = torux.Source("954 and one coil of zero current", [torux.FourierCurves(coef, np.append(p.current, 0.0))],
+                       nfp=2, stellsym=True)
+    res = torux.solve(src, flux=QUASR_954["flux_Wb"], gradients=True)
+    g = res.gradients
+    assert res.status == "surface" and "per_coil" not in g and "one_period" not in g, g.get("per_coil")
+    assert g["d_iota_d_current"].shape == (5,) and g["d_iota_d_coef"].shape == (5,) + p.coef.shape[1:]
+    _, plain = _with_gradients(request, "quasr_954", None)
+    d0 = plain.gradients["d_iota_d_current"]
+    assert np.abs(g["d_iota_d_current"][:4] - d0).max() <= 1e-9 * np.abs(d0).max()
+    assert not np.any(g["d_iota_d_coef"][4]) and np.array_equal(g["parts"][0]["d_current"], g["d_iota_d_current"])
+    h = 1e-4 * abs(p.current[0])
+    io = []
+    for s in (1, -1):
+        alone = torux.Source("954 alone", [torux.FourierCurves(coef, np.append(p.current, s * h))])
+        r = torux.solve(alone, flux=res.surface.flux, verify=False, budget_s=600)
+        assert alone.nfp == 1 and not alone.stellsym and r.status == "surface", r.status
+        io.append(r.iota)
+    fd = (io[0] - io[1]) / (2 * h)
+    assert abs(fd - g["d_iota_d_current"][4]) <= 1e-5 * abs(fd)
+

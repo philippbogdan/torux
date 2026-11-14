@@ -312,6 +312,7 @@ def _every_coil(out, source, unit_vjp):
     if fc:
         out["d_coef"] = np.concatenate([g["d_coef"] for g in fc])
         out["d_current"] = np.concatenate([g["d_current"] for g in fc])
+    out["unit_current_vjp"] = unit_vjp           # for the average over the symmetry of a coil of zero current
     return out
 
 
@@ -561,13 +562,14 @@ def _cyclic_order(q, n):
     return 0
 
 
-def _action(source, M, s, tol=1e-8):
+def _action(source, M, s, tol=1e-8, skip=()):
     """The parameters' map of the symmetry x -> M x of the source (s = -1: with the currents reversed, the flip of
     stellarator symmetry), as a function on per-part dicts of arrays keyed as torux.gradients' parts are
     (d_coef, d_current, d_points, ...). It maps gradients as it maps parameters, being orthogonal. Raises NoMap when
     an element's image is no element of the source of the same kind with a parameter map of the kinds matched here:
     Fourier coils up to a shift and a reversal of their parameter, polygon loops up to their first point and
-    direction, segments up to their direction, dipoles and rings as they are."""
+    direction, segments up to their direction, dipoles and rings as they are. skip: (part, coil) of Fourier coils left
+    out, each its own image."""
     from scipy.spatial import cKDTree
     parts = source.parts
     turn = 1.0 if M[2, 2] > 0 else -1.0              # -1: the map turns the toroidal direction round
@@ -595,7 +597,7 @@ def _action(source, M, s, tol=1e-8):
     for kind, ips in by_kind.items():
         P = [parts[ip] for ip in ips]
         if kind == "fourier":
-            coils = [(k, i) for k in range(len(P)) for i in range(P[k].n)]
+            coils = [(k, i) for k in range(len(P)) for i in range(P[k].n) if (ips[k], i) not in skip]
             scale = max(max(float(np.abs(p.coef).max(initial=0.0)) for p in P), 1e-300)   # a part may hold no coil
             Iscale = max(max(float(np.abs(p.current).max(initial=0.0)) for p in P), 1e-300)
             used, maps = set(), []
@@ -718,24 +720,32 @@ def _action(source, M, s, tol=1e-8):
     return act
 
 
-def symmetric_average(source, torus, general, parts):
+def symmetric_average(source, torus, general, parts, unit_vjp=None):
     """The group average of per-part gradients (torux.gradients' parts) over the symmetry the solve of the torus
     assumed: for the one-period solve's gradient of a quantity that symmetry leaves unchanged, the true gradient,
     every element's entries those of changing that element alone. None when the group is the identity alone.
     Raises NoMap when the source's copies give no map between their parameters, or maps that do not close into
-    the group (a rotation n times over, the flip twice, and flip, rotation, flip, rotation each the identity)."""
+    the group (a rotation n times over, the flip twice, and flip, rotation, flip, rotation each the identity).
+
+    unit_vjp: lambda^T dF/dI of Fourier coils of zero current at any coefficients (k, 3, 2K+1), as the adjoints give
+    it. With it a coil of zero current needs no copy in the source: it makes no field, and changing its current
+    alone adds the field of its curve, whose one-period derivative is -unit_vjp at each image of its coefficients,
+    the flip's with its current reversed, and the true one their average over the group. Its coefficients make no
+    field, and their entries stay zero."""
     alpha, n, F = _group(torus, general)
     if n == 1 and F is None:
         return None
     from .source import rotation_z
+    zero = [] if unit_vjp is None else [(ip, int(i)) for ip, p in enumerate(source.parts) if p.kind == "fourier"
+                                        for i in np.flatnonzero(np.asarray(p.current) == 0.0)]
 
     def lin(a, b, wa, wb):
         return [{k: (wa * x[k] + wb * y[k] if k != "kind" else x[k]) for k in x} for x, y in zip(a, b)]
     g = [{k: (np.asarray(v, dtype=np.float64) if k != "kind" else v) for k, v in p.items()} for p in parts]
     rng = np.random.default_rng(0)
     probe = [{k: (rng.standard_normal(np.shape(v)) if k != "kind" else v) for k, v in p.items()} for p in g]
-    flip = _action(source, F, -1.0) if F is not None else (lambda x: x)
-    rot = _action(source, rotation_z(alpha), 1.0) if n > 1 else (lambda x: x)
+    flip = _action(source, F, -1.0, skip=set(zero)) if F is not None else (lambda x: x)
+    rot = _action(source, rotation_z(alpha), 1.0, skip=set(zero)) if n > 1 else (lambda x: x)
 
     def times(f, k, x):
         for _ in range(k):
@@ -757,6 +767,17 @@ def symmetric_average(source, torus, general, parts):
             cur = rot(cur)
             acc = lin(acc, cur, 1.0, 1.0)
         g = lin(acc, acc, 1.0 / n, 0.0)
+    if zero:
+        group = [(rotation_z(alpha * k), 1.0) for k in range(n)]
+        if F is not None:
+            group += [(F @ R, -1.0) for R, _ in group]
+        images = np.stack([M @ np.asarray(source.parts[ip].coef[i], dtype=np.float64) for ip, i in zero
+                           for M, _ in group])
+        sign = np.tile([sg for _, sg in group], len(zero))
+        d = (-sign * np.asarray(unit_vjp(images), dtype=np.float64)).reshape(len(zero), len(group)).mean(axis=1)
+        for (ip, i), v in zip(zero, d):
+            g[ip]["d_current"] = np.array(g[ip]["d_current"], dtype=np.float64)
+            g[ip]["d_current"][i] = v
     return g
 
 
@@ -773,7 +794,7 @@ def iota_gradients(source, torus, general, g):
     solve's derivatives under the same names."""
     out = dict(objective="iota", d_iota_d_flux=g["d_flux"])
     try:
-        parts = symmetric_average(source, torus, general, g["parts"])
+        parts = symmetric_average(source, torus, general, g["parts"], g.get("unit_current_vjp"))
     except NoMap as e:
         one = dict(meaning=ONE_PERIOD, parts=g["parts"])
         if "d_coef" in g:
