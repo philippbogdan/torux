@@ -55,7 +55,8 @@ class Check:
     flux_stated_by: str = None
     flux_error: float = None     # flux / flux_stated - 1
     own_coils: str = None        # the coils a SIMSOPT BoozerSurface or QfmSurface was computed for, when it names them
-    coils_differ: float = None   # the largest |B - B_own| / |B_own| on the points: the source's field against theirs
+    coils_differ: float = None   # the largest |B.n/|B| - B_own.n/|B_own||, n the unit normal, on the points: what can
+                                 # cross the surface in the source's field against what can in theirs
     npts: int = NPTS
     nsec: int = NSEC
     notes: list = field(default_factory=list)
@@ -71,8 +72,8 @@ class Check:
                                   f"by {self.flux_spread:.1e} of it")]
         if self.own_coils is not None:
             rows.append(("its own coils", self.own_coils + ("" if self.coils_differ is None else
-                                                           f": the source's field on it differs from theirs by up to "
-                                                           f"{_e1(self.coils_differ)} of |B|")))
+                                                           f": the source's B.n/|B| on it differs from theirs by up "
+                                                           f"to {_e1(self.coils_differ)}")))
         if self.flux_stated is not None:
             rows.append(("stated flux", f"{self.flux_stated:.12g} Wb ({self.flux_stated_by}), and the flux inside is "
                                         f"{'larger' if self.flux_error >= 0 else 'smaller'} by "
@@ -99,11 +100,13 @@ def check(source, surface, flux=None, *, which=None, surface_currents=None, mism
     by name or index, from a file holding several (default: the outermost).
 
     The surface of a SIMSOPT BoozerSurface or QfmSurface, from a file or live, was computed for coils it names, and
-    the source's field on it is compared with theirs: the result says by how much they differ (coils_differ).  Where
-    they differ by a tenth of the leak measured or more, the difference could account for the leak, and the check is
-    refused (ValueError) unless ``mismatched_coils=True``.  ``surface_currents``: 'saved' or 'dofs', the reading of
-    the surface's file where a Current object of its coils states two values (torux.load's currents=). Without it
-    such a surface is refused, unless the source was read from the same file with currents=, which is then taken."""
+    what can cross it in the source's field is compared with what can in theirs: coils_differ, the largest
+    |B.n/|B| - B_own.n/|B_own||, n the unit normal, at the points of the leak.  Where that is a tenth of the leak
+    measured or more, the difference could account for the leak, and the check is refused (ValueError) unless
+    ``mismatched_coils=True``.  Coils that differ by one factor in every current differ by nothing here.
+    ``surface_currents``: 'saved' or 'dofs', the reading of the surface's file where a Current object of its coils
+    states two values (torux.load's currents=). Without it such a surface is refused, unless the source was read from
+    the same file with currents=, which is then taken."""
     if flux is not None and (isinstance(flux, bool) or not isinstance(flux, (int, float, np.integer, np.floating))
                              or not math.isfinite(flux) or flux == 0):
         raise ValueError(f"flux={flux!r}: give the flux to compare with in Wb, as a number other than zero")
@@ -157,7 +160,7 @@ def measure_at(src, S, theta, phi, sections, flux=None, *, surface_currents=None
     leak, leak_med = float(bn[k]), float(np.median(bn[ok]))
     own_said, differ = None, None
     if S.own_coils is not None:
-        own_said, differ, said = _against_own_coils(S, src, x, B, leak, surface_currents, mismatched_coils)
+        own_said, differ, said = _against_own_coils(S, src, x, nv, B, leak, surface_currents, mismatched_coils)
         notes += said
     rounding = _rounding(src, x[k])
     fl, conv = [], True
@@ -183,8 +186,8 @@ def measure_at(src, S, theta, phi, sections, flux=None, *, surface_currents=None
                  notes=notes)
 
 
-OWN_FIELD_SHARE = 0.1        # coils whose field on the surface differs from its own coils' by less than this share of
-                             # the leak cannot account for the leak
+OWN_FIELD_SHARE = 0.1        # coils whose B.n/|B| on the surface differs from its own coils' by less than this share
+                             # of the leak cannot account for the leak
 OWN_FIELD_ROUNDING = 1e-14   # the same coils, however written, make the same field to rounding
 
 
@@ -203,11 +206,13 @@ def _own_reading(S, src, surface_currents):
     return taken if same else None
 
 
-def _against_own_coils(S, src, x, B, leak, surface_currents, mismatched_coils):
+def _against_own_coils(S, src, x, nv, B, leak, surface_currents, mismatched_coils):
     """A SIMSOPT BoozerSurface or QfmSurface was computed for coils it names. The leak measured against the source
-    misleads only where the source's field on the surface differs from theirs by enough to account for it: by a tenth
-    of the leak or more. Then, and where their coils cannot be read to compare, refused (ValueError) unless
-    mismatched_coils. Returns (the coils, by how much the fields differ, notes)."""
+    misleads only where what can cross the surface in the source's field differs from what can in theirs by enough to
+    account for it: the largest |B.n/|B| - B_own.n/|B_own|| at the points x, nv their normals, a tenth of the leak or
+    more. The rest of a difference of fields, along the surface or of every current by one factor, crosses nothing.
+    Then, and where their coils cannot be read to compare, refused (ValueError) unless mismatched_coils. Returns (the
+    coils, that largest difference, notes)."""
     from .reference import fast64
     own = S.own_coils
     where = f"{own['biotsavart']} of {own['origin']}" if own.get("origin") else own["biotsavart"]
@@ -248,13 +253,15 @@ def _against_own_coils(S, src, x, B, leak, surface_currents, mismatched_coils):
                              f"source given ({e}): measured as asked"]
     Bo = np.asarray(fast64.Field(mine).evaluate(x, grad=False)["B"], float)
     with np.errstate(invalid="ignore", divide="ignore"):
-        gap = np.linalg.norm(B - Bo, axis=-1) / np.linalg.norm(Bo, axis=-1)
+        n = nv / np.linalg.norm(nv, axis=-1)[:, None]
+        across = lambda b: np.sum(b * n, -1) / np.linalg.norm(b, axis=-1)          # noqa: E731  B.n/|B|, signed
+        gap = np.abs(across(B) - across(Bo))
     gap = float(np.nanmax(gap)) if np.any(np.isfinite(gap)) else float("inf")
     if gap <= OWN_FIELD_ROUNDING or gap < OWN_FIELD_SHARE * leak:
         return where, gap, []
     if mismatched_coils:
-        return where, gap, [f"the source's field differs from that of the coils the surface was computed for by "
-                            f"{gap:.1e} of |B|, a tenth of the leak or more, so the leak may measure the difference "
+        return where, gap, [f"the source's B.n/|B| on the surface differs from that of the coils it was computed for "
+                            f"by up to {gap:.1e}, a tenth of the leak or more, so the leak may measure the difference "
                             f"of the coils and not the surface: measured as asked"]
     if own.get("live") is not None:
         own_way = "torux.check(boozer.biotsavart, boozer), boozer the object given"
@@ -265,9 +272,10 @@ def _against_own_coils(S, src, x, B, leak, surface_currents, mismatched_coils):
                    f"which={own['biotsavart']!r}) or `torux check {own['origin']} {own['origin']} --coils "
                    f"{own['biotsavart']}`")
     raise ValueError(
-        f"{head}. The source given makes a different field on it, by up to {gap:.1e} of |B|, and the field across it "
-        f"measured against the source is {leak:.1e} of |B|: a difference of a tenth of that or more could account for "
-        f"what crosses the surface, which would then measure the mismatch of the two coil sets, not the surface. "
+        f"{head}. What can cross it differs in the source given: B.n/|B| on it, n the unit normal, differs from "
+        f"theirs by up to {gap:.1e}, and the field across it measured against the source is {leak:.1e} of |B|: a "
+        f"difference of a tenth of that or more could account for what crosses the surface, which would then measure "
+        f"the mismatch of the two coil sets, not the surface. "
         f"Check it against its own coils: {own_way}. Or, {insist}")
 
 
@@ -836,9 +844,9 @@ def add_command(sub):
                    help="for the surface of a SIMSOPT BoozerSurface or QfmSurface whose coils hold a Current object "
                         "stating two values: the one its coils carried (--currents for the surface's own file)")
     c.add_argument("--mismatched-coils", action="store_true",
-                   help="measure even where the source's field on a SIMSOPT BoozerSurface or QfmSurface differs from "
-                        "that of the coils it was computed for by a tenth of the leak or more, or they cannot be read "
-                        "to compare. The result says by how much")
+                   help="measure even where the source's B.n/|B| on a SIMSOPT BoozerSurface or QfmSurface, n the "
+                        "unit normal, differs from that of the coils it was computed for by a tenth of the leak or "
+                        "more, or they cannot be read to compare. The result says by how much")
     add_source_choices(c)
     return c
 

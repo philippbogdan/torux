@@ -16,7 +16,7 @@ import pytest
 from conftest import example
 
 import torux
-from torux.check import add_command, check, run_command
+from torux.check import add_command, check, read_surface, run_command
 
 
 def _ref(name):
@@ -95,10 +95,10 @@ def test_a_boozer_surface_against_other_coils_is_refused(tmp_path, quasr_954, qu
     f = _boozer_file(tmp_path / "boozer.json")
     with pytest.raises(ValueError, match="could account for what crosses the surface"):
         check(quasr_954_mirrored, f)                         # one coil of a pair at 3% more current
-    scaled = copy.deepcopy(quasr_954)
-    scaled.parts[0].current = scaled.parts[0].current * (1 + 1e-6)
+    one = copy.deepcopy(quasr_954)
+    one.parts[0].current[0] *= 1 + 1e-4                      # one coil alone at 1e-4 more current
     with pytest.raises(ValueError, match="BoozerSurface1"):
-        check(scaled, f)
+        check(one, f)
     ap = argparse.ArgumentParser(prog="torux")
     add_command(ap.add_subparsers(dest="cmd"))
     g = _boozer_file(tmp_path / "boozer_mirror.json", change=_two_valued(1.0))   # the same coils, written again
@@ -282,13 +282,17 @@ def test_coils_close_to_its_own_are_measured_and_others_only_when_asked(tmp_path
     included. A difference under a tenth of the leak cannot account for it: measured, and the result says by how
     much. One of a tenth or more is refused unless asked for, and then measured with the difference said."""
     f = _boozer_file(tmp_path / "boozer.json")
-    near = copy.deepcopy(quasr_954)
-    near.parts[0].current = near.parts[0].current.astype(np.float32).astype(np.float64)
-    c = check(near, f)
+    rounded = copy.deepcopy(quasr_954)
+    rounded.parts[0].current = rounded.parts[0].current.astype(np.float32).astype(np.float64)
     own = check(quasr_954, f)
     assert own.coils_differ <= 1e-14 and "BiotSavart1" in own.own_coils
-    assert 1e-9 < c.coils_differ < 0.1 * c.leak and c.leak == pytest.approx(own.leak, rel=1e-6) and not c.notes
-    assert "its own coils" in str(c) and f"{c.coils_differ:.1e} of |B|" in str(c)
+    r = check(rounded, f)
+    assert r.leak == pytest.approx(own.leak, rel=1e-6) and not r.notes
+    near = copy.deepcopy(quasr_954)
+    near.parts[0].current[0] *= 1 + 1e-7                             # one coil alone at 1e-7 more current
+    c = check(near, f)
+    assert 1e-12 < c.coils_differ < 0.1 * c.leak and c.leak == pytest.approx(own.leak, rel=1e-3) and not c.notes
+    assert "its own coils" in str(c) and f"differs from theirs by up to {c.coils_differ:.1e}" in str(c)
     mg = _makegrid(tmp_path / "coils.q954", quasr_954, 64)           # a coarse polygon of the same coils
     with pytest.raises(ValueError, match="mismatched_coils=True") as e:
         check(mg, f)
@@ -302,6 +306,35 @@ def test_coils_close_to_its_own_are_measured_and_others_only_when_asked(tmp_path
     assert run_command(ap.parse_args(["check", mg, f, "--mismatched-coils"])) == 0
     out = capsys.readouterr().out
     assert "its own coils" in out and "measured as asked" in out
+
+
+def test_coils_that_differ_by_a_uniform_scale_of_every_current_are_measured(tmp_path, quasr_954):
+    """B.n/|B| does not change when every current is multiplied by one number, so neither does the leak, and nothing
+    of such a difference can cross the surface. torux 0.1.4 compared the whole field, |B - B_own|/|B_own| = 1e-3
+    here, with a tenth of the leak, and refused. What is compared now is what can cross the surface, B.n/|B| against
+    B_own.n/|B_own|, which a uniform scale leaves as it is."""
+    f = _boozer_file(tmp_path / "boozer.json")
+    own = check(quasr_954, f)
+    for e in (1e-3, -0.2):
+        scaled = copy.deepcopy(quasr_954)
+        scaled.parts[0].current = scaled.parts[0].current * (1 + e)
+        c = check(scaled, f)
+        assert c.coils_differ <= 1e-14 and c.leak == pytest.approx(own.leak, rel=1e-12) and not c.notes
+    one = copy.deepcopy(quasr_954)                               # one coil alone at 1e-3 more: still refused
+    one.parts[0].current[0] *= 1 + 1e-3
+    with pytest.raises(ValueError, match="could account for what crosses the surface") as e:
+        check(one, f)
+    assert "B.n/|B|" in str(e.value)
+    d = check(one, f, mismatched_coils=True)
+    # what crosses in one field and not the other is at least the change of the leak, and at most the whole field's
+    # change: B.n/|B| - B_own.n/|B_own| has no part of a uniform scale and none along the surface
+    from torux.reference import fast64
+    S = read_surface(f)
+    rng = np.random.default_rng(0)
+    x, xt, xp = S.eval(2 * np.pi * rng.random(4096), 2 * np.pi * rng.random(4096))
+    B, Bo = (np.asarray(fast64.Field(s).evaluate(x, grad=False)["B"]) for s in (one, quasr_954))
+    whole = np.max(np.linalg.norm(B - Bo, axis=1) / np.linalg.norm(Bo, axis=1))
+    assert abs(d.leak - own.leak) <= d.coils_differ < whole and d.coils_differ >= 0.1 * d.leak
 
 
 def test_a_surface_whose_own_coils_state_two_values_is_measured_once_told_which(tmp_path, quasr_954, capsys):
@@ -319,7 +352,7 @@ def test_a_surface_whose_own_coils_state_two_values_is_measured_once_told_which(
     with pytest.raises(ValueError, match="could account for"):
         check(quasr_954, f, surface_currents="saved")             # its first coil at 3.95 times the current
     b = check(quasr_954, f, surface_currents="saved", mismatched_coils=True)
-    assert b.coils_differ > 0.1 and b.leak == pytest.approx(a.leak, rel=1e-12)
+    assert b.coils_differ > 1e3 * b.leak and b.leak == pytest.approx(a.leak, rel=1e-12)
     with pytest.raises(ValueError, match="surface_currents="):
         check(quasr_954, f, surface_currents="key")
     q = example("quasr_0000954.json")
@@ -378,14 +411,15 @@ def test_a_live_boozer_surface_is_compared_with_its_own_coils(tmp_path):
     other = BiotSavart([Coil(c.curve, Current(c.current.get_value() * (1.5 if k == 0 else 1.0)))
                         for k, c in enumerate(coils)])
     for b in (f, boz):
-        with pytest.raises(ValueError, match="makes a different field on it"):
+        with pytest.raises(ValueError, match="What can cross it differs in the source given"):
             check(other, b)
     own = [check(BiotSavart(coils), b) for b in (boz, f)]
     assert own[0].leak == pytest.approx(own[1].leak, rel=1e-9) and all(c.coils_differ <= 1e-14 for c in own)
     assert "BiotSavart it holds" in own[0].own_coils and "SIMSOPT BoozerSurface" in str(own[0])
     told = [check(other, b, mismatched_coils=True) for b in (boz, f)]
     assert told[0].leak == pytest.approx(told[1].leak, rel=1e-9)
-    assert told[0].coils_differ == pytest.approx(told[1].coils_differ, rel=1e-9) and told[0].coils_differ > 0.1
+    assert told[0].coils_differ == pytest.approx(told[1].coils_differ, rel=1e-9)
+    assert told[0].coils_differ >= told[0].leak - own[0].leak > 1e-2
 
 
 def test_a_qfm_surface_is_compared_with_its_own_coils_live_and_saved_by_simsopt(tmp_path):

@@ -50,10 +50,10 @@ A live SIMSOPT object is not a file: SIMSOPT computes its field with the value e
 
 ### A surface and the coils it was computed for
 
-A `BoozerSurface` or `QfmSurface` names the `BiotSavart` it was computed for, in its file or as a live SIMSOPT object. `torux.check` of its surface compares the source's field on it with that `BiotSavart`'s, at the points where it measures the leak, the largest |B·n|/|B|. A difference of fields can account for a leak only up to its own size, so:
+A `BoozerSurface` or `QfmSurface` names the `BiotSavart` it was computed for, in its file or as a live SIMSOPT object. `torux.check` of its surface compares what can cross it in the source's field with what can cross it in that `BiotSavart`'s, at the points where it measures the leak, the largest |B·n|/|B|: the largest |B·n/|B| − B_own·n/|B_own||, n the unit normal. The rest of a difference of fields crosses nothing: the part along the surface, and a change of every current by one factor, which leaves B·n/|B| and the leak as they are. A difference can account for a leak only up to its own size, so:
 
-- where the two fields differ by less than a tenth of the leak (or agree to rounding, 10⁻¹⁴ of |B|), `check` measures, and the result says by how much they differ: `c.coils_differ`, a fraction of |B|, and a line of its print.
-- where they differ by a tenth of the leak or more, it refuses, since what crosses the surface may then be the difference of the two coil sets and not the surface. `check(source, surface, mismatched_coils=True)`, or `--mismatched-coils` on the command line, measures all the same, and the result still says by how much the fields differ.
+- where it is less than a tenth of the leak (or rounding, 10⁻¹⁴), `check` measures, and the result says how large it is: `c.coils_differ`, and a line of its print.
+- where it is a tenth of the leak or more, `check` refuses, since what crosses the surface may then be the difference of the two coil sets and not the surface. `check(source, surface, mismatched_coils=True)`, or `--mismatched-coils` on the command line, measures all the same, and the result still says how large the difference is.
 
 The surface's own coils are best given as the source: its file, with `which=` (`--coils`) naming them where the file holds several. Coils of the surface that torux cannot read are refused the same way, and `mismatched_coils=True` measures without the comparison and says so.
 
