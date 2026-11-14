@@ -7,7 +7,7 @@ git clone https://github.com/philippbogdan/torux && cd torux    # only for the e
 uvx torux solve quasr:954    # or with nothing installed, if you have uv: one QUASR design, solved and checked
 ```
 
-Two verbs and one answer: `solve` finds the flux surface of a coil set, `check` measures a surface another code gave you. There is nothing to tune: no resolution, no tolerance, no starting guess.
+Two verbs and one answer: `solve` finds the flux surface of a coil set, `check` measures a surface another code gave you. There is nothing to tune: torux asks for no resolution, no tolerance and no starting guess.
 
 ## Solving for a flux surface
 
@@ -70,11 +70,11 @@ With none of them, a source that carries its own request is asked for that (a QU
 
 | `s.status` | |
 |---|---|
-| `surface` | the surface exists: the solver's check and an evaluator that shares no code with it agree |
+| `surface` | a surface, verified: the solver's check and an evaluator whose field code shares none with it agree |
 | `no_surface` | a certificate that no surface encloses the flux asked for, or for a tokamak's coils or a dipole a proof that there is none at any flux |
 | `undetermined` | neither, within the budget |
 | `timeout` | neither, and the last step ended past the budget |
-| `surface_unverified` | a torus was found and the independent check did not confirm it: not an answer |
+| `surface_unverified` | a torus was found and did not pass the solver's check or the independent one: not an answer |
 | `no_axis` | no magnetic axis was found |
 | `error` | something broke, and the answer says what |
 
@@ -132,8 +132,8 @@ print(torux.solve("examples/quasr_1100073.json", budget_s=3300))
 no surface             certified: the flux asked for lies beyond the last surface these coils make
 requested flux         0.06949574 Wb
 upper bound            0.0611262057 Wb: no surface encloses more (the largest may enclose less: ask largest=True)
-rests on               curves no surface crosses, from an X line of period 11, with some error terms strict bounds and
-                       some validated models: the weakest kind of certificate torux gives
+rests on               curves no surface crosses, from an X line of period 11. Some error terms are bounds given their
+                       inputs and some are checked estimates: the weakest kind of certificate torux gives
 time                   64.0 s
 ```
 

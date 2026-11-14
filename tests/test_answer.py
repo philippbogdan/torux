@@ -299,6 +299,23 @@ def test_the_command_line_prints_the_answer_and_saves_it(solved_954, tmp_path, c
         assert stop.value.code == 1 and "usage: torux" in capsys.readouterr().err
 
 
+def test_an_island_band_says_what_it_rests_on():
+    """The three records an island band can have, as torux.analysis writes them: the two of the manifold theorem say
+    the theorem, and of a chain of several X lines the certified piece that holds the request. The one of torux.certify
+    says its three tori, with or without a kind in its record."""
+    def said(cert):
+        return str(Answer._of(Result("no_surface", 1.0, 0.0, evidence={"certificate": cert}), 0.5))
+    one = said(dict(kind="island_band_manifold", interval=(0.4, 0.6), request=0.5, chain=dict(p=1, q=5)))
+    assert "none between           0.4 and 0.6 Wb" in one and "an exact theorem (stellarator symmetry)" in one
+    pairs = said(dict(kind="island_band_manifold_pairs", interval=(0.4, 0.6), request=0.5, chain=dict(p=1, q=5),
+                      excluded=[(0.4, 0.45), (0.47, 0.6)]))
+    assert "none between           0.47 and 0.6 Wb" in pairs and "an exact theorem (stellarator symmetry)" in pairs
+    for kind in (dict(kind="island_band"), {}):
+        tori = said(dict(kind, interval=(0.4, 0.6), chain=(1, 5), q=5, f_island=0.05))
+        assert "none between           0.4 and 0.6 Wb" in tori and "5 islands in each cross-section" in tori
+        assert "taken to be invariant: measured, not proved" in " ".join(tori.split()) and "theorem" not in tori
+
+
 # ---------------------------------------------------------------------------------------------- the slow statuses
 @pytest.mark.slow
 def test_a_range_says_how_far_it_was_followed_and_why_not_further():

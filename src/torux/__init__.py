@@ -16,9 +16,9 @@
     s.status        'surface' | 'no_surface' | 'range' | 'undetermined' | 'no_axis' | 'timeout' | 'error', or
                     'surface_unverified' / 'range_unverified'
 
-A request is answered 'surface' only when the solver's acceptance and an independent evaluator that shares no
-code with it both agree, and 'no_surface' only with a certificate or a proof.  Everything else is 'undetermined':
-never a guess.
+A request is answered 'surface' only when the solver's acceptance and an independent evaluator whose field code
+shares none with it both agree, and 'no_surface' only with a certificate or a proof.  Everything else is
+'undetermined': never a guess.
 
 Environment:
     TORUX_THREADS     threads of every pool, BLAS included even when numpy or scipy was imported first (default:

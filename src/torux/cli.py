@@ -77,7 +77,7 @@ def report(res, request=None):
 
 
 def _solve_args(sub):
-    s = sub.add_parser("solve", help="the flux surface asked for, verified, or the proof that none exists",
+    s = sub.add_parser("solve", help="the flux surface asked for, verified, or the certificate that none exists",
                        description="The flux surface of the source asked for by one of --flux, --minor-radius, "
                                    "--volume or --largest. With none, the source's own request, or its largest "
                                    "surface when it carries none.")

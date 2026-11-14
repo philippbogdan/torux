@@ -1010,20 +1010,32 @@ def _no_surface_rows(a, ev, rec):
     p = ev.get("proof") or {}
     nfp = rec.get("nfp") or 1
     kind = str(c.get("kind", ""))
+    if not kind and "f_island" in c:                  # torux.certify's record, where torux.analysis gave it no kind
+        kind = "island_band"
     rows = []
     if kind.startswith("island_band"):
         rows.append(("no surface", "certified: an island chain fills the flux asked for"))
         _asked(a, rows)
         lo, hi = (c.get("interval") or [None, None])[:2]
+        req = c.get("request")
+        for u, v in (c.get("excluded") or []):       # a chain of several X lines: the certified piece with the request
+            if req is not None and u < req < v:
+                lo, hi = u, v
         if lo is not None:
             rows.append(("none between", f"{lo:.9g} and {hi:.9g} Wb"))
         ch = c.get("chain") or {}
+        if not isinstance(ch, dict):                  # torux.certify's record keeps the chain as (p, q)
+            ch = dict(zip(("p", "q"), ch))
         q, pp = ch.get("q", c.get("q")), ch.get("p", c.get("p"))
         if q:
             rows.append(("island chain", (f"at iota = {_iota_frac(pp, q, nfp)}, " if pp is not None else "")
                          + f"{q} islands in each cross-section"))
-        rows.append(("rests on", "an exact theorem (stellarator symmetry) and curves traced with a measured error "
-                                 "budget, not interval arithmetic"))
+        if kind == "island_band":                     # torux.certify: three computed tori, no symmetry and no manifold
+            rows.append(("rests on", "the surfaces on either side of the chain and a torus inside one island, taken "
+                                     "to be invariant: measured, not proved"))
+        else:
+            rows.append(("rests on", "an exact theorem (stellarator symmetry) and curves traced with a measured error "
+                                     "budget, not interval arithmetic"))
     elif kind.startswith("edge_barrier"):
         rows.append(("no surface", "certified: the flux asked for lies beyond the last surface these coils make"))
         _asked(a, rows)
@@ -1031,9 +1043,9 @@ def _no_surface_rows(a, ev, rec):
             rows.append(("upper bound", f"{c['F_up']:.9g} Wb: no surface encloses more (the largest may enclose "
                                         f"less: ask largest=True)"))
         q = (c.get("orbit") or {}).get("q")
-        rows.append(("rests on", (f"curves no surface crosses, from an X line of period {q}, with " if q else "")
-                     + "some error terms strict bounds and some validated models: the weakest kind of certificate "
-                       "torux gives"))
+        rows.append(("rests on", (f"curves no surface crosses, from an X line of period {q}. Some" if q else "some")
+                     + " error terms are bounds given their inputs and some are checked estimates: the weakest kind "
+                       "of certificate torux gives"))
     elif p:
         v = str(p.get("verdict", ""))
         rows.append(("no surface", VERDICTS.get(v, "proved (" + v.replace("_", " ").lower() + ")")))
