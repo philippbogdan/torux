@@ -11,6 +11,7 @@
 | `batch.py` | `many`: every design in a process of its own, one row each |
 | `load.py`, `sources.py` | `load`: a source from files, a QUASR number, a live SIMSOPT or DESC object |
 | `plot.py`, `boozer.py` | the picture, and the Boozer spectrum and quasi-symmetry |
+| `quasisymmetry.py` | the two-term and three-term quasisymmetry residuals |
 | `render.py`, `pathtrace.py` | `answer.render`: the answer as one path-traced picture in the README's look, cut open or closed |
 | `poincare_section.py`, `poincare_trace.py` | `poincare`: field lines through planes of constant toroidal angle, and their tracer |
 | `cli.py` | the `torux` command |

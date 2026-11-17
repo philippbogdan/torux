@@ -43,5 +43,6 @@ Everything else. A torus that does not pass the acceptance, a certificate with o
 | the same file, cut to MPOL 9, NTOR 8 | a VMEC++ run inside it | volume to 2 × 10⁻⁹, edge rotational transform -0.09757 against -0.09752 |
 | `torux.check` | the comparison's evaluator, on the surfaces QUASR stores for 24 of its 300 designs | the largest leak to 5 × 10⁻¹⁵ of \|B\| |
 | the Boozer spectrum and quasi-symmetry | SIMSOPT's `BoozerSurface` and `NonQuasiSymmetricRatio`, four designs | every harmonic within SIMSOPT's own residual, 3 × 10⁻¹³ to 1 × 10⁻⁹ of the mean field |
+| the two-term and three-term quasisymmetry residuals | the same in Boozer angles, from the harmonics of \|B\| with the independent evaluator's field, two designs, and an axisymmetric field with a current, whose \|B\| is one harmonic in Boozer angles | f_C and f_T point by point within 1 × 10⁻¹¹ and 9 × 10⁻¹⁰ of their scale and the averages to 2 × 10⁻¹¹, the closed form to 10⁻¹³ and f_C for (1, 0) and f_T zero to rounding |
 | coils given as SIMSOPT or DESC objects | each code's own Biot-Savart field | 4 × 10⁻¹⁵ and 2 × 10⁻¹⁵ of \|B\|, DESC's value of μ₀ accounted for |
 | `torux.many` | single solves of the same designs | bit for bit |

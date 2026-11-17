@@ -342,6 +342,14 @@ class Answer(Result):
         from .boozer import boozer
         return boozer(self)
 
+    def quasisymmetry(self, helicity=None):
+        """The two-term and three-term quasisymmetry residuals of the field on the surface, <f_C^2> and
+        <f_T^2>^(1/2), as SIMSOPT's QuasisymmetryRatioResidual and DESC's f_C_normalized and f_T_normalized define
+        them (a torux.quasisymmetry.Quasisymmetry). helicity: (M, n), as boozer writes the harmonics, by default
+        that of the largest harmonic of |B| in Boozer angles."""
+        from .quasisymmetry import quasisymmetry
+        return quasisymmetry(self, helicity)
+
     # ------------------------------------------------------------------ words
     def __str__(self):
         return _words(self)
