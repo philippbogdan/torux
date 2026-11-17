@@ -79,3 +79,12 @@ LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
+
+## Kenneth Hammond's wireframes (`hammond_wireframe_*.csv`)
+
+```
+No licence. Three wireframe coil solutions from "A framework for discrete optimization of stellarator coils"
+(K.C. Hammond, Nucl. Fusion 65, 046012 (2025), https://doi.org/10.1088/1741-4326/adbb02), shared by
+Kenneth Hammond (Princeton Plasma Physics Laboratory) on 13 November 2026 and included here with his
+permission of 14 November 2026. They are not part of the repository's CC0 dedication.
+```

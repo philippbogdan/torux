@@ -9,6 +9,7 @@ torux's own code, results, text and figures are public domain ([CC0 1.0](LICENSE
 | `quasr_0000954.json`, `quasr_0219457.json`, `quasr_1100073.json` | QUASR v4, the QUAsisymmetric Stellarator Repository, Andrew Giuliani, [doi:10.5281/zenodo.13717741](https://doi.org/10.5281/zenodo.13717741) | MIT |
 | `hsx.json`, `w7x.json` | the HSX and Wendelstein 7-X coil sets shipped with [simsopt](https://github.com/hiddenSymmetries/simsopt) 1.11, rewritten as Fourier-filament JSON | MIT |
 | `d3d_icoils_upper.dat` | DIII-D's upper I-coils, from the coil library of [GPEC](https://github.com/OpenFUSIONToolkit/GPEC) | MIT |
+| `hammond_wireframe_1.csv`, `hammond_wireframe_2.csv`, `hammond_wireframe_3.csv` | three wireframe coil solutions by Kenneth Hammond (PPPL), each with a worse field than the one before, from his paper "A framework for discrete optimization of stellarator coils", Nucl. Fusion 65, 046012 (2025), [doi:10.1088/1741-4326/adbb02](https://doi.org/10.1088/1741-4326/adbb02). His `wireframe_data_full_torus.csv` of `wireframe_example_1` to `3`, byte for byte | no licence: included with his permission (14 Nov 2026) |
 
 `results/compare300/inputs/`: 306 coil sets of QUASR v4 (as above, MIT), each rewritten as Fourier-filament JSON with its outermost stored surface, its VMEC namelist and its row of QUASR's table.
 
