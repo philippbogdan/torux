@@ -329,6 +329,28 @@ time                   0.3 s
 
 |B| on the surface in Boozer angles, harmonic by harmonic, and how far it is from quasi-symmetry, by the measure SIMSOPT optimises and QUASR reports.
 
+```python
+q = s.quasisymmetry()                     # or s.quasisymmetry(helicity=(1, -1))
+print(q)
+q.two_term, q.three_term, q.helicity
+```
+
+```
+two-term residual      <f_C^2> = 3.6821e-03 for quasi-axisymmetric, (M, n) = (1, +0): the helicity of the largest
+                       harmonic of |B| in Boozer angles
+three-term residual    <f_T^2>^(1/2) = 3.2254e-02, the flux-surface rms of f_T
+definitions            f_C = [(N - iota M) B x grad B . grad psi - (M G + N I) B . grad B] / B^3, N = n nfp, nfp = 2
+                       f_T = R^2 grad psi x grad B . grad(B . grad B) / B^4, psi = Psi / 2 pi, <.> the flux-surface
+                       average
+convention             SIMSOPT's QuasisymmetryRatioResidual for helicity_m = 1, helicity_n = 0. DESC's f_C_normalized
+                       and f_T_normalized for helicity (1, 0), its poloidal angle the other way
+rests on               B . n / |B| 2e-15, theta straight to 3e-14, |I| / |G| 7e-19
+accuracy               9e-19 and 3e-17
+time                   0.4 s
+```
+
+The two-term and three-term residuals of quasisymmetry on the surface: <f_C²>, as SIMSOPT's `QuasisymmetryRatioResidual` computes it on one surface, and the flux-surface rms of DESC's `f_T_normalized`, with psi = Psi / 2π. The helicity (M, n) is SIMSOPT's, the same field's (M, -n nfp) in DESC, whose poloidal angle runs the other way, and is read from the largest harmonic of the Boozer spectrum unless given. `q.f_C` and `q.f_T` hold both at every point of the grid `q.theta` × `q.phi`, the surface's own angles as `s.points` takes them, and `q.checks` what the computation rests on, each refused beyond its bound. From the shell: `torux solve examples/quasr_0000954.json --quasisymmetry`, or `--helicity 1,0` for a helicity of one's choosing. The conventions of both codes, and how the residuals are computed, are stated once, in [`torux/quasisymmetry.py`](../src/torux/quasisymmetry.py).
+
 ## Gradients
 
 ```python

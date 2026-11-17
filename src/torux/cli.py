@@ -2,7 +2,7 @@
 
     torux solve SOURCE [SOURCE ...] [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S] [--nfp N]
                 [--kind K] [--gradients] [--no-verify] [--trace-lines N] [--save FILE ...] [--mpol N] [--ntor N]
-                [--plot FILE] [--boozer] [--coils NAME] [--currents saved|dofs]
+                [--plot FILE] [--boozer] [--quasisymmetry] [--helicity M,N] [--coils NAME] [--currents saved|dofs]
     torux check SOURCE [SOURCE ...] SURFACE [--flux WB] [--nfp N] [--which NAME] [--coils NAME]
                 [--currents saved|dofs] [--surface-currents saved|dofs] [--mismatched-coils]
     torux many SOURCE [SOURCE ...] --table FILE [--flux WB | --minor-radius M | --volume M3 | --largest] [--budget S]
@@ -14,7 +14,9 @@
     torux version
 
 solve prints the answer on stdout and, with --save, writes it: *.json (everything), input.<name> (VMEC input, cut
-to --mpol and --ntor when they are given), *.vtk (the surface with |B|). --save may be given more than once.  A
+to --mpol and --ntor when they are given), *.vtk (the surface with |B|). --save may be given more than once.
+--boozer adds the Boozer spectrum, and --quasisymmetry the two-term and three-term quasisymmetry residuals, for the
+helicity --helicity M,N or else that of the largest harmonic of |B| in Boozer angles.  A
 search (a size, the largest) says on stderr what it asks, how long it may take and each request as it ends.  The exit
 code is 0 for a verified surface, a certified or proved no-surface or a verified range, 2 for anything undetermined,
 1 for an error, a command line that cannot be read included.  render solves as solve does, prints the answer, and
@@ -107,9 +109,26 @@ def _solve_args(sub):
     s.add_argument("--plot", metavar="FILE", help="draw the surface inside its coils to FILE: .png, .pdf or .svg")
     s.add_argument("--boozer", action="store_true", help="also the Boozer spectrum of |B| on the surface and its "
                                                          "quasi-symmetry")
+    s.add_argument("--quasisymmetry", action="store_true", help="also the two-term and three-term quasisymmetry "
+                                                                "residuals on the surface, <f_C^2> and <f_T^2>^(1/2)")
+    s.add_argument("--helicity", metavar="M,N", help="the helicity of --quasisymmetry, as the Boozer spectrum writes "
+                                                     "it, e.g. 1,-1 (default: that of the largest harmonic of |B| in "
+                                                     "Boozer angles). Implies --quasisymmetry")
     from .check import add_source_choices
     add_source_choices(s)
     s.add_argument("--out", help=argparse.SUPPRESS)
+
+
+def _helicity_arg(text):
+    """--helicity M,N as two integers, or None."""
+    if text is None:
+        return None
+    try:
+        m, n = (int(v) for v in text.split(","))
+    except ValueError:
+        raise ValueError(f"--helicity {text}: give two integers M,N, e.g. --helicity 1,-1") from None
+    from .quasisymmetry import _helicity
+    return _helicity((m, n))
 
 
 def _say(text):
@@ -175,6 +194,7 @@ def _solve(a):
         if a.plot:
             from .plot import check_path
             check_path(a.plot)
+        helicity = _helicity_arg(a.helicity)
         res = _ask(a, verify=not a.no_verify, trace_lines=a.trace_lines, gradients=a.gradients)
     except Exception as e:  # noqa: BLE001
         print(f"error   {e}", file=sys.stderr)
@@ -186,6 +206,11 @@ def _solve(a):
             print("\n" + str(res.boozer()))
         except ValueError as e:
             print(f"no Boozer spectrum   {e}", file=sys.stderr)
+    if a.quasisymmetry or helicity is not None:
+        try:
+            print("\n" + str(res.quasisymmetry(helicity)))
+        except ValueError as e:
+            print(f"no quasisymmetry residuals   {e}", file=sys.stderr)
     for p in a.save:
         try:
             if save_format(p) == "vmec" and cut:

@@ -10,6 +10,7 @@
     s.iota, s.volume, s.minor_radius, s.profile, s.section(phi)
     s.save("input.mine")                               # VMEC input. Also *.json, *.vtk
     s.plot("surface.png"), s.boozer()
+    s.quasisymmetry()                                  # the two-term and three-term quasisymmetry residuals
     s.render("hero.png")                               # one picture in the README hero's look, path traced: minutes
     s.render("closed.png", cut=False)                  # the same with the machine closed, no section opened
     torux.check("coils.json", "wout_mine.nc")          # how close another code's surface is to a flux surface
