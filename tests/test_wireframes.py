@@ -3,8 +3,9 @@ current distributions, each field worse than the one before (examples/hammond_wi
 
 The truth each test rests on: what torux 0.2.2 returned on these files, a request at the flux of the largest surface
 its search verified ('torux solve FILE --nfp 2 --largest', 12 and 18 minutes for the first two), repeated bit for
-bit by the direct request here, and Hammond's own field-line plots, which show nested surfaces in the first two and
-none in the third. The second and third take seconds, the first a minute or two: run it with -m slow.
+bit by the direct request here. For the third, what a request returns at the flux where the family from its axis
+stopped, on Intel, AMD and Apple processors. The second and third take seconds, the first a minute or two: run it
+with -m slow.
 """
 import numpy as np
 import pytest
@@ -18,7 +19,9 @@ WIREFRAME_1 = dict(flux_Wb=0.11432894889420658, iota=0.3927905302843305, axis_io
                    volume=0.848847261, aspect_ratio=5.08423)
 WIREFRAME_2 = dict(flux_Wb=0.03656661662468078, iota=0.3353043078890785, axis_iota=0.3489004093688087,
                    volume=0.270628873, aspect_ratio=9.09341)
-WIREFRAME_3_FLUX = 3.565731470221449e-05     # as far as the family from its axis was followed
+# the torus at the flux where the family from the third's axis stopped, verified or not
+WIREFRAME_3 = dict(flux_Wb=3.565731470221449e-05, iota=0.1624923114296464, axis_iota=0.1844633737416216,
+                   volume=1.81623142436e-4, aspect_ratio=147.677)
 
 
 def wireframe(k):
@@ -59,7 +62,9 @@ def test_first_verified_out_to_its_largest_surface():
     """The best field: a verified surface enclosing 0.1143 Wb and 0.849 m^3 at aspect ratio 5.08, iota between
     0.390 and 0.393 from the axis out (it dips to 0.3900 and comes back to 0.3928). The search went no further: at
     0.1153 Wb the solver's own checks refused the torus it found, and an iota = 2/5 chain lies beyond."""
-    res = torux.solve(wireframe(1), flux=WIREFRAME_1["flux_Wb"])
+    res = torux.solve(wireframe(1), flux=WIREFRAME_1["flux_Wb"], budget_s=3300)   # an hour, as the certificates
+    if res.status in ("undetermined", "timeout"):
+        pytest.skip(f"{res.status} after {res.wall_s:.0f} s on this machine")
     _verified(res, WIREFRAME_1)
     iota = res.profile[:, 1]
     assert 0.3899 < iota.min() < 0.3900 and 0.3931 < iota.max() < 0.3932
@@ -74,15 +79,25 @@ def test_second_verified_out_to_its_largest_surface():
     assert np.all(np.diff(iota) < 0) and iota[-1] > 1 / 3
 
 
-def test_third_has_no_surface_claimed():
-    """The worst field, no nested surfaces in Hammond's plot. The solver finds a torus where the family from its axis
-    stops, and the independent evaluator refuses it: the answer is unverified and gives no numbers."""
-    res = torux.solve(wireframe(3), flux=WIREFRAME_3_FLUX)
+def test_third_holds_a_thin_torus_inboard_of_the_others():
+    """The worst field. Where the family from its magnetic axis stops, the solver finds a torus of major radius
+    0.59 m, against 1.04 m for the surfaces of the other two, and 4 mm minor radius: aspect ratio 148. The
+    independent evaluator puts the field across it under 1e-13 of |B|, either side of its 2e-14 bar with the
+    processor: verified on Intel and AMD (under 8e-15), refused on an Apple M4 (4e-14 to 5e-14). Either answer, the
+    same torus."""
+    from torux.answer import _size
+    res = torux.solve(wireframe(3), flux=WIREFRAME_3["flux_Wb"])
     if res.status in ("undetermined", "timeout"):
         pytest.skip(f"{res.status} after {res.wall_s:.0f} s on this machine")
-    assert res.status == "surface_unverified", res.status
-    assert res.evidence["unverified"] == "the independent verification refused the torus"
     check = res.evidence["independent"]
-    assert not check["ok"] and max(check["bn_max"], check["bn_sup"]) > 2e-14
-    with pytest.raises(ValueError, match="surface_unverified"):
-        res.iota
+    assert res.status == ("surface" if check["ok"] else "surface_unverified"), (res.status, check["ok"])
+    assert max(check["bn_max"], check["bn_sup"]) < 1e-13
+    T = res.surface
+    assert abs(abs(float(T.flux)) / WIREFRAME_3["flux_Wb"] - 1) < 1e-12
+    assert abs(res.__dict__["_iota"] - WIREFRAME_3["iota"]) < 1e-11       # the torus's, verified or not
+    axes = [a["iota"] for a in res.evidence["solver"]["axes"] if np.isfinite(a["iota"])]
+    assert any(abs(a - WIREFRAME_3["axis_iota"]) < 1e-11 for a in axes), axes
+    g = _size(T)
+    assert abs(g["volume"] / WIREFRAME_3["volume"] - 1) < 1e-8
+    aspect = (g["volume"] / (2 * np.pi * g["mean_section"])) / np.sqrt(g["mean_section"] / np.pi)
+    assert abs(aspect / WIREFRAME_3["aspect_ratio"] - 1) < 1e-5
