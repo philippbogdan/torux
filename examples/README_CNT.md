@@ -85,7 +85,7 @@ of ι was chosen first, from field-line tracing, and the flux was then computed 
 Field-line tracing with weighted Birkhoff averages gives:
 
 - **Magnetic axis:** ι = 0.15257.
-- **Last closed surface:** just inside the ι = 1/4 island chain, at ι = 0.24573, enclosing
+- **Outermost surface found in the trace:** just inside the ι = 1/4 island chain, at ι = 0.24573, enclosing
   0.02270 Wb. Its minor radius is a = 0.1968 m, against 0.196 m in Pedersen 2004, Table I.
 - **Requested surface:** at ρ = r/a = 0.691 of that region, s = Φ/Φ_edge = 0.512.
 
