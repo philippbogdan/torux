@@ -1,0 +1,122 @@
+{
+ "id": "cnt",
+ "family": "classical (interlocked coils)",
+ "source": "Columbia Non-neutral Torus, 64 deg tilt, I_IL = 170 kA, I_PF = 40.3 kA: Pedersen et al., Fusion Sci. Technol. 46, 200 (2004); coil parameterisation of Yu et al., Phys. Plasmas 28, 092501 (2021); written by make_cnt.py",
+ "nfp": 2,
+ "stellarator_symmetric": true,
+ "units": {
+  "length": "m",
+  "current": "A"
+ },
+ "coils": [
+  {
+   "xc": [
+    0.313,
+    0.405
+   ],
+   "xs": [
+    0.0,
+    0.0
+   ],
+   "yc": [
+    0.0,
+    0.0
+   ],
+   "ys": [
+    0.0,
+    -0.21461730201444804
+   ],
+   "zc": [
+    0.0,
+    0.0
+   ],
+   "zs": [
+    0.0,
+    -0.34345947894335255
+   ],
+   "current_A": 170000.0
+  },
+  {
+   "xc": [
+    -0.313,
+    -0.405
+   ],
+   "xs": [
+    0.0,
+    0.0
+   ],
+   "yc": [
+    0.0,
+    0.0
+   ],
+   "ys": [
+    0.0,
+    0.21461730201444804
+   ],
+   "zc": [
+    0.0,
+    0.0
+   ],
+   "zs": [
+    0.0,
+    -0.34345947894335255
+   ],
+   "current_A": 170000.0
+  },
+  {
+   "xc": [
+    0.0,
+    1.08
+   ],
+   "xs": [
+    0.0,
+    0.0
+   ],
+   "yc": [
+    0.0,
+    0.0
+   ],
+   "ys": [
+    0.0,
+    1.08
+   ],
+   "zc": [
+    0.405,
+    0.0
+   ],
+   "zs": [
+    0.0,
+    0.0
+   ],
+   "current_A": 40300.0
+  },
+  {
+   "xc": [
+    0.0,
+    1.08
+   ],
+   "xs": [
+    0.0,
+    0.0
+   ],
+   "yc": [
+    0.0,
+    0.0
+   ],
+   "ys": [
+    0.0,
+    1.08
+   ],
+   "zc": [
+    -0.405,
+    0.0
+   ],
+   "zs": [
+    0.0,
+    0.0
+   ],
+   "current_A": 40300.0
+  }
+ ],
+ "requested_toroidal_flux_Wb": 0.011624274070939846
+}
