@@ -272,3 +272,58 @@ def test_refuses_inside_and_too_close():
         F.packed
     with pytest.raises(ValueError, match="SurfaceCurrent"):
         trace.poincare(src, [1.3], [0.0], [0.0], 1)
+
+
+# ----------------------------------------------------------------------------------------------- virtual casing
+def test_virtual_casing_null_on_a_four_period_flux_surface():
+    """A vacuum flux surface of the four-period QUASR device 1100073 (tests/data, solved by torux; B.n/|B| there
+    below 2e-14 in the reference's own coil field, measured here).  K = n x B_coils / mu0 on it, the covariant
+    coefficients by FFT of the reference coil field, in both input forms: by virtual casing the sheet's field is 0
+    outside and -B_coils inside (inside evaluated with the sheet's check switched off).  Non-axisymmetric, four
+    periods, a real coil set: holds to a few 1e-15 of |B_coils| from 0.5 down to 1e-6 minor radii."""
+    d = json.loads((Path(__file__).parent / "data/quasr_1100073_flux0.005_boundary.json").read_text())
+    coils = torux.load(EXAMPLES / "quasr_1100073.json")
+    nfp, modes = d["nfp"], np.array(d["modes"])
+    geo = torux.SurfaceCurrent(nfp, modes, d["rmnc"], d["zmns"], rmns=d["rmns"], zmnc=d["zmnc"],
+                               covariant=np.zeros((2, 2, len(modes))))
+    Mc, Nc = 48, 32
+    nt, nw = 4 * Mc, 4 * Nc
+    TH, PH = np.meshgrid(2 * np.pi * np.arange(nt) / nt, 2 * np.pi / nfp * np.arange(nw) / nw, indexing="ij")
+    y, rt, rp, _, _ = frame(geo, TH.ravel(), PH.ravel())
+    F = fast64.Field(coils)
+    B = F.evaluate(y, grad=False)["B"]
+    N = np.cross(rp, rt)
+    assert np.max(np.abs(np.sum(B * N, 1)) / np.linalg.norm(B, axis=1) / np.linalg.norm(N, axis=1)) < 2e-14
+    # coefficients of exp(i (m theta - n w)), w = nfp phi
+    Ct = np.fft.ifft(np.fft.fft((B * rt).sum(1).reshape(nt, nw) / MU0, axis=0), axis=1) / nt
+    Cp = np.fft.ifft(np.fft.fft((B * rp).sum(1).reshape(nt, nw) / MU0, axis=0), axis=1) / nt
+    idx = {tuple(mm): i for i, mm in enumerate(map(tuple, modes))}
+    cov = np.zeros((2, 2, len(modes)))
+    for (m, n), i in idx.items():
+        if abs(m) <= Mc and abs(n) <= Nc:
+            f = 1.0 if m == n == 0 else 2.0
+            cov[:, 0, i] = f * Ct[m, n].real, f * Cp[m, n].real
+            cov[:, 1, i] = -f * Ct[m, n].imag, -f * Cp[m, n].imag
+    dropped = max(abs(Ct[m, n]) for m in range(-Mc, Mc) for n in range(-Nc, Nc) if (m, n) not in idx
+                  and (-m, -n) not in idx)
+    assert dropped < 1e-16 * np.abs(cov).max()
+    # the same current as a potential: c_theta = d kappa / d theta, c_phi = d kappa / d phi
+    kc, ks = np.zeros(len(modes)), np.zeros(len(modes))
+    for (m, n), i in idx.items():
+        if m:
+            kc[i], ks[i] = -cov[0, 1, i] / m, cov[0, 0, i] / m
+        elif n:
+            kc[i], ks[i] = cov[1, 1, i] / (n * nfp), -cov[1, 0, i] / (n * nfp)
+    i0 = idx[(0, 0)]
+    forms = [dict(covariant=cov), dict(kappac=kc, kappas=ks, I=2 * np.pi * cov[0, 0, i0], G=2 * np.pi * cov[1, 0, i0])]
+    th, ph = np.random.default_rng(3).uniform(0, 2 * np.pi, (2, 4))
+    y0, rt0, rp0, _, _ = frame(geo, th, ph)
+    n0 = np.cross(rp0, rt0)
+    n0 /= np.linalg.norm(n0, axis=1)[:, None]
+    for kw in forms:
+        S = SheetField(torux.SurfaceCurrent(nfp, modes, d["rmnc"], d["zmns"], rmns=d["rmns"], zmnc=d["zmnc"], **kw))
+        for frac in (0.5, 1e-2, 1e-6):
+            out, inn = y0 + frac * S.minor_radius * n0, y0 - frac * S.minor_radius * n0
+            bc, bci = F.evaluate(out, grad=False)["B"], F.evaluate(inn, grad=False)["B"]
+            assert np.max(np.linalg.norm(S.evaluate(out, grad=False)["B"], axis=1) / np.linalg.norm(bc, axis=1)) < 1e-14
+            assert rel(S.evaluate(inn, grad=False, check=False)["B"], -bci) < 1.5e-14
