@@ -24,7 +24,8 @@
 Vector potential: A of filaments is mu0 I/(4 pi) int dl/|x - r| (Coulomb gauge for closed
 curves; for open Segments the plain sum of segment potentials), dipoles mu0/(4 pi) m x r/r^3,
 rings and axisymmetric polygons A_phi (elliptic-integral potential), ToroidalField
-A = -RB ln(R / 1 m) z_hat.
+A = -RB ln(R / 1 m) z_hat, SurfaceCurrent mu0/(4 pi) int K/|x - y| dS (torux.reference.sheet_dd; outside the
+boundary only, its dmin the distance to the boundary, flag 1 where the quadrature did not reach rtol).
 """
 from __future__ import annotations
 
@@ -84,6 +85,9 @@ class Reference:
             elif k == "axipoly":
                 from .precise_axipoly import AxipolyPrepared
                 self._prep.append(AxipolyPrepared(p))
+            elif k == "surface_current":
+                from .sheet_dd import SheetPrecise
+                self._prep.append(SheetPrecise(p))
             else:
                 self._prep.append(p)
 
@@ -114,6 +118,9 @@ class Reference:
                 out, e, s, dm, fl = prep.evaluate(pts, grad=grad, rtol=rtol)
             elif k == "toroidal":
                 out, e, s = toroidal_dd(pts, float(part.RB), grad)
+            elif k == "surface_current":
+                # outside the boundary only (ValueError inside or too close); dm: the distance to the boundary
+                out, e, s, dm, fl, wk = prep.evaluate(pts, grad=grad, rtol=rtol)
             else:
                 raise ValueError(f"unknown part kind {k!r}")
             tot = _dd_add_arrays(tot, out)

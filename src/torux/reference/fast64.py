@@ -17,6 +17,7 @@ Algorithms (same mathematics as ``precise``, float64 arithmetic, a-priori error 
   AxisymPolygons Duffy Gauss-Legendre on triangles (point outside), polar tanh-sinh (inside),
                  Green's-theorem boundary integrals for the gradient (as precise, a priori only).
   ToroidalField  closed form.
+  SurfaceCurrent torux.reference.sheet (outside the boundary only), added to the sum of the other parts.
 Every sum over quadrature nodes and source elements is a TwoSum-compensated sum.
 
 ``eval_point_B(P, x, y, z)`` / ``eval_point(P, x, y, z, grad, out)`` are njit-callable on the
@@ -34,6 +35,7 @@ from .geometry import ear_clip, signed_area
 from . import dd
 from .precise_curves import build_cache_dd, curve_eval_dd
 from .quadrules import gauss_legendre_dd, gauss_legendre_f64, tanh_sinh01_f64
+from .sheet import SheetField
 
 C_MU0_4PI = 1e-7          # mu0 / (4 pi)
 ETA_CURVE = 4.0
@@ -677,8 +679,10 @@ class Field:
 
     def __init__(self, source, Lc=5):
         parts = _parts_of(source)
-        if any(p.kind == "surface_current" for p in parts):
-            raise ValueError("the independent vacuum verifier does not support SurfaceCurrent")
+        # SurfaceCurrent parts: evaluated by torux.reference.sheet and added to the other parts' field
+        sheets = [p for p in parts if p.kind == "surface_current"]
+        parts = [p for p in parts if p.kind != "surface_current"]
+        self.sheets = [SheetField(p) for p in sheets]
         fc = [p for p in parts if p.kind == "fourier"]
         seg = [p for p in parts if p.kind == "segments"] + [p.as_segments() for p in parts if p.kind == "polyline"]
         dip = [p for p in parts if p.kind == "dipoles"]
@@ -754,7 +758,7 @@ class Field:
         glx1 = gx1
         glw1 = gw1
         deu, dew = tanh_sinh01_f64(1.0 / 8, 3.5)
-        self.packed = (np.ascontiguousarray(coef), np.ascontiguousarray(cur), np.ascontiguousarray(posf),
+        self._packed = (np.ascontiguousarray(coef), np.ascontiguousarray(cur), np.ascontiguousarray(posf),
                        np.ascontiguousarray(derf), np.ascontiguousarray(harc), np.array([M0], dtype=np.int64),
                        np.array([Lc], dtype=np.int64), glx, glw, glx_dd,
                        np.ascontiguousarray(sa), np.ascontiguousarray(sb), np.ascontiguousarray(sc),
@@ -764,13 +768,43 @@ class Field:
                        np.array(tst, dtype=np.int64), np.array(pc, dtype=float), np.array(pa, dtype=float),
                        glu, glwu, glx1, glw1, deu, dew, RB)
 
+    @property
+    def packed(self):
+        """The packed parts for the njit point evaluators (eval_point, the tracer): sources without SurfaceCurrent
+        only, since those evaluators do not include the sheet."""
+        if self.sheets:
+            raise ValueError("the reference's compiled point evaluators and tracer do not include SurfaceCurrent "
+                             "parts: use Field.evaluate for sources with a sheet")
+        return self._packed
+
     def evaluate(self, points, grad=True):
         pts = np.ascontiguousarray(np.asarray(points, dtype=np.float64).reshape(-1, 3))
-        out, dmin = eval_points(self.packed, pts, bool(grad))
+        out, dmin = eval_points(self._packed, pts, bool(grad))
         N = pts.shape[0]
+        if self.sheets:
+            # targets inside a boundary or too close to it are refused (ValueError) by the sheet's evaluator
+            sd = np.full(N, np.inf)
+            eb = np.zeros(N)
+            edb = np.zeros(N)
+            for S in self.sheets:
+                o = S.evaluate(pts, grad=grad)
+                out[:, 0:3] += o["B"]
+                out[:, 3:6] += o["A"]
+                eb += o["err_B"]
+                if grad:
+                    out[:, 6:15] += o["dB"].reshape(N, 9)
+                    edb += o["err_dB"]
+                sd = np.minimum(sd, o["dist"])
         r = {"B": out[:, 0:3].copy(), "A": out[:, 3:6].copy(), "dmin_curve": dmin}
+        if self.sheets:
+            r["dist_sheet"] = sd        # the smallest distance to a sheet's boundary, m
+            r["err_B_sheet"] = eb       # a bound of the sheets' rounding error in B, T (largest component)
         if grad:
             r["dB"] = out[:, 6:15].reshape(N, 3, 3).copy()
+            if self.sheets:
+                # the sheets' dB loses accuracy next to their boundaries (torux.reference.sheet): a bound of its
+                # absolute error, T/m (largest component)
+                r["err_dB_sheet"] = edb
         return r
 
     def B(self, points):

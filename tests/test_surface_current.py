@@ -79,8 +79,8 @@ def test_source_round_trip_and_exterior_only(tmp_path):
         torux.solve(restored, largest=True)
     with pytest.raises(ValueError, match="verifier"):
         torux.check(restored, "surface.nc")
-    with pytest.raises(ValueError, match="verifier"):
-        fast64.Field(restored)
+    with pytest.raises(ValueError, match="inside the boundary"):
+        fast64.Field(restored).evaluate([[1., 0., 0.]])
     section = torux.poincare(restored, planes=[0., -.5, .5], starts=[(1.21, 0.)], turns=1)
     assert not section.left[0]
     assert section.stop_reason == (None,)
