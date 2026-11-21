@@ -174,8 +174,11 @@ def measure_at(src, S, theta, phi, sections, flux=None, *, surface_currents=None
     fl = np.array(fl)
     if sheet is not None:
         if sheet.get("offset") is not None:
-            # the full flux: the SurfaceCurrent's flux inside its boundary plus the flux between it and the section
-            fl = fl + sheet["offset"]
+            # the full flux: the SurfaceCurrent's flux inside its boundary plus the flux between it and the section.
+            # The loops above follow the surface's own theta; the offset is in torux's convention, -oint A . r_theta
+            # with theta counterclockwise in (R, Z): each loop is turned into that convention first
+            ccw = np.array([_counterclockwise(S, float(p)) for p in np.asarray(sections, float).ravel()])
+            fl = -ccw * fl + sheet["offset"]
         else:
             notes.append("the SurfaceCurrent carries no flux inside its boundary: the flux given is that of the "
                          "source's own field through the section, not the full toroidal flux")
@@ -916,6 +919,14 @@ def run_command(a):
         return 1
     print(c)
     return 0
+
+
+def _counterclockwise(S, phi, n=256):
+    """+1 where the surface's section at phi runs counterclockwise in (R, Z) as its theta increases, -1 otherwise."""
+    th = 2 * np.pi * np.arange(n) / n
+    x = S.eval(th, np.full(n, phi))[0]
+    R, Z = np.hypot(x[:, 0], x[:, 1]), x[:, 2]
+    return 1.0 if float(np.sum(R * np.roll(Z, -1) - np.roll(R, -1) * Z)) > 0 else -1.0
 
 
 def _sheet_side(src, F, S):

@@ -34,6 +34,9 @@ log = logging.getLogger("torux")
 CLEARANCE = 1e-5          # minor radii: the nearest a verified surface may come to the boundary
 SHEET_CHECK = 2e-15       # of |B|: the sheet's field under a refined quadrature
 START = 0.02              # minor radii: the start torus's distance from the boundary (less for a request nearer it)
+START_MN = 36             # the start torus's series at most this many modes each way: Newton on finer series where
+                          # it levels off, the family and the refinement raise them (W7-X's boundary, M, N = 66,
+                          # took 72 minutes for its first start torus at 68)
 FAR = 4.0                 # without a request the family aims at FAR x the flux of a disc reaching the nearest coil
 
 
@@ -318,8 +321,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     Mg, Ng = geometry_resolution(part)
     # the toroidal resolution counts the source's field periods: a sheet of nfp k * source nfp has modes k n there
     k = part.nfp // max(nfp, 1)
-    M0 = max(8, min(Mmax, Mg + 2))
-    N0 = max(8, min(Nmax, k * Ng + 2))
+    M0 = max(8, min(Mmax, Mg + 2, START_MN))
+    N0 = max(8, min(Nmax, k * Ng + 2, START_MN))
     cont = Continuation(eng, nfp, M0=M0, N0=N0, verbose=verbose, Mmax=max(Mmax, M0), Nmax=max(Nmax, N0))
     cont.fmeas_off = True
     if flux is not None:
