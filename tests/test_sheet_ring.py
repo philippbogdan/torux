@@ -117,5 +117,5 @@ def test_solve_returns_the_ring_contour(ring):
     assert abs(abs(s.iota) - abs(iota_of(L))) < RING_IOTA
 
 
-RING_POSITION_M = 1e-13
-RING_IOTA = 1e-12
+RING_POSITION_M = 1e-13     # measured 1.0e-14 m (the truth's own elliptic integrals read 5.6e-15 m), 21 Nov
+RING_IOTA = 1e-13           # measured 1.2e-15

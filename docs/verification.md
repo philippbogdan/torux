@@ -38,8 +38,8 @@ A source with a `SurfaceCurrent` ([outside a plasma](surface-current.md)) is hel
 
 Held to exact cases, in which the field outside Γ is known without torux:
 
-- QUASR 954's coils, Γ one of their verified surfaces (0.01 Wb) and on it the sheet that cancels their field outside it: `torux.solve` at 0.03 and 0.05 Wb returns the coils' own verified surfaces there to 6.7 and 7.6 × 10⁻¹⁵ m, their rotational transform to 1.5 and 1.8 × 10⁻¹⁶; the solver's check reads 1.0 and 1.3 × 10⁻¹⁵, the independent evaluator 1.0 and 1.1 × 10⁻¹⁵, the flux agrees to 8 × 10⁻¹⁵. The sheet written as a potential instead gives the 0.03 Wb surface to 6.9 × 10⁻¹⁵ m (`tests/test_sheet_truth.py`, slow).
-RINGRESULT
+- QUASR 954's coils, Γ one of their verified surfaces (0.01 Wb) and on it the sheet that cancels their field outside it: `torux.solve` at 0.03 and 0.05 Wb returns the coils' own verified surfaces there to 6.7 and 7.6 × 10⁻¹⁵ m, their rotational transform to 1.5 and 1.8 × 10⁻¹⁶; the solver's check reads 1.0 and 1.3 × 10⁻¹⁵, the independent evaluator 1.0 and 1.1 × 10⁻¹⁵, its flux agrees to 9 × 10⁻¹⁵. The sheet written as a potential instead gives the 0.03 Wb surface to 6.9 × 10⁻¹⁵ m (`tests/test_sheet_truth.py`, slow).
+- A circular current ring inside the toroidal field RB / R, the ring replaced by its sheet on one of its flux contours: outside that boundary the field is the ring's and the toroidal field's, known in closed form (elliptic integrals). `torux.solve` at 1.3 times the flux inside the boundary returns the contour at that flux to 1.0 × 10⁻¹⁴ m (the truth's own evaluation reads 5.6 × 10⁻¹⁵ m), its rotational transform to 1.2 × 10⁻¹⁵, its flux to 3.5 × 10⁻¹⁶; the solver's check reads 3.4 × 10⁻¹⁶, the independent evaluator 5.5 × 10⁻¹⁶ (`tests/test_sheet_ring.py`, slow).
 
 Next to Γ the solver's field is within 4.6 × 10⁻¹⁶ of |B| of the independent evaluator's double-double tier down to 10⁻⁵ of Γ's minor radius ([how close to Γ](surface-current.md#how-close-to-γ)).
 
