@@ -340,9 +340,12 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     T0 = None
     if flux is not None:
         # nearer the boundary than the request: 0.4 and 0.2 of its distance (at most START and START / 2 minor
-        # radii), then, where those found no torus (the boundary leaks, or islands stand next to it), 0.6, 0.8, 0.9
-        deltas = [min(START * a, 0.4 * est), min(0.5 * START * a, 0.2 * est), 0.6 * est, 0.8 * est, 0.9 * est]
-        deltas = deltas[:2] + [d for d in deltas[2:] if d > deltas[0]]
+        # radii), then, where those found no torus (the boundary leaks, or islands stand next to it), outward: the
+        # range's starts and 0.6, 0.8 and 0.9 of the request's distance, each short of the request
+        deltas = [min(START * a, 0.4 * est), min(0.5 * START * a, 0.2 * est)]
+        for d in sorted([f * a for f in (2.5 * START, 5 * START, 10 * START)] + [0.6 * est, 0.8 * est, 0.9 * est]):
+            if deltas[0] < d < 0.95 * est and all(abs(d - e) > 0.1 * e for e in deltas):
+                deltas.append(d)
     else:
         deltas = [f * a for f in (START, 0.5 * START, 2.5 * START, 5 * START, 10 * START)]
     for delta in deltas:
