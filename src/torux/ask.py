@@ -140,6 +140,12 @@ def one_question(flux=None, minor_radius=None, volume=None, largest=False):
                              f"{'metres' if k == 'minor_radius' else 'cubic metres'}")
 
 
+def _from(src):
+    """Where a family of surfaces starts: the magnetic axis, or for a source with a current sheet its boundary."""
+    return "from the SurfaceCurrent's boundary" if getattr(src, "has_surface_current", False) else \
+        "from the magnetic axis"
+
+
 def _source(source):
     if isinstance(source, str) or hasattr(source, "__fspath__"):
         from .sources import load
@@ -148,10 +154,41 @@ def _source(source):
 
 
 def _vacuum_source(source):
+    """The source of a search.  One with a current sheet is searched from its boundary outward (torux.sheet), and
+    refused in one sentence where it cannot be (several sheets, no flux inside the boundary)."""
     src = _source(source)
     if getattr(src, "has_surface_current", False):
-        raise ValueError("SurfaceCurrent supports exterior field evaluation and poincare(starts=...), not solve")
+        from .sheet import refusal
+        said = refusal(src, None)
+        if said is not None:
+            raise ValueError(said)
     return src
+
+
+def _sheet_anchor(src, which=None):
+    """For a source with a sheet: (the flux inside its boundary, the boundary's size u: the minor radius squared or
+    the volume, and its size dict); None for other sources.  A size search there starts from the boundary, not from
+    zero."""
+    if not getattr(src, "has_surface_current", False):
+        return None
+    from .sheet import sheet_of
+    from .torus import TorusState
+    part = sheet_of(src)
+    m, n = part.modes[:, 0], part.modes[:, 1]
+    M, N = int(np.abs(m).max()), int(np.abs(n).max())
+    rc = np.zeros((M + 1, 2 * N + 1))
+    zs = np.zeros((M + 1, 2 * N + 1))
+    for k, (mm, nn) in enumerate(zip(m, n)):
+        if mm < 0:
+            mm, nn, sz = -mm, -nn, -1.0
+        else:
+            sz = 1.0
+        rc[mm, nn + N] += part.rmnc[k]
+        zs[mm, nn + N] += sz * part.zmns[k]
+    T = TorusState(rc, zs, 0.0, abs(part.flux), M, N, int(part.nfp))
+    sz = size(T)
+    u = sz["minor_radius"] ** 2 if which == "minor_radius" else sz["volume"]
+    return abs(float(part.flux)), float(u), sz
 
 
 # --------------------------------------------------------------------------- what a search says as it goes
@@ -268,7 +305,7 @@ class _Search:
             entry["closed_lines"] = r.record["closed_lines"]     # what measuring its closed lines did and took
         self.log.append(entry)
         r._ask_entry = entry
-        at = "no flux (the family from the axis)" if flux is None else _wb(float(flux))
+        at = f"no flux (the family {_from(self.src)})" if flux is None else _wb(float(flux))
         far = ""
         if flux is None and entry.get("family_reached_Wb"):
             lb = entry.get("verified_lower_bound_Wb")
@@ -630,11 +667,18 @@ def _size_search(src, which, target, budget_s, opts):
     u(F) = a F + b F^2 (u the volume or the minor radius squared, both ~ F) through the verified surfaces nearest
     the target, until the size is within RTOL of it.  When the model puts the size past a flux at which no surface
     was verified, the solver's answer at the flux the size would need is the answer."""
+    anchor = _sheet_anchor(src, which)
+    u_t = target ** 2 if which == "minor_radius" else target
+    if anchor is not None and u_t <= anchor[1]:
+        raise ValueError(f"the SurfaceCurrent's boundary already has {WORDS[which]} {_sz(which, anchor[2][which])}: "
+                         f"a surface of this source lies outside it and is larger")
     S = _Search(src, which, target, budget_s, opts)
     u_of = (lambda s: s["minor_radius"] ** 2) if which == "minor_radius" else (lambda s: s["volume"])
-    u_t = target ** 2 if which == "minor_radius" else target
     what = f"{WORDS[which]} {target:.9g} {UNITS[which]}"
-    F, concluding = _first_flux(src, which, target), False
+    if anchor is not None:
+        F, concluding = anchor[0] * u_t / anchor[1], False
+    else:
+        F, concluding = _first_flux(src, which, target), False
     asked = []
     from_axis = False
     while len(S.log) < MAX_SIZE_REQUESTS:
@@ -671,7 +715,7 @@ def _size_search(src, which, target, budget_s, opts):
         if not pts and len(S.failed) >= 4:
             break            # four fluxes, each half the last, and the family from the axis: no surface verified
         ceiling = min(list(S.failed) + [c.get("no_surface_above_Wb", np.inf) for _, c, _ in S.certs], default=np.inf)
-        F_next, concluding = _next_flux(pts, u_t, S.failed, ceiling)
+        F_next, concluding = _next_flux(pts, u_t, S.failed, ceiling, anchor=None if anchor is None else anchor[:2])
         if F_next is None or any(abs(F_next - a) <= 4e-16 * a for a in asked if a in S.size_of):
             break            # nothing left to ask, or a verified flux again: as close as the arithmetic allows
         same = [a for a in S.failed if abs(F_next - a) <= 1e-12 * a]
@@ -692,7 +736,7 @@ def _size_search(src, which, target, budget_s, opts):
     from .api import Result
     out = Result("timeout" if S.left() <= MIN_REQUEST_S else "undetermined", S.budget, 0.0)
     stop = "budget" if S.left() <= MIN_REQUEST_S else (
-        f"no verified surface at any of {len(S.failed)} fluxes, nor from the axis" if not S.size_of else
+        f"no verified surface at any of {len(S.failed)} fluxes, nor {_from(src)}" if not S.size_of else
         f"{len(S.log)} requests, the most a size asks" if len(S.log) >= MAX_SIZE_REQUESTS else
         "no flux left to ask that the verified surfaces predict")
     return S.finish(out, words, reached=None, flux=None,
@@ -712,8 +756,8 @@ def _without_request(src):
 def _size_from_axis(S, src):
     """For a size with no surface verified at four fluxes: the no-flux request (the family from the magnetic axis)
     and its verified lower bound asked directly. The last Result (a terminal one ends the search), or None."""
-    rng = S.ask(None, "no flux: the family of surfaces from the magnetic axis outward, after four fluxes with no "
-                      "surface verified", budget=min(S.default_budget(None), 0.4 * S.left()), src=_without_request(src))
+    rng = S.ask(None, f"no flux: the family of surfaces {_from(src)} outward, after four fluxes with no surface "
+                      f"verified", budget=min(S.default_budget(None), 0.4 * S.left()), src=_without_request(src))
     if rng is None or _terminal(rng):
         return rng
     f_r = ((rng.record or {}).get("range") or {}).get("verified_lower_bound")
@@ -752,12 +796,23 @@ def _first_flux(src, which, target):
     return float(0.7 * B * area)
 
 
-def _next_flux(pts, u_t, failed, ceiling=np.inf):
+def _next_flux(pts, u_t, failed, ceiling=np.inf, anchor=None):
     """The next flux to ask, and whether it lies beyond a flux at which no surface was verified.
 
     pts: (flux, u) of the verified surfaces.  The model u = a F + b F^2 through the origin and the two verified
     surfaces nearest the target (u = c F through one), kept inside the bracket the verified surfaces give.  With no
-    verified surface yet: half the least flux that failed or that a certificate rules out (``ceiling``)."""
+    verified surface yet: half the least flux that failed or that a certificate rules out (``ceiling``).  anchor
+    (F0, u0): for a source with a sheet, the boundary's flux and size, through which the model passes instead of the
+    origin (u - u0 = a (F - F0) + b (F - F0)^2)."""
+    if anchor is not None:
+        F0, u0 = anchor
+        shifted = [(f - F0, u - u0) for f, u in pts]
+        wall = {f - F0: v for f, v in failed.items()}
+        c = ceiling - F0 if np.isfinite(ceiling) else ceiling
+        if not shifted:
+            return (F0 + 0.5 * c, False) if np.isfinite(c) else (None, False)
+        F, beyond = _next_flux(shifted, u_t - u0, wall, c)
+        return (None if F is None else F + F0), beyond
     if not pts:
         return (0.5 * ceiling, False) if np.isfinite(ceiling) else (None, False)
     near = sorted(pts, key=lambda p: abs(p[1] - u_t))[:2]
@@ -907,7 +962,7 @@ def _largest(src, budget_s, opts, widths=None):
     try:
         if own:
             probe(abs(float(own)), "the source's own request")
-        rng = S.ask(None, "no flux: the family of surfaces from the magnetic axis outward",
+        rng = S.ask(None, f"no flux: the family of surfaces {_from(src)} outward",
                     budget=min(S.default_budget(None), 0.4 * S.left()), src=free)
         if rng is None:
             raise _OutOfTime
@@ -929,7 +984,7 @@ def _largest(src, budget_s, opts, widths=None):
             if lo is None:
                 c = c[len(c) // 2:]    # nothing verified yet: the outer half of the family
             for f in c:
-                if not probe(f, "a flux the family from the axis reached"):
+                if not probe(f, f"a flux the family {_from(src)} reached"):
                     break
 
         climb(cands)

@@ -86,11 +86,19 @@ def main():
     vmex = surface_field_data_from_wout(equilibrium, nphi=256, ntheta=256)
     data = {k: np.asarray(getattr(vmex, k)) for k in ("nfp", "gamma", "B_total", "theta", "phi")}
     sheet = from_boundary(data)
+    # the toroidal flux inside the boundary: VMEC's phiedge, the last value of phi (its magnitude: torux takes the sign
+    # from the field)
+    sheet.flux = abs(float(np.asarray(equilibrium.phi)[-1]))
     meta = {"beta": float(equilibrium.betatotal), "edge_iota": float(equilibrium.iotaf[-1])}
     if args.plasma_current is not None:
         meta["plasma_current_A"] = args.plasma_current
-    Source(args.name, [from_coils(args.coils), sheet], nfp=sheet.nfp,
-           provenance={"upstream": UPSTREAM}, meta=meta).save(args.output)
+    # stellarator symmetric when the sheet's coefficients are (to 1e-9 of their scale) and the coils' field is
+    src = Source(args.name, [from_coils(args.coils), sheet], nfp=sheet.nfp, provenance={"upstream": UPSTREAM},
+                 meta=meta)
+    from torux.io._stellcommon import verify_symmetry
+    _, coils_symmetric, _ = verify_symmetry(src.parts[:1], [sheet.nfp], True)
+    src.stellsym = bool(coils_symmetric and sheet.symmetric())
+    src.save(args.output)
 
 
 if __name__ == "__main__":

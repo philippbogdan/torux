@@ -23,7 +23,7 @@ def compare(source, probes):
             or not np.isfinite(points).all() or reference.shape != points.shape or not np.isfinite(reference).all()):
         raise ValueError("points and B must each contain the same nonzero number of finite three-component vectors")
     field = np.asarray(FieldEngine(sheet).B(points))
-    finer = np.asarray(FieldEngine(sheet, sheet_order=12, sheet_samples=512).B(points))
+    finer = np.asarray(FieldEngine(sheet, sheet_order=16, sheet_eta=3.0).B(points))
     return np.column_stack([points, reference, field, finer,
                             np.linalg.norm(field - reference, axis=1),
                             np.linalg.norm(finer - reference, axis=1),

@@ -255,6 +255,8 @@ def _parts(src, ds):
             left.append(f"{part.n} axisymmetric conductor{'s' if part.n != 1 else ''}")
         elif part.kind == "toroidal":
             left.append("the 1/R toroidal field")
+        elif part.kind == "surface_current":
+            left.append("the SurfaceCurrent and its boundary")
         else:
             left.append(f"parts of kind {part.kind!r}")
     if idle:

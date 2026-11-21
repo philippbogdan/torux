@@ -116,8 +116,6 @@ def check(source, surface, flux=None, *, which=None, surface_currents=None, mism
                          f"when the file was saved) or 'dofs' (the value SIMSOPT reads back from its degrees of "
                          f"freedom)")
     src = _source(source)
-    if getattr(src, "has_surface_current", False):
-        raise ValueError("the independent vacuum verifier requires a source without SurfaceCurrent")
     S = read_surface(surface, which)
     rng = np.random.default_rng(SEED)
     theta = 2 * np.pi * rng.random(NPTS)
@@ -142,6 +140,9 @@ def measure_at(src, S, theta, phi, sections, flux=None, *, surface_currents=None
     F = fast64.Field(src)
     x, xt, xp = S.eval(theta, phi)
     nv = np.cross(xt, xp)
+    sheet = None
+    if getattr(src, "has_surface_current", False):
+        sheet = _sheet_side(src, F, S)
     B = np.asarray(F.evaluate(x, grad=False)["B"], float)
     taken = ((getattr(src, "meta", None) or {}).get("currents") or {})
     if taken.get("differing") and taken.get("taken") == "live":
@@ -171,6 +172,15 @@ def measure_at(src, S, theta, phi, sections, flux=None, *, surface_currents=None
         fl.append(f)
         conv &= c
     fl = np.array(fl)
+    if sheet is not None:
+        if sheet.get("offset") is not None:
+            # the full flux: the SurfaceCurrent's flux inside its boundary plus the flux between it and the section
+            fl = fl + sheet["offset"]
+        else:
+            notes.append("the SurfaceCurrent carries no flux inside its boundary: the flux given is that of the "
+                         "source's own field through the section, not the full toroidal flux")
+        notes.append(f"the surface stays {sheet['clearance_m']:.3g} m outside the SurfaceCurrent's boundary at "
+                     f"least, {sheet['clearance_m'] / sheet['minor_radius_m']:.3g} of its minor radius")
     if not conv:
         notes.append(f"the flux round a section did not settle with {N_LOOP_MAX:,} points (the surface runs "
                      "through or next to a coil): the flux is not reliable")
@@ -906,3 +916,26 @@ def run_command(a):
         return 1
     print(c)
     return 0
+
+
+def _sheet_side(src, F, S):
+    """For a source with a SurfaceCurrent: refused (ValueError, one sentence) unless the surface lies outside the
+    sheet's boundary; dict(clearance_m, minor_radius_m, offset) with the flux the reference's loop integrals lack
+    (torux.verify.sheet_flux_offset), None where the part carries no flux."""
+    from .verify import sheet_flux_offset
+    if sum(p.kind == "surface_current" for p in src.parts) != 1:
+        raise ValueError("check takes a source with one SurfaceCurrent, not several")
+    sh = F.sheets[0]
+    th, ph = np.meshgrid(np.linspace(0, 2 * np.pi, 128, endpoint=False), np.linspace(0, 2 * np.pi, 128,
+                                                                                      endpoint=False))
+    x = S.eval(th.ravel(), ph.ravel())[0]
+    d = np.asarray(sh.distance(x), float)
+    a = float(sh.minor_radius)
+    if not np.all(d > 0):
+        raise ValueError("the surface reaches inside the SurfaceCurrent's boundary: check measures surfaces outside it")
+    if np.min(d) < 1e-12 * a:
+        raise ValueError("the surface comes within 1e-12 of the minor radius of the SurfaceCurrent's boundary, nearer "
+                         "than the independent evaluator measures")
+    off = sheet_flux_offset(src, F)
+    return dict(clearance_m=float(np.min(d)), minor_radius_m=a, offset=None if off is None else off["offset"],
+                flux=off)

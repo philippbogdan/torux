@@ -333,6 +333,8 @@ class Answer(Result):
         timeout, a surface not verified) draws its coils alone.  One that holds no coils (read from a file, or a
         proof that a source which is not a stellarator has no surface) raises ValueError, and so does a path whose
         folder cannot be written, both before any work.  help(torux.render) says what each mark is."""
+        if _has_sheet(self):
+            raise ValueError(RENDER_SHEET)
         from .render import render
         return render(self, path, dark=dark, cut=cut)
 
@@ -494,6 +496,33 @@ class Answer(Result):
 
 def _float(v):
     return float("nan") if v is None else float(v)
+
+
+RENDER_SHEET = ("render does not draw a source with a SurfaceCurrent: it lights the surfaces inside the answer's by "
+                "field lines, and inside the sheet's boundary the source's field is not the plasma's")
+
+
+def _has_sheet(a):
+    eng = getattr(a, "_engine", None)
+    src = getattr(eng, "source", None)
+    return bool(getattr(src, "has_surface_current", False)) or bool((a.record or {}).get("path") == "sheet")
+
+
+def _sheet_rows(a, ev, rec):
+    """For a source with a current sheet: where the surface stands against the sheet's boundary."""
+    sh = rec.get("sheet") or ev.get("sheet") or {}
+    acc = (ev.get("solver") or {}).get("sheet") or (rec.get("surface") or {}).get("sheet") or {}
+    rows = []
+    if sh.get("flux_inside_Wb") is not None:
+        bits = [f"the SurfaceCurrent's boundary holds {abs(sh['flux_inside_Wb']):.9g} Wb, its own field "
+                f"{sh.get('own_flux_Wb', 0.0):.3g} Wb more through it"]
+        if acc.get("clearance_m") is not None:
+            bits.append(f"the surface stays {acc['clearance_m']:.3g} m outside it ({acc['clearance_minor_radii']:.3g} of "
+                        f"its minor radius) at its nearest")
+        if acc.get("sheet_check") is not None:
+            bits.append(f"the sheet's field there moves by {_e(acc['sheet_check'])} of |B| under a refined quadrature")
+        rows.append(("boundary", ", ".join(bits)))
+    return rows
 
 
 def _jnp():
@@ -918,6 +947,7 @@ def _surface_rows(a, ev, rec):
                       f"{a.aspect_ratio:.6g}"),
             ("volume", f"{a.volume:.9g} m^3"),
             ("Fourier series", f"M, N = {s.M}, {s.N}, with {a.nfp} field period{'s' if a.nfp != 1 else ''}")]
+    rows += _sheet_rows(a, ev, rec)
     if sol.get("bn_off") is not None:
         rows.append(("field across it", f"{_e(sol['bn_off'])} of |B| (the solver's own check)"))
     chk = ind.get("bn_sup", ind.get("bn_max"))
@@ -1264,6 +1294,19 @@ def _open_rows(a, ev, rec):
             rows.append(("evidence", _phrases(args)))
         found, tried = [], []
         nxt = "torux has no proof for these coils: answer.evidence['proof'] holds what it measured"
+    elif rec.get("path") == "sheet":
+        early = np.isfinite(a.wall_s) and a.wall_s < 0.9 * a.budget_s
+        head = (f"no verified surface: torux stopped after {a.wall_s:.0f} s of its {a.budget_s:.0f} s budget" if early
+                else f"no verified surface within the {a.budget_s:.0f} s budget")
+        rows.append(("undetermined", head))
+        _asked(a, rows)
+        if rec.get("why"):
+            rows.append(("why", str(rec["why"])))
+        rows += _sheet_rows(a, ev, rec)
+        found = [f"surfaces out to {_profile(a)[-1, 0]:.6g} Wb from the SurfaceCurrent's boundary (the solver's check "
+                 f"only)"] if len(_profile(a)) else []
+        nxt = ("a source with a SurfaceCurrent has no certificates: a larger budget_s, or a flux the family reached "
+               "(answer.profile)" if not _budget_bound(a, ev, rec) else _next_budget(a))
     else:
         early = np.isfinite(a.wall_s) and a.wall_s < 0.9 * a.budget_s
         head = (f"neither a surface nor a certificate: torux stopped after {a.wall_s:.0f} s of its {a.budget_s:.0f} s "
@@ -1298,6 +1341,8 @@ def _unverified_why(ev, rec):
         return "the independent evaluator refused it" + (": " + ", ".join(bits) if bits else "")
     s = rec.get("surface") or (rec.get("range") or {}).get("outer_torus") or {}
     g = rec.get("guard") or (rec.get("range") or {}).get("guard") or {}
+    if rec.get("path") == "sheet" and rec.get("why"):
+        return "the solver's own acceptance refused it: " + str(rec["why"])
     bits = []
     if s.get("bn_off") is not None and s["bn_off"] > BAR:
         bits.append(f"its field across reached only {_e(s['bn_off'])} of |B|, short of {BAR:.0e}")

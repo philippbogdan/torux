@@ -9,6 +9,7 @@ from scipy.optimize import root_scalar
 
 import torux
 from torux.field import FieldEngine
+from torux.field.surface_current import interior_curve
 from torux.surface_trace import _trace
 
 HERE = Path(__file__).resolve().parent
@@ -44,7 +45,7 @@ def verify():
         points, ref = (np.asarray(refs[case][k]) for k in ("points", "B"))
         source = torux.Source("sheet only", [sheet], nfp=src.nfp)
         field = np.asarray(FieldEngine(source).B(points))
-        finer = np.asarray(FieldEngine(source, sheet_order=12, sheet_samples=512).B(points))
+        finer = np.asarray(FieldEngine(source, sheet_order=16, sheet_eta=3.0).B(points))
         error = np.linalg.norm(field - ref, axis=-1)
         assert error.max() < 2e-11, error
         case_result = result[case] = {
@@ -57,13 +58,14 @@ def verify():
         engine = FieldEngine(src, nodes_np=True)
         if case == "current":
             root = centre(engine, edge, steps=64)
-            refined = FieldEngine(src, nodes_np=True, sheet_order=12, sheet_samples=512)
+            refined = FieldEngine(src, nodes_np=True, sheet_order=16, sheet_eta=3.0)
             refined_root = centre(refined, edge, steps=128)
             orbit = crossings(engine, root, 2, per_turn=32)
             coords = np.vstack([root, orbit])
             theta = np.linspace(0., 2*TAU, len(coords))
-            slices = engine.sheets[0].boundary.mean(axis=0)
-            slice_centre = slices[np.rint(theta * src.nfp * len(slices) / TAU).astype(int) % len(slices)]
+            cR, cZ = interior_curve(engine.sheets[0])
+            ph_phase = np.exp(1j * np.outer(theta, engine.sheets[0].nv))
+            slice_centre = np.column_stack([(ph_phase @ cR).real, (ph_phase @ cZ).real])
             angle = np.unwrap(np.arctan2(coords[:, 1] - slice_centre[:, 1], coords[:, 0] - slice_centre[:, 0]))
             winding = angle[-1] - angle[0]
             closure = np.linalg.norm(orbit[-1] - root)

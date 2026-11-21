@@ -218,6 +218,9 @@ def _source(answer):
     from .source import Source
     for s in (getattr(answer, "source", None), getattr(getattr(answer, "_engine", None), "source", None)):
         if isinstance(s, Source):
+            if s.has_surface_current:
+                from .answer import RENDER_SHEET
+                raise ValueError(RENDER_SHEET)
             return s
     from .answer import without_source
     raise ValueError(f"nothing to draw: {without_source(answer)}")

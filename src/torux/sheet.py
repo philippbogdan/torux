@@ -22,11 +22,14 @@ current inside.  Where nothing reaches the request the answer is undetermined, a
 """
 from __future__ import annotations
 
+import logging
 import math
 import time
 import traceback
 
 import numpy as np
+
+log = logging.getLogger("torux")
 
 CLEARANCE = 1e-5          # minor radii: the nearest a verified surface may come to the boundary
 SHEET_CHECK = 2e-15       # of |B|: the sheet's field under a refined quadrature
@@ -242,7 +245,11 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
         dmin = source.meta.get("dmin", 0.05)
     eng = FieldEngine(source, dmin=dmin)
     S = eng.sheets[0]
+    log.info("sheet: %d x %d panels a period, modes m <= %d, |n| <= %d; measuring the boundary's own flux", S.ntheta,
+             S.nphi, S.M, S.N)
     tube = eng.flux_tube()
+    log.info("sheet: the boundary's own flux %.6g Wb (sections differ by %.2g, widths by %.2g) in %.0f s",
+             tube["boundary"]["flux"], tube["boundary"]["spread"], tube["boundary"]["check"], time.time() - t0)
     a = S.size["minor_radius"]
     psi_in = float(tube["flux_inside"])
     bf = tube["boundary"]
@@ -287,6 +294,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
             break
         T0, rec = start_torus(cont, eng, S, part, delta, M0, N0, verbose=verbose)
         tries.append(rec)
+        log.info("sheet: start torus %.3g m out: %s (%.0f s)", delta, "converged at %.9g Wb" % T0.flux
+                 if T0 is not None else rec.get("failed"), time.time() - t0)
         if T0 is not None and (flux is None or abs(T0.flux) < target):
             break
         T0 = None
@@ -315,9 +324,10 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
         first = first_rational_ahead(last.iota, pr, nfp, qmax=_QX)
         if first is not None:
             d1 = None if fam_deadline is None else time.time() + 0.25 * max(0.0, fam_deadline - time.time())
-            ch1 = analyse_chain(eng, tori, first[0], first[1], verbose=verbose, deadline=d1, axis=None)
+            ch1 = keep_outside(S, analyse_chain(eng, tori, first[0], first[1], verbose=verbose, deadline=d1,
+                                                axis=None), a)
             out["chains"].append(dict(chain_record(ch1), stalled_at=True))
-        ch = analyse_chain(eng, tori, p, q, verbose=verbose, deadline=fam_deadline, axis=None)
+        ch = keep_outside(S, analyse_chain(eng, tori, p, q, verbose=verbose, deadline=fam_deadline, axis=None), a)
         out["chains"].append(dict(chain_record(ch), stalled_at=first is None))
         direction = math.copysign(1.0, diota) if diota else 1.0
         with _budget.scope(fam_deadline):
@@ -338,6 +348,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     out["profile"] = [torus_record(t) for t in tori]
     out["family_stop"] = fam.stop_reason
     out["timings"]["family"] = time.time() - t0
+    log.info("sheet: the family %s at %.9g Wb after %d tori (%.0f s)", fam.stop_reason, abs(tori[-1].flux), len(tori),
+             time.time() - t0)
     fl = np.array([t.flux for t in tori])
     io = np.array([t.iota for t in tori])
 
@@ -364,6 +376,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
         if nc_info is not None:
             rec["near_coil"] = nc_info
         rec["topology"] = torus_topology(best, None)
+        log.info("sheet: refined to M, N = %d, %d, off-grid B.n %.2g (%.0f s); checking it against the sheet",
+                 best.M, best.N, best.bn_off, time.time() - t0)
         rec["sheet"] = acceptance(rc_.engine, S, best, a)
         guard = dict(ok=g["ok"], h=g["h"], x_over_w=g["x_over_w"], worst=g["worst"], n_checked=len(g["checked"]),
                      m_max=g.get("m_max"), d_max=g.get("d_max"))
@@ -439,6 +453,28 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
                             guard=dict(ok=guard["ok"], h=guard["h"], worst=guard["worst"]), verified=bool(ok),
                             tried=tried)
         out["surface"] = rec
+
+
+def keep_outside(S, ch, a):
+    """A chain's closed lines with every sampled point outside the boundary by the clearance; the others are dropped
+    (counted in ch.info['lines_inside_boundary']): nothing that passes through the boundary is evidence."""
+    kept, dropped = [], 0
+    for ln in ch.lines:
+        ph = ln.phi0 + 2 * np.pi * ln.q / ln.nfp * np.arange(64 * ln.q) / (64 * ln.q)
+        R, Z = ln.at(ph)
+        X = np.stack([R * np.cos(ph), R * np.sin(ph), Z], -1)
+        d = S.signed_distance(X)
+        if np.all(np.isfinite(d)) and np.min(d) >= CLEARANCE * a:
+            kept.append(ln)
+        else:
+            dropped += 1
+    if dropped:
+        ch.info["lines_inside_boundary"] = dropped
+        ch.lines = kept
+        ids = {id(ln) for ln in kept}
+        ch.O = [ln for ln in ch.O if id(ln) in ids]
+        ch.X = [ln for ln in ch.X if id(ln) in ids]
+    return ch
 
 
 def _outside(S, T, a):

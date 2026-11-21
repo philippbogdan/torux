@@ -14,7 +14,7 @@
 
 <h1 align="center">Arithmetic limit, extremely fast. Any coil works.</h1>
 
-<p align="center"><sub>Vacuum flux-surface verification and exterior tracing from supplied plasma currents.</sub></p>
+<p align="center"><sub>(The aspiration. torux is in development, and vacuum only for now: no finite pressure.)</sub></p>
 
 <p align="center"><a href="method/README.md"><b>The method</b></a> · <a href="docs/usage.md">Usage</a> · <a href="docs/verification.md">What is checked</a> · <a href="results/README.md">Results</a></p>
 

@@ -635,6 +635,27 @@ def _view_np(key):
     return v
 
 
+def flux_tube_of(engine):
+    """The flux tube an engine's vector potential carries (a source with a current sheet: the flux inside the sheet's
+    boundary, torux.field.engine.FieldEngine.flux_tube), or None.  Its term c grad(theta) / 2 pi integrates to the
+    constant -c round every section, exactly; on a torus's grid the trapezoid rule would alias it (4e-13 Wb at
+    M, N = 32, 32 on a QUASR 954 boundary), so the solver takes it off A and adds the constant to the flux."""
+    ft = getattr(engine, "flux_tube", None)
+    if not callable(ft) or not getattr(engine, "sheets", None):
+        return None
+    return ft()
+
+
+def _untube(engine, x, A):
+    """(A less the engine's flux tube at the points x, the tube's exact contribution to the flux: 0 without one)."""
+    tube = flux_tube_of(engine)
+    if tube is None:
+        return A, 0.0
+    from .field.surface_current import flux_tube_A
+    At = flux_tube_A(np.asarray(x, float).reshape(-1, 3), tube["cR"], tube["cZ"], tube["nv"], tube["c"])
+    return A - (At if isinstance(A, np.ndarray) else jnp.asarray(At)), -float(tube["c"])
+
+
 class TorusProblem:
     """The torus problem at resolution (M, N) for one engine.  A Newton system is two module-level
     jitted functions with only shapes static (shared by every source): the grid points of u, and
@@ -666,24 +687,34 @@ class TorusProblem:
         return rc, zs, iota, self.basis.geometry(rc, zs)
 
     def field_at(self, u, need_grad=True, need_A=True):
-        """The engine's field at the grid points of u (Cartesian B, A, G)."""
+        """The engine's field at the grid points of u (Cartesian B, A, G).  A without the engine's flux tube, whose
+        exact share of the flux is self.flux_offset (flux_tube_of)."""
         if self.np_path:
             b = self.v.basis
             rc, zs, _ = b.unpack(np.asarray(u))
             R, Z, *_ = b.geometry(rc, zs)
             x, _ = grid_points(b, R, Z, self.symmetric)
             o = self.engine.evaluate(x, grad=need_grad, A=need_A)
-            return {k: np.asarray(v) for k, v in o.items()}
-        x = _grid_x_shared(jnp.asarray(u), _arrays(self.key), key=self.key, symmetric=self.symmetric)
-        return self.engine.evaluate(x, grad=need_grad, A=need_A)
+            o = {k: np.asarray(v) for k, v in o.items()}
+        else:
+            x = _grid_x_shared(jnp.asarray(u), _arrays(self.key), key=self.key, symmetric=self.symmetric)
+            o = dict(self.engine.evaluate(x, grad=need_grad, A=need_A))
+        if need_A:
+            o["A"], self.flux_offset = _untube(self.engine, x, o["A"])
+        return o
+
+    flux_offset = 0.0
 
     def system(self, u, flux_target, flux_scale):
         o = self.field_at(u)
+        off = self.flux_offset
         if self.np_path:
-            return _system_post(self.v, np.asarray(u, float), o["B"], o["A"], o["G"], float(flux_target),
-                                float(flux_scale), self.symmetric)
-        return _system_post_shared(u, o["B"], o["A"], o["G"], flux_target, flux_scale, _arrays(self.key), key=self.key,
-                                   symmetric=self.symmetric)
+            F, J, flux, res = _system_post(self.v, np.asarray(u, float), o["B"], o["A"], o["G"],
+                                           float(flux_target) - off, float(flux_scale), self.symmetric)
+            return F, J, flux + off, res
+        F, J, flux, res = _system_post_shared(u, o["B"], o["A"], o["G"], flux_target - off, flux_scale,
+                                              _arrays(self.key), key=self.key, symmetric=self.symmetric)
+        return F, J, flux + off, res
 
     # ------------------------------------------------------------------ checks
     # (each a jitted pair around the engine call, shared by every source at this resolution: no
@@ -745,11 +776,13 @@ class TorusProblem:
             R, Z, *_ = b.geometry(rc, zs)
             x, _ = grid_points(b, R, Z, self.symmetric)
             o = self.engine.evaluate(x, grad=False, A=True)
-            return float(_flux_post(b, rc, zs, np.asarray(o["A"]), self.symmetric))
+            A, off = _untube(self.engine, x, np.asarray(o["A"]))
+            return float(_flux_post(b, rc, zs, A, self.symmetric)) + off
         rc, zs = jnp.asarray(rc), jnp.asarray(zs)
         x = _points_shared(rc, zs, _arrays(self.key), key=self.key, symmetric=self.symmetric, check=False)
         o = self.engine.evaluate(x, grad=False, A=True)
-        return float(_flux_post_shared(rc, zs, o["A"], _arrays(self.key), key=self.key, symmetric=self.symmetric))
+        A, off = _untube(self.engine, x, o["A"])
+        return float(_flux_post_shared(rc, zs, A, _arrays(self.key), key=self.key, symmetric=self.symmetric)) + off
 
     # ------------------------------------------------------------------ Newton
     def newton(self, state: TorusState, flux_target, tol=1e-13, maxit=20, verbose=False, deadline=None,
@@ -1121,7 +1154,8 @@ class KrylovTorus:
         rc, zs, iota, (R, Z, *_) = prob.geometry(u)
         x, _ = grid_points(b, R, Z, prob.symmetric)
         o = prob.engine.evaluate(x, grad=True, A=True)
-        return self._grid_from(u, o["B"], o["A"], o["G"])
+        A, prob.flux_offset = _untube(prob.engine, x, o["A"])
+        return self._grid_from(u, o["B"], A, o["G"])
 
     def _grid_from(self, u, Bx, Ax, Gx):
         prob = self.prob
@@ -1137,6 +1171,7 @@ class KrylovTorus:
         G["aZZ"] = R * (g["dBZ_Z"] * Bp - BZ * g["dBp_Z"]) * ib ** 2
         G["FRg"] = Rp + iota * Rt - R * BR * ib
         G["FZg"] = Zp + iota * Zt - R * BZ * ib
+        # (the flux of A as given: a flux tube's exact share, prob.flux_offset, is the caller's to add)
         G["flux"] = -2 * np.pi * _xp(Rt).mean(g["AR"] * Rt + g["AZ"] * Zt)
         return G
 
@@ -1277,13 +1312,15 @@ class KrylovTorus:
                 timed_out = True
                 break
             o = prob.field_at(u)
+            off = prob.flux_offset          # the flux tube's exact share (flux_tube_of), 0 without one
             if self._host is not None:
-                du, F, flux, rl = self._host._newton_step_np(u, o["B"], o["A"], o["G"], ft, flux_scale, gtol, iota_t,
-                                                             restart=restart, maxiter=maxiter, fixed=fixed)
+                du, F, flux, rl = self._host._newton_step_np(u, o["B"], o["A"], o["G"], ft - off, flux_scale, gtol,
+                                                             iota_t, restart=restart, maxiter=maxiter, fixed=fixed)
             else:
-                du, F, flux, rl = _nk_step_shared(u, o["B"], o["A"], o["G"], ft, flux_scale, gtol, iota_t,
+                du, F, flux, rl = _nk_step_shared(u, o["B"], o["A"], o["G"], ft - off, flux_scale, gtol, iota_t,
                                                   _arrays(prob.key), key=prob.key, symmetric=prob.symmetric,
                                                   restart=restart, maxiter=maxiter, fixed=fixed, reg=self.reg)
+            flux = flux + off
             nF = float(np.max(np.abs(np.asarray(F))))
             hist.append((nF, float(rl), float(u[-1]), float(flux)))
             if verbose:

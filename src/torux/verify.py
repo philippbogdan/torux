@@ -277,6 +277,15 @@ def verify_torus(source, t: TorusState, npts=4000, nsec=6, nlines=8, nperiods=20
         AR = A[:, 0] * cp + A[:, 1] * sp
         fl.append(-2 * np.pi * np.mean(AR * Rt + A[:, 2] * Zt))
     fl = np.array(fl)
+    off = sheet_flux_offset(source, F)
+    if off is not None:
+        # a source with a sheet: the full flux is the part's flux inside the boundary plus the flux between it and
+        # the section, measured with the reference's own field (sheet_flux_offset)
+        fl = fl + off["offset"]
+        out["sheet_flux"] = off
+        TH, PH = np.meshgrid(np.linspace(0, 2 * np.pi, 2 * t.M + 32, endpoint=False),
+                             t.phi0 + np.linspace(0, 2 * np.pi / t.nfp, 2 * t.N + 32, endpoint=False))
+        out["sheet_clearance_m"] = float(np.min(F.sheets[0].distance(torus_points(t, TH, PH)[0])))
     out["flux_sections"] = fl.tolist()
     out["flux"] = float(np.mean(fl))
     out["flux_rel_err"] = float(np.max(np.abs(fl - t.flux)) / abs(t.flux)) if t.flux else np.nan
@@ -379,3 +388,104 @@ def acceptance(v):
         if not bn_ok and v.get("bn_max_dd") is not None:
             bn_ok = v["bn_max_dd"] < REF_BN
     return bool(bn_ok and v["flux_rel_err"] < 1e-12 and v.get("trace_dist_max_rel", 0.0) < 1e-9)
+
+
+# ---------------------------------------------------------------------------- a source with a current sheet
+SHEET_ANNULUS = (0.05, 0.025)    # minor radii: the widths of the reference's annuli outside the boundary
+
+
+def sheet_flux_offset(source, F=None):
+    """For a source with one SurfaceCurrent that carries the flux inside its boundary: what the loop integral of the
+    reference's A round a section outside the boundary lacks of the full toroidal flux, dict(offset, own_flux,
+    spread, check, sign, flux_inside); None for any other source.  The reference's A is the Biot-Savart potential of
+    the coils and the sheet, so the loop gives the flux of their field through the whole section; inside the
+    boundary that is not the plasma's (zero for a virtual-casing sheet), and the full flux is the part's flux plus
+    the flux between the boundary and the loop.  The source's own flux through the boundary is measured as the loop
+    integral of A round a curve outside (the boundary moved out along its sections' normals) less the integral of
+    B_phi over the annulus between, with the reference's field and geometry written here (the solver's measure,
+    torux.field.surface_current.boundary_flux, shares none of it).  Kept with the source."""
+    parts = [p for p in source.parts if p.kind == "surface_current"]
+    if len(parts) != 1 or parts[0].flux is None:
+        return None
+    import hashlib
+    h = hashlib.sha256()
+    for p in source.parts:
+        for k, v in sorted(vars(p).items()):
+            if k.startswith("_"):
+                continue
+            h.update(k.encode())
+            h.update(np.ascontiguousarray(v).tobytes() if isinstance(v, np.ndarray) else repr(v).encode())
+    key = h.hexdigest()
+    kept = source.__dict__.get("_reference_sheet_flux")
+    if kept is not None and kept[0] == key:
+        return kept[1]
+    from .reference import fast64
+    F = F or fast64.Field(source)
+    part = parts[0]
+    nfp = int(part.nfp)
+    m = part.modes[:, 0].astype(float)
+    n = part.modes[:, 1].astype(float) * nfp
+    rc = np.asarray(part.rmnc, float)
+    zs = np.asarray(part.zmns, float)
+    rs = np.zeros_like(rc) if part.rmns is None else np.asarray(part.rmns, float)
+    zc = np.zeros_like(rc) if part.zmnc is None else np.asarray(part.zmnc, float)
+    a = float(F.sheets[0].minor_radius)
+    ntheta = 4 * (int(np.abs(m).max()) + 1) + 64
+    th = 2 * np.pi * np.arange(ntheta) / ntheta
+
+    def section(phi):
+        psi = np.outer(th, m) - phi * n[None, :]
+        c, s = np.cos(psi), np.sin(psi)
+        R = c @ rc + s @ rs
+        Z = s @ zs + c @ zc
+        Rt = (-s * m) @ rc + (c * m) @ rs
+        Zt = (c * m) @ zs + (-s * m) @ zc
+        Rtt = (-c * m * m) @ rc + (-s * m * m) @ rs
+        Ztt = (-s * m * m) @ zs + (-c * m * m) @ zc
+        return R, Z, Rt, Zt, Rtt, Ztt
+
+    # the narrowest convex radius of curvature of the sections sampled: the annulus may not fold
+    kmax = 1e-300
+    for phi in np.linspace(0, 2 * np.pi / nfp, 16, endpoint=False):
+        R, Z, Rt, Zt, Rtt, Ztt = section(phi)
+        kmax = max(kmax, float(np.max((Rt * Ztt - Zt * Rtt) / np.hypot(Rt, Zt) ** 3)))
+    xg, wg = np.polynomial.legendre.leggauss(10)
+    sg, wg = 0.5 * (xg + 1), 0.5 * wg
+    w0 = min(SHEET_ANNULUS[0] * a, 0.4 / kmax)
+    phis = (np.arange(2) + 0.5) * 2 * np.pi / (2 * nfp)
+    res, bphi_signs = {}, []
+    for wk in SHEET_ANNULUS:
+        w = w0 * wk / SHEET_ANNULUS[0]
+        vals = []
+        for phi in phis:
+            R, Z, Rt, Zt, Rtt, Ztt = section(phi)
+            L = np.hypot(Rt, Zt)
+            nR, nZ = Zt / L, -Rt / L
+            Lt = (Rt * Rtt + Zt * Ztt) / L
+            nRt, nZt = (Ztt * L - Zt * Lt) / L ** 2, -(Rtt * L - Rt * Lt) / L ** 2
+            cp, sp = np.cos(phi), np.sin(phi)
+            Rq = R[:, None] + w * sg[None, :] * nR[:, None]
+            Zq = Z[:, None] + w * sg[None, :] * nZ[:, None]
+            J = w * (nR[:, None] * (Zt[:, None] + w * sg[None, :] * nZt[:, None])
+                     - nZ[:, None] * (Rt[:, None] + w * sg[None, :] * nRt[:, None]))
+            B = F.evaluate(np.stack([Rq * cp, Rq * sp, Zq], -1).reshape(-1, 3), grad=False)["B"]
+            Bphi = (-B[:, 0] * sp + B[:, 1] * cp).reshape(ntheta, -1)
+            bphi_signs.append(np.sign(Bphi))
+            annulus = 2 * np.pi * np.mean(np.sum(Bphi * J * wg[None, :], axis=1))
+            Ro, Zo = R + w * nR, Z + w * nZ
+            A = F.evaluate(np.stack([Ro * cp, Ro * sp, Zo], -1), grad=False)["A"]
+            AR = A[:, 0] * cp + A[:, 1] * sp
+            outer = -2 * np.pi * np.mean(AR * (Rt + w * nRt) + A[:, 2] * (Zt + w * nZt))
+            vals.append(outer - annulus)
+        res[wk] = np.array(vals)
+    s_all = np.concatenate([b.ravel() for b in bphi_signs])
+    if not (np.all(s_all > 0) or np.all(s_all < 0)):
+        raise ValueError("the field's toroidal component changes sign just outside the boundary")
+    sign = float(s_all[0])
+    f1, f2 = res[SHEET_ANNULUS[0]], res[SHEET_ANNULUS[1]]
+    own = float(np.mean(f1))
+    full = sign * abs(float(part.flux))
+    out = dict(offset=full - own, own_flux=own, spread=float(np.max(f1) - np.min(f1)),
+               check=float(np.max(np.abs(f1 - f2))), sign=sign, flux_inside=full, widths=[w0, 0.5 * w0])
+    source.__dict__["_reference_sheet_flux"] = (key, out)
+    return out

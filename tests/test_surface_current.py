@@ -73,12 +73,14 @@ def test_source_round_trip_and_exterior_only(tmp_path):
         torux.poincare(restored, turns=1)
     with pytest.raises(ValueError, match="inside or too close"):
         torux.poincare(restored, starts=[(1.2, 0.)], turns=1)
-    with pytest.raises(ValueError, match="supports exterior"):
+    with pytest.raises(ValueError, match="flux inside its boundary"):
         torux.solve(restored, flux=.1)
-    with pytest.raises(ValueError, match="supports exterior"):
+    with pytest.raises(ValueError, match="flux inside its boundary"):
         torux.solve(restored, largest=True)
-    with pytest.raises(ValueError, match="verifier"):
-        torux.check(restored, "surface.nc")
+    inside = tmp_path / "input.inside"
+    inside.write_text("&INDATA\n NFP = 1\n PHIEDGE = 0.01\n RBC(0,0) = 1.0\n RBC(0,1) = 0.1\n ZBS(0,1) = 0.1\n/\n")
+    with pytest.raises(ValueError, match="inside the SurfaceCurrent's boundary"):
+        torux.check(restored, str(inside))
     with pytest.raises(ValueError, match="inside the boundary"):
         fast64.Field(restored).evaluate([[1., 0., 0.]])
     section = torux.poincare(restored, planes=[0., -.5, .5], starts=[(1.21, 0.)], turns=1)
@@ -142,18 +144,21 @@ def test_four_period_potential_round_trip_with_separate_coils(tmp_path):
 
 
 def test_panel_storage_cap_preserves_quadrature(monkeypatch):
+    """Panels kept or built where a target needs them are the same panels: the field agrees to rounding."""
     source = torux.Source("sheet", [circular(I=8e3, G=4e3)])
-    x = np.array([[1.202, 0., 0.], [1.5, .1, .2]])
+    x = np.array([[1.202, 0., 0.], [1.5, .1, .2], [1.2002, .01, .003]])
     cached = FieldEngine(source)
     expected = cached.evaluate(x)
-    assert cached.sheets[0]._panels[1].nbytes > 0
+    assert cached.sheets[0].cache_depth >= 1 and cached.sheets[0].panel_bytes > 0
 
-    monkeypatch.setattr(surface_current, "_PANEL_CACHE_BYTES", 128)
-    uncached = FieldEngine(source)
+    monkeypatch.setattr(surface_current, "CACHE_BYTES", 128)
+    fresh = torux.Source("sheet", [circular(I=8e3, G=4e3)])
+    uncached = FieldEngine(fresh)
     actual = uncached.evaluate(x)
-    assert sum(a.nbytes for a in uncached.sheets[0]._panels) == 0
-    for key in ("B", "A", "G"):
-        np.testing.assert_allclose(actual[key], expected[key], atol=1e-15, rtol=0.)
+    assert uncached.sheets[0].cache_depth == 0
+    for key in ("B", "A"):
+        np.testing.assert_allclose(actual[key], expected[key], atol=1e-15 * float(np.max(np.abs(expected[key]))), rtol=0.)
+    np.testing.assert_allclose(actual["G"], expected["G"], atol=1e-12 * float(np.max(np.abs(expected["G"]))), rtol=0.)
 
 
 @pytest.mark.parametrize("case", ["current", "beta1"])

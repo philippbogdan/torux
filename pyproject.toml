@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "torux"
 version = "0.4.0"
-description = "Verified vacuum flux surfaces and exterior magnetic fields from coils and supplied plasma currents."
+description = "Vacuum magnetic field and flux surfaces of coils and magnets for toroidal confinement, at the limit of double-precision arithmetic."
 readme = "README.md"
 requires-python = ">=3.12"
 license = "CC0-1.0"

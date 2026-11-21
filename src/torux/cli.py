@@ -150,7 +150,7 @@ def _question_args(s):
                                                                                 "stellarator)")
 
 
-def _ask(a, **options):
+def _ask(a, rendering=False, **options):
     """The answer to the question on the command line, saying on stderr what it asks and how long it may take."""
     import torux
     from . import ask
@@ -159,6 +159,9 @@ def _ask(a, **options):
         raise ValueError(f"--budget {a.budget:g}: give the seconds for the whole question as a positive number")
     from .check import source_choices
     src = torux.load(*a.files, nfp=a.nfp, kind=a.kind, **source_choices(a))
+    if rendering and src.has_surface_current:
+        from .answer import RENDER_SHEET
+        raise ValueError(RENDER_SHEET)
     own = a.flux if a.flux is not None else (src.request or {}).get("flux_Wb")
     if own is not None and a.minor_radius is None and a.volume is None and not a.largest:
         from .api import estimate_budget          # one request. A search says what it asks itself
@@ -280,7 +283,7 @@ def _render(a):
         if os.path.splitext(a.file)[1].lower() != ".png":
             raise ValueError(f"cannot render to {a.file!r}: name a .png file")
         check_folder(a.file)
-        res = _ask(a)
+        res = _ask(a, rendering=True)
     except Exception as e:  # noqa: BLE001
         print(f"error   {e}", file=sys.stderr)
         return 1

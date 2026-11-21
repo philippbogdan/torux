@@ -390,6 +390,12 @@ def grid_values(CN, mv, nv, theta, phi):
 
 # ----------------------------------------------------------------------------- numba kernels
 @njit(cache=True)
+def _cis(x):
+    """exp(i x) for a binary64 x."""
+    return complex(math.cos(x), math.sin(x))
+
+
+@njit(cache=True)
 def _values(CN, mv, nv, th, ph, out):
     """grid_values for small grids, inside numba: out (8, len(th), len(ph))."""
     M1 = CN.shape[1]
@@ -400,7 +406,7 @@ def _values(CN, mv, nv, th, ph, out):
     for b in range(B):
         for n in range(N2):
             a = nv[n] * ph[b]
-            e = complex(math.cos(a), math.sin(a))
+            e = _cis(a)
             for q in range(6):
                 for m in range(M1):
                     T[q, m, b] += CN[q, m, n] * e
@@ -408,7 +414,7 @@ def _values(CN, mv, nv, th, ph, out):
     for k in range(A):
         for m in range(M1):
             a = mv[m] * th[k]
-            e = complex(math.cos(a), math.sin(a))
+            e = _cis(a)
             em = e * complex(0.0, mv[m])
             for b in range(B):
                 out[0, k, b] += (e * T[0, m, b]).real
@@ -432,7 +438,7 @@ def _positions(CN, mv, nv, th, ph, out):
     for b in range(B):
         for n in range(N2):
             a = nv[n] * ph[b]
-            e = complex(math.cos(a), math.sin(a))
+            e = _cis(a)
             for m in range(M1):
                 T[0, m, b] += CN[0, m, n] * e
                 T[1, m, b] += CN[2, m, n] * e
@@ -442,7 +448,7 @@ def _positions(CN, mv, nv, th, ph, out):
             Z = 0.0
             for m in range(M1):
                 a = mv[m] * th[k]
-                e = complex(math.cos(a), math.sin(a))
+                e = _cis(a)
                 R += (e * T[0, m, b]).real
                 Z += (e * T[1, m, b]).real
             out[k, b, 0] = R * math.cos(ph[b])
@@ -866,7 +872,7 @@ def _rz2(C2, mv, nv, th, ph):
     for q in range(2):
         for m in range(M1):
             a = mv[m] * th
-            et = complex(math.cos(a), math.sin(a))
+            et = _cis(a)
             s0 = 0j
             s1 = 0j
             s2 = 0j
@@ -1052,8 +1058,7 @@ class SheetField:
             nd = np.empty((na * nb, p * p, 6))
             ii, jj = np.meshgrid(np.arange(na), np.arange(nb), indexing="ij")
             keys = np.ascontiguousarray(np.stack([np.full(na * nb, lv), ii.ravel(), jj.ravel()], -1).astype(np.int64))
-            _build_keys(self.CN, self.mv, self.nv, self.C2, self.nfp, self.g, self.gw, self.ntheta, self.nphi, keys,
-                        _TAU_DD, _PIO2, _SIN_C, _COS_C, cdd, nd)
+            cdd, nd = self._panels(keys)
             # centres and radii from the grid of corners, edge midpoints and centres (binary64: the acceptance test)
             tg = 0.5 * dth * np.arange(2 * na + 1)
             pg = 0.5 * dph * np.arange(2 * nb + 1)
@@ -1078,6 +1083,19 @@ class SheetField:
         self._cache = (np.ascontiguousarray(np.concatenate(cens)), np.ascontiguousarray(np.concatenate(rads)),
                        np.ascontiguousarray(np.concatenate(cdds)), np.ascontiguousarray(np.concatenate(nodes)),
                        np.asarray(offsets, np.int64))
+
+    SHARED = True          # panels built with their columns' and rows' sums shared (build_shared), else one by one
+
+    def _panels(self, keys):
+        """(corners in double-double (K, 6), nodes (K, p * p, 6)) of the panels by key (level, i, J)."""
+        keys = np.ascontiguousarray(keys, np.int64)
+        if self.SHARED:
+            return build_shared(self, keys)
+        cdd = np.empty((len(keys), 6))
+        nodes = np.empty((len(keys), self.order ** 2, 6))
+        _build_keys(self.CN, self.mv, self.nv, self.C2, self.nfp, self.g, self.gw, self.ntheta, self.nphi, keys,
+                    _TAU_DD, _PIO2, _SIN_C, _COS_C, cdd, nodes)
+        return cdd, nodes
 
     @property
     def panel_bytes(self):
@@ -1211,10 +1229,7 @@ class SheetField:
                 o1, f1 = self._chunk(pts[:h], grad, potential, room)
                 o2, f2 = self._chunk(pts[h:], grad, potential, room)
                 return np.concatenate([o1, o2]), np.concatenate([f1, f2]) | failed
-            bcdd = np.empty((len(uniq), 6))
-            bnodes = np.empty((len(uniq), self.order ** 2, 6))
-            _build_keys(self.CN, self.mv, self.nv, self.C2, self.nfp, self.g, self.gw, self.ntheta, self.nphi,
-                        np.ascontiguousarray(uniq), _TAU_DD, _PIO2, _SIN_C, _COS_C, bcdd, bnodes)
+            bcdd, bnodes = self._panels(uniq)
             bidx = np.zeros((T, room), np.int64)
             bidx[mask] = np.asarray(inv).ravel()
             self.built += len(uniq)
@@ -1251,6 +1266,240 @@ def sheet_field(part, order=None, eta=None):
     if key not in store:
         store[key] = SheetField(part, order=order, eta=eta)
     return store[key]
+
+
+# ----------------------------------------------------------------------------- panels built with shared sums
+@njit(parallel=True, cache=True)
+def _columns(CN, nv, C2, nfp, g, gw, nphi, cols, tau, pio2, sin_c, cos_c, T, V, Ep, cp, phL, pb, ph, wp):
+    """For each column (level, J) of panels, J counting phi over the whole turn: the six series summed over n at its
+    nodes' phi (T (C, 6, M+1, p), the phases as exp(-i n nfp phi_L) exp(-i n nfp b), b the node's offset), the
+    series of R and Z summed over n at phi_L in double-double (V (C, 2, M+1, 4)), exp(-i n nfp phi_L) (Ep (C, 2N+1)),
+    cos and sin of phi_L in double-double (cp (C, 4)), phi_L (phL), the nodes' offsets b (pb (C, p), exact relative
+    to their size), the nodes' phi (ph) and weights (wp)."""
+    p = g.shape[0]
+    M1 = CN.shape[1]
+    N2 = CN.shape[2]
+    for c in prange(cols.shape[0]):
+        lv = cols[c, 0]
+        J = cols[c, 1]
+        nb = (nphi << lv) * nfp
+        pLh, pLl = _grid_dd(J, nb, tau[0], tau[1])
+        pRh, pRl = _grid_dd(J + 1, nb, tau[0], tau[1])
+        wph, wpl = _dd_add(pRh, pRl, -pLh, -pLl)
+        Et1 = np.empty((1, 4))
+        Epd = np.empty((N2, 4))
+        cpd = np.empty(4)
+        _phase_tables(0.0, 0.0, pLh, pLl, nfp, pio2, sin_c, cos_c, Et1, Epd, cpd)
+        for e in range(4):
+            cp[c, e] = cpd[e]
+        phL[c] = pLh
+        for n in range(N2):
+            Ep[c, n] = complex(Epd[n, 0] + Epd[n, 1], Epd[n, 2] + Epd[n, 3])
+        for q in range(2):
+            for m in range(M1):
+                sr, srl, si, sil = 0.0, 0.0, 0.0, 0.0
+                for n in range(N2):
+                    cr = C2[q, m, n].real
+                    ci = C2[q, m, n].imag
+                    if cr == 0.0 and ci == 0.0:
+                        continue
+                    ah, al = _dd_mul_d(Epd[n, 0], Epd[n, 1], cr)
+                    bh, bl = _dd_mul_d(Epd[n, 2], Epd[n, 3], ci)
+                    sr, srl = _dd_add(sr, srl, ah, al)
+                    sr, srl = _dd_add(sr, srl, -bh, -bl)
+                    ah, al = _dd_mul_d(Epd[n, 2], Epd[n, 3], cr)
+                    bh, bl = _dd_mul_d(Epd[n, 0], Epd[n, 1], ci)
+                    si, sil = _dd_add(si, sil, ah, al)
+                    si, sil = _dd_add(si, sil, bh, bl)
+                V[c, q, m, 0] = sr
+                V[c, q, m, 1] = srl
+                V[c, q, m, 2] = si
+                V[c, q, m, 3] = sil
+        for l in range(p):
+            b = g[l] * wph + g[l] * wpl
+            pb[c, l] = b
+            ph[c, l] = pLh + b
+            wp[c, l] = gw[l] * wph
+            for q in range(6):
+                for m in range(M1):
+                    T[c, q, m, l] = 0j
+            for n in range(N2):
+                x = nv[n] * b
+                e = Ep[c, n] * complex(math.cos(x), math.sin(x))
+                for q in range(6):
+                    for m in range(M1):
+                        T[c, q, m, l] += CN[q, m, n] * e
+
+
+@njit(parallel=True, cache=True)
+def _rows(CN, ntheta, rows, tau, pio2, sin_c, cos_c, g, gw, U, Et, ta, th, wt):
+    """For each row (level, i) of panels: the series of R and Z summed over m at theta_L (U (Rw, 2, 2N+1)),
+    exp(i m theta_L) in double-double (Et (Rw, M+1, 4)), the nodes' offsets a from theta_L (ta, exact relative to
+    their size), the nodes' theta (th) and weights (wt)."""
+    p = g.shape[0]
+    M1 = CN.shape[1]
+    N2 = CN.shape[2]
+    for r in prange(rows.shape[0]):
+        lv = rows[r, 0]
+        i = rows[r, 1]
+        na = ntheta << lv
+        tLh, tLl = _grid_dd(i, na, tau[0], tau[1])
+        tRh, tRl = _grid_dd(i + 1, na, tau[0], tau[1])
+        wth, wtl = _dd_add(tRh, tRl, -tLh, -tLl)
+        Etd = np.empty((M1, 4))
+        Ep1 = np.empty((N2, 4))
+        cpd = np.empty(4)
+        _phase_tables(tLh, tLl, 0.0, 0.0, 1, pio2, sin_c, cos_c, Etd, Ep1, cpd)
+        for m in range(M1):
+            for e in range(4):
+                Et[r, m, e] = Etd[m, e]
+        for q in range(2):
+            for n in range(N2):
+                s = 0j
+                for m in range(M1):
+                    s += CN[2 * q, m, n] * complex(Etd[m, 0] + Etd[m, 1], Etd[m, 2] + Etd[m, 3])
+                U[r, q, n] = s
+        for k in range(p):
+            a = g[k] * wth + g[k] * wtl
+            ta[r, k] = a
+            th[r, k] = tLh + a
+            wt[r, k] = gw[k] * wth
+
+
+@njit(parallel=True, cache=True)
+def _assemble(mv, nv, kcol, krow, T, V, Ep, cp, phL, pb, ph, wp, U, Et, ta, th, wt, cdd, nodes):
+    """Each panel from its column's and row's sums: its lower corner in double-double (cdd (K, 6)), its nodes as
+    offsets from the corner by the difference formula of _offsets (exact relative to their size), and their weights
+    as _weights makes them (nodes (K, p * p, 6))."""
+    K = kcol.shape[0]
+    p = ph.shape[1]
+    M1 = T.shape[2]
+    N2 = Ep.shape[1]
+    for k in prange(K):
+        c = kcol[k]
+        r = krow[k]
+        val = np.zeros(4)
+        for q in range(2):
+            vh, vl = 0.0, 0.0
+            for m in range(M1):
+                ah, al = _dd_mul(Et[r, m, 0], Et[r, m, 1], V[c, q, m, 0], V[c, q, m, 1])
+                bh, bl = _dd_mul(Et[r, m, 2], Et[r, m, 3], V[c, q, m, 2], V[c, q, m, 3])
+                vh, vl = _dd_add(vh, vl, ah, al)
+                vh, vl = _dd_add(vh, vl, -bh, -bl)
+            val[2 * q] = vh
+            val[2 * q + 1] = vl
+        xh, xl = _dd_mul(val[0], val[1], cp[c, 0], cp[c, 1])
+        yh, yl = _dd_mul(val[0], val[1], cp[c, 2], cp[c, 3])
+        cdd[k, 0] = xh
+        cdd[k, 1] = xl
+        cdd[k, 2] = yh
+        cdd[k, 3] = yl
+        cdd[k, 4] = val[2]
+        cdd[k, 5] = val[3]
+        etm = np.empty(M1, np.complex128)
+        for m in range(M1):
+            etm[m] = complex(Et[r, m, 0] + Et[r, m, 1], Et[r, m, 2] + Et[r, m, 3])
+        S0 = np.empty(N2, np.complex128)
+        S1 = np.empty(N2, np.complex128)
+        R0 = 0.0
+        for n in range(N2):
+            S0[n] = Ep[c, n] * U[r, 0, n]
+            S1[n] = Ep[c, n] * U[r, 1, n]
+            R0 += S0[n].real
+        F = np.empty((p, M1), np.complex128)
+        for kk in range(p):
+            for m in range(M1):
+                F[kk, m] = _em1(mv[m] * ta[r, kk]) * etm[m]
+        p0 = phL[c]
+        for l in range(p):
+            bl_ = pb[c, l]
+            s0 = 0.0
+            s1 = 0.0
+            for n in range(N2):
+                f = _em1(nv[n] * bl_)
+                s0 += (f * S0[n]).real
+                s1 += (f * S1[n]).real
+            hb = math.sin(0.5 * bl_)
+            dc = -2.0 * math.sin(p0 + 0.5 * bl_) * hb
+            ds = 2.0 * math.cos(p0 + 0.5 * bl_) * hb
+            cl = math.cos(ph[c, l])
+            sl = math.sin(ph[c, l])
+            for kk in range(p):
+                dR = s0
+                dZ = s1
+                for m in range(1, M1):
+                    dR += (F[kk, m] * T[c, 0, m, l]).real
+                    dZ += (F[kk, m] * T[c, 2, m, l]).real
+                j = kk * p + l
+                nodes[k, j, 0] = dR * cl + R0 * dc
+                nodes[k, j, 1] = dR * sl + R0 * ds
+                nodes[k, j, 2] = dZ
+        E = np.empty((p, M1), np.complex128)
+        for kk in range(p):
+            for m in range(M1):
+                x = mv[m] * th[r, kk]
+                E[kk, m] = complex(math.cos(x), math.sin(x))
+        for l in range(p):
+            cl = math.cos(ph[c, l])
+            sl = math.sin(ph[c, l])
+            for kk in range(p):
+                R = 0.0
+                Rt = 0.0
+                Rp = 0.0
+                Zt = 0.0
+                Zp = 0.0
+                ct = 0.0
+                cpv = 0.0
+                for m in range(M1):
+                    e = E[kk, m]
+                    em = e * complex(0.0, mv[m])
+                    R += (e * T[c, 0, m, l]).real
+                    Rt += (em * T[c, 0, m, l]).real
+                    Rp += (e * T[c, 1, m, l]).real
+                    Zt += (em * T[c, 2, m, l]).real
+                    Zp += (e * T[c, 3, m, l]).real
+                    ct += (e * T[c, 4, m, l]).real
+                    cpv += (e * T[c, 5, m, l]).real
+                W = MU0_4PI * wt[r, kk] * wp[c, l]
+                wR = (cpv * Rt - ct * Rp) * W
+                wP = (-ct * R) * W
+                wZ = (cpv * Zt - ct * Zp) * W
+                j = kk * p + l
+                nodes[k, j, 3] = wR * cl - wP * sl
+                nodes[k, j, 4] = wR * sl + wP * cl
+                nodes[k, j, 5] = wZ
+
+
+def build_shared(S, keys):
+    """Panels by key (level, i, J) with their columns' and rows' sums shared: (cdd (K, 6), nodes (K, p * p, 6)),
+    the same panels as _build_keys (to rounding)."""
+    keys = np.ascontiguousarray(keys, np.int64)
+    p = S.order
+    cols, kcol = np.unique(keys[:, [0, 2]], axis=0, return_inverse=True)
+    rows, krow = np.unique(keys[:, [0, 1]], axis=0, return_inverse=True)
+    C, Rw, M1, N2 = len(cols), len(rows), S.CN.shape[1], S.CN.shape[2]
+    T = np.empty((C, 6, M1, p), complex)
+    V = np.empty((C, 2, M1, 4))
+    Ep = np.empty((C, N2), complex)
+    cp = np.empty((C, 4))
+    phL = np.empty(C)
+    pb = np.empty((C, p))
+    ph = np.empty((C, p))
+    wp = np.empty((C, p))
+    _columns(S.CN, S.nv, S.C2, S.nfp, S.g, S.gw, S.nphi, np.ascontiguousarray(cols), _TAU_DD, _PIO2, _SIN_C, _COS_C,
+             T, V, Ep, cp, phL, pb, ph, wp)
+    U = np.empty((Rw, 2, N2), complex)
+    Et = np.empty((Rw, M1, 4))
+    ta = np.empty((Rw, p))
+    th = np.empty((Rw, p))
+    wt = np.empty((Rw, p))
+    _rows(S.CN, S.ntheta, np.ascontiguousarray(rows), _TAU_DD, _PIO2, _SIN_C, _COS_C, S.g, S.gw, U, Et, ta, th, wt)
+    cdd = np.empty((len(keys), 6))
+    nodes = np.empty((len(keys), p * p, 6))
+    _assemble(S.mv, S.nv, np.ascontiguousarray(np.asarray(kcol).ravel(), np.int64),
+              np.ascontiguousarray(np.asarray(krow).ravel(), np.int64), T, V, Ep, cp, phL, pb, ph, wp, U, Et, ta, th,
+              wt, cdd, nodes)
+    return cdd, nodes
 
 
 # ----------------------------------------------------------------------------- the flux inside the boundary
@@ -1300,7 +1549,7 @@ def flux_tube_A(points, cR, cZ, nv, c):
     return np.stack([k * (gR * cp - gP * sp), k * (gR * sp + gP * cp), k * gZ], -1)
 
 
-def boundary_flux(engine_eval, S, nsec=4, ntheta=None, widths=ANNULUS, order=16):
+def boundary_flux(engine_eval, S, nsec=2, ntheta=None, widths=ANNULUS, order=10):
     """The flux of the source's own field (coils and sheet, no flux tube) through the boundary's sections at nsec
     toroidal angles of one field period: Phi = -oint A . dl round a curve outside, the boundary moved out by w along
     its sections' normals, less int B_phi dR dZ over the annulus between them (Gauss-Legendre of `order` points across
@@ -1309,7 +1558,7 @@ def boundary_flux(engine_eval, S, nsec=4, ntheta=None, widths=ANNULUS, order=16)
     dict(flux: the mean, spread: max - min over the sections, check: the largest change with the second width,
     sections, angles, widths)."""
     a = S.size["minor_radius"]
-    ntheta = ntheta or max(2 * (S.M + 1) + 32, 96)
+    ntheta = ntheta or 4 * (S.M + 1) + 64
     th = TAU * np.arange(ntheta) / ntheta
     phis = (np.arange(nsec) + 0.5) * TAU / (S.nfp * nsec)
     x, wg = np.polynomial.legendre.leggauss(order)

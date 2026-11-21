@@ -162,8 +162,13 @@ def solve(source, flux=None, *, budget_s=None, tol=3e-15, verify=True, trace_lin
     if out._engine is not None and out.record:
         from .closure import measure_record
         # how well each closed line the record keeps closes, and the edge barrier's screened lines brought to
-        # convergence where they can be (torux.closure), before the chains are read from it
-        measure_record(out._engine, src, out.record)
+        # convergence where they can be (torux.closure), before the chains are read from it.  A source with a sheet:
+        # on an engine that gives no field inside the sheet's boundary (a line there is not converged, not an error)
+        eng = out._engine
+        if getattr(src, "has_surface_current", False):
+            from .field import FieldEngine
+            eng = FieldEngine(src, dmin=out._engine.dmin, sheet_nan=True)
+        measure_record(eng, src, out.record)
     try:
         from .chainlist import of_record
         # the island chains the request identified, whatever its outcome (torux.chainlist)
