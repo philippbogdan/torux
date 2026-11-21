@@ -329,10 +329,14 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     est = (target - abs(psi_in)) / max(abs(float(Bs[1])) * S.size["Lt"], 1e-300)    # rough distance of the request
     tries = []
     T0 = None
-    for frac in (START, 0.5 * START, 2.5 * START, 5 * START, 10 * START):
-        delta = min(frac * a, 0.4 * est * frac / START) if flux is not None else frac * a
-        if flux is not None and frac > START and delta >= 0.8 * est:
-            break                     # the request's own surface is no nearer the boundary than this
+    if flux is not None:
+        # nearer the boundary than the request: 0.4 and 0.2 of its distance (at most START and START / 2 minor
+        # radii), then, where those found no torus (the boundary leaks, or islands stand next to it), 0.6 and 0.8
+        deltas = [min(START * a, 0.4 * est), min(0.5 * START * a, 0.2 * est), 0.6 * est, 0.8 * est]
+        deltas = deltas[:2] + [d for d in deltas[2:] if d > deltas[0]]
+    else:
+        deltas = [f * a for f in (START, 0.5 * START, 2.5 * START, 5 * START, 10 * START)]
+    for delta in deltas:
         if flux is not None and delta < CLEARANCE * a:
             out["status"] = "undetermined"
             out["why"] = (f"the surface asked for lies about {est:.3g} m from the SurfaceCurrent's boundary, nearer than "

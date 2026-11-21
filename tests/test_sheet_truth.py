@@ -71,5 +71,5 @@ def test_solve_returns_the_vacuum_truth_surface(name):
     assert abs(s.flux - truth["flux_A_Wb"]) < 1e-14 * truth["flux_A_Wb"]
 
 
-TRUTH_POSITION_M = 1e-12
-TRUTH_IOTA = 1e-12
+TRUTH_POSITION_M = 1e-13     # measured 6.7e-15 m (psi1) and 7.6e-15 m (psi2), 21 Nov
+TRUTH_IOTA = 1e-14           # measured 1.5e-16 and 1.8e-16

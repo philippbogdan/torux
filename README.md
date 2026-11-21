@@ -134,7 +134,7 @@ torux.many(files, table="answers.csv")        # a folder of designs, one row eac
 
 Nothing to tune: torux asks for no resolution, no tolerance and no starting guess. More time (`budget_s`) can settle more. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](method/README.md) and [what is checked, and by what](docs/verification.md).
 
-For a supplied finite-beta equilibrium, `SurfaceCurrent` adds its virtual-casing field to the coils for exterior field evaluation and explicitly seeded Poincaré sections. [Try the public VMEX case and compare your own field probes](https://github.com/philippbogdan/torux/blob/main/docs/surface-current.md). [Release notes](docs/release-notes-0.4.0.md).
+Outside a finite-beta plasma: give torux the plasma's boundary and its current (`SurfaceCurrent`) with the coils, and it returns the verified flux surface of the field outside the plasma, as in vacuum, or says why there is none it can verify. [Outside a plasma](docs/surface-current.md). [Release notes](docs/release-notes-0.4.0.md).
 
 ## Credit
 

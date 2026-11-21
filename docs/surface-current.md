@@ -19,13 +19,20 @@ Inside Γ the source's field is not the plasma's: for K = n × B / μ₀ it is z
 
 ## The flux
 
-A request is the usual full toroidal flux. The part carries the flux inside Γ (`flux=`, the equilibrium's own: VMEC's `phiedge`, DESC's `Psi`), and the full flux of a surface outside is that plus the flux of the total field between Γ and the surface. torux measures the second as the difference of the loop integrals of A round the surface and round Γ, the second from outside: the flux of the source's own field through Γ's sections, which is zero for an exact virtual-casing current and is reported (`answer.evidence['sheet']['own_flux_Wb']`), with how much it differs between two sections (`own_flux_spread_Wb`), which is how far Γ is from a flux surface of the field outside it. The engine's vector potential carries the flux inside Γ as a flux tube on a curve inside Γ, so a loop integral of A outside Γ gives the full flux; B is unchanged.
+A request is the usual full toroidal flux. The part carries the flux inside Γ (`flux=`, the equilibrium's own: VMEC's `phiedge`, DESC's `Psi`), and the full flux of a surface outside is that plus the flux of the total field between Γ and the surface. torux measures the second as the difference of the loop integrals of A round the surface and round Γ, the second from outside: the flux of the source's own field through Γ's sections, which is zero for an exact virtual-casing current and is reported (`answer.evidence['sheet']['own_flux_Wb']`, with how much it differs between two sections, `own_flux_spread_Wb`). The engine's vector potential carries the flux inside Γ as a flux tube on a curve inside Γ, so a loop integral of A outside Γ gives the full flux; B is unchanged.
+
+How far Γ is from a flux surface of the field outside it is measured directly: |B·n|/|B| at 768 points 10⁻⁵ of the minor radius outside Γ, its largest and median values in `evidence['sheet']['boundary_bn_max']` and `['boundary_bn_median']`. For an exact boundary and current it is at rounding level; where it is not, no surface hugs Γ, and an answer near Γ is `undetermined` with these numbers as its reason.
 
 ## How close to Γ
 
-The sheet's field (`torux.field.surface_current`) sums the series exactly at every quadrature node and forms every separation of a target from a node relative to a panel corner kept in double-double, so its accuracy does not fall as a target nears Γ. Measured:
+The sheet's field (`torux.field.surface_current`) sums the series exactly at every quadrature node and forms every separation of a target from a node relative to a panel corner kept in double-double, so its accuracy does not fall as a target nears Γ. Measured against the independent evaluator's double-double tier at 8 random points of Γ moved out along its normal by d, the largest |B − B_dd|/|B| of coils and sheet together (`python examples/surface_current/near.py SOURCE`):
 
-MEASUREMENTS
+| d / Γ's minor radius | 10⁻¹ | 10⁻² | 10⁻³ | 10⁻⁴ | 10⁻⁵ |
+|---|---|---|---|---|---|
+| VMEX `current.json` (581 modes) | 2.1 × 10⁻¹⁶ | 2.1 × 10⁻¹⁶ | 3.6 × 10⁻¹⁶ | 2.9 × 10⁻¹⁶ | 2.7 × 10⁻¹⁶ |
+| QUASR 954 null case (3,870 modes, `tests/data/sheet_truth`) | 4.3 × 10⁻¹⁶ | 2.3 × 10⁻¹⁶ | 3.0 × 10⁻¹⁶ | 3.3 × 10⁻¹⁶ | 4.6 × 10⁻¹⁶ |
+
+An ideal toroidal solenoid on a D-shaped boundary, whose field outside is exactly zero, reads at most 5.7 × 10⁻¹⁶ of its field inside at the same distances (`tests/test_sheet_solve.py`).
 
 A verified surface keeps at least 10⁻⁵ of Γ's minor radius from Γ, the distance down to which these measurements reach; a request whose surface would come nearer is `undetermined` and says so.
 
@@ -41,13 +48,13 @@ A verified surface keeps at least 10⁻⁵ of Γ's minor radius from Γ, the dis
 
 ## What works, and what refuses
 
-Work as in vacuum: a flux, `minor_radius` and `volume` (searched from Γ's own size), `largest=True`, `torux.check`, `torux.many`, the CLI, `answer.plot`, `answer.boozer()`, `answer.system`, and `torux.poincare` with `starts=`. The chains a request meets are listed as in vacuum, without the lines that come near Γ, and their widths closed in on by verified surfaces as in vacuum (`widths_s`).
+WORKS
 
-Refused, each in one sentence: a source with several `SurfaceCurrent`s, one without `flux`, a flux not more than the flux inside Γ, a size not larger than Γ's, a source without stellarator symmetry, `gradients=True` and `answer.vjp` (the field is not differentiated in the sheet), `trace_lines` (the reference tracer does not take a sheet), `answer.render` and `torux render` (they light the surfaces inside the answer's by field lines, through Γ), and `torux.poincare` without `starts=`.
+Refused, each in one sentence: a source with several `SurfaceCurrent`s, one without `flux`, a flux not more than the flux inside Γ, a size not larger than Γ's, a source without stellarator symmetry, `gradients=True` and `answer.vjp` (the field is not differentiated in the sheet), `trace_lines` (the reference tracer does not take a sheet), `widths_s` (island widths are closed in on from the axis), `answer.render` and `torux render` (they light the surfaces inside the answer's by field lines, through Γ), and `torux.poincare` without `starts=`.
 
 ## Field, potential and sections
 
-`FieldEngine(src)` gives B, A and grad B at Cartesian points outside Γ; a point inside Γ, or nearer than the quadrature resolves (about 10⁻⁸ of the root panel size), is refused. `FieldEngine(src, sheet_order=16, sheet_eta=3.0)` refines the sheet's quadrature: the change measures its error. `torux.poincare(src, starts=[(R, Z)])` follows field lines outside Γ through planes of constant toroidal angle; a line stops at its last accepted point when it reaches Γ or loses its toroidal direction, and `stop_reason` says which, `left_at` where.
+`FieldEngine(src)` gives B, A and grad B at Cartesian points outside Γ; a point inside Γ, or nearer Γ than the quadrature resolves (1.2 × 10⁻⁷ of a root panel's half-diagonal, `engine.sheets[0].hard_limit`), is refused. `FieldEngine(src, sheet_order=16, sheet_eta=3.0)` refines the sheet's quadrature: the change measures its error. `torux.poincare(src, starts=[(R, Z)])` follows field lines outside Γ through planes of constant toroidal angle; a line stops at its last accepted point when it reaches Γ or loses its toroidal direction, and `stop_reason` says which, `left_at` where.
 
 ## The public VMEX case
 
