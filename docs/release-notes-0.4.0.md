@@ -10,5 +10,5 @@ Known limits
 
 - There are no certificates that a surface cannot exist outside Γ: their theorems are about tori with no current inside.
 - A boundary that is not a flux surface of its coils and sheet has no surfaces next to it, and torux says so with the measure of how far it is. The bundled VMEX boundaries are 4.8 × 10⁻³ and 4.0 × 10⁻³ of |B| from one.
-- Sheets of many modes are slow: the independent check of the 3,870-mode QUASR case takes about an hour, and on sheets of 46,491 and 108,608 modes the first measurement, the flux through Γ, takes 101 minutes and more than 3 hours.
+- Sheets of many modes are slow: the independent check of the 3,870-mode QUASR case takes about an hour, the first start torus of a 19,333-mode sheet had not converged after 2.6 hours, and on sheets of 46,491 and 108,608 modes the first measurement, the flux through Γ, takes 101 minutes and more than 3 hours.
 - `gradients=True`, `answer.vjp`, `trace_lines`, `widths_s`, `answer.render` and `torux render` refuse such a source, each in one sentence.
