@@ -376,9 +376,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
                       f"{max(reach):.3g} of its minor radius out), so no family could start from it" if reach else
                       "no torus next to the SurfaceCurrent's boundary was tried within the budget")
         if np.isfinite(leak[0]) and leak[0] > 1e-6:
-            out["why"] += (f": the field crosses the boundary by up to {leak[0]:.2g} of |B| just outside it (median "
-                           f"{leak[1]:.2g}), so the boundary is not a flux surface of the coils and the sheet at that "
-                           f"level")
+            out["why"] += (f": the field crosses the boundary by up to {leak[0]:.2g} of |B| (median {leak[1]:.2g}), "
+                           f"so the boundary is not a flux surface of the coils and the sheet at that level")
         return
     fam_deadline = deadline
     if flux is not None and deadline is not None:
