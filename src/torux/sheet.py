@@ -122,10 +122,12 @@ def _budget_gone():
     return _budget.expired()
 
 
-def boundary_leak(eng, S, part, nth=48, nph=16):
-    """|B.n| / |B| just outside the boundary (1e-5 of its minor radius out, along its normals), on a grid of one field
-    period: how far the boundary is from a flux surface of the field outside it (zero for an exact equilibrium
-    boundary whose sheet and coils match it).  Returns (max, median)."""
+def boundary_leak(eng, S, part, nth=48, nph=16, d=1e-6):
+    """|B.n| / |B| on the boundary from outside, on a grid of one field period: how far the boundary is from a flux
+    surface of the field outside it (zero for an exact equilibrium boundary whose sheet and coils match it).  The
+    field is taken d, 2d and 4d minor radii out along the boundary's normals and B.n extrapolated to the boundary
+    (cubic error: the neighbouring surfaces are not parallel to it, which alone reads about d of |B| one way).
+    Returns (max, median)."""
     th = 2 * np.pi * np.arange(nth) / nth
     ph = 2 * np.pi * (np.arange(nph) + 0.5) / (nph * part.nfp)
     TH, PH = (v.ravel() for v in np.meshgrid(th, ph, indexing="ij"))
@@ -143,9 +145,16 @@ def boundary_leak(eng, S, part, nth=48, nph=16):
     rp = np.stack([Rp * cp - R * sp, Rp * sp + R * cp, Zp], -1)
     nn = np.cross(rp, rt)
     nn /= np.linalg.norm(nn, axis=1)[:, None]
-    x = np.stack([R * cp, R * sp, Z], -1) + 1e-5 * S.size["minor_radius"] * nn
-    B = np.asarray(eng.evaluate(x, grad=False, A=False)["B"])
-    bn = np.abs(np.sum(B * nn, -1)) / np.linalg.norm(B, axis=-1)
+    X = np.stack([R * cp, R * sp, Z], -1)
+    h = d * S.size["minor_radius"]
+    vals = []
+    for k in (1, 2, 4):
+        B = np.asarray(eng.evaluate(X + k * h * nn, grad=False, A=False)["B"])
+        vals.append((np.sum(B * nn, -1), np.linalg.norm(B, axis=-1)))
+    # Richardson: (8 f(h) - 6 f(2h) + f(4h)) / 3 is f(0) to O(h^3)
+    bn0 = (8 * vals[0][0] - 6 * vals[1][0] + vals[2][0]) / 3
+    b0 = (8 * vals[0][1] - 6 * vals[1][1] + vals[2][1]) / 3
+    bn = np.abs(bn0) / b0
     bn = bn[np.isfinite(bn)]
     return (float(np.max(bn)), float(np.median(bn))) if len(bn) else (np.nan, np.nan)
 

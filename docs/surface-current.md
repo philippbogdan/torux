@@ -21,7 +21,7 @@ Inside Γ the source's field is not the plasma's: for K = n × B / μ₀ it is z
 
 A request is the usual full toroidal flux. The part carries the flux inside Γ (`flux=`, the equilibrium's own: VMEC's `phiedge`, DESC's `Psi`), and the full flux of a surface outside is that plus the flux of the total field between Γ and the surface. torux measures the second as the difference of the loop integrals of A round the surface and round Γ, the second from outside: the flux of the source's own field through Γ's sections, which is zero for an exact virtual-casing current and is reported (`answer.evidence['sheet']['own_flux_Wb']`, with how much it differs between two sections, `own_flux_spread_Wb`). The engine's vector potential carries the flux inside Γ as a flux tube on a curve inside Γ, so a loop integral of A outside Γ gives the full flux; B is unchanged.
 
-How far Γ is from a flux surface of the field outside it is measured directly: |B·n|/|B| at 768 points 10⁻⁵ of the minor radius outside Γ, its largest and median values in `evidence['sheet']['boundary_bn_max']` and `['boundary_bn_median']`. For an exact boundary and current it is at rounding level; where it is not, no surface hugs Γ, and an answer near Γ is `undetermined` with these numbers as its reason.
+How far Γ is from a flux surface of the field outside it is measured directly: |B·n|/|B| on Γ from outside at 768 points of a field period (extrapolated from 1, 2 and 4 × 10⁻⁶ of the minor radius out), its largest and median values in `evidence['sheet']['boundary_bn_max']` and `['boundary_bn_median']`. For an exact boundary and current it is at rounding level; where it is not, no surface hugs Γ, and an answer near Γ is `undetermined` with these numbers as its reason.
 
 ## How close to Γ
 
