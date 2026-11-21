@@ -8,4 +8,7 @@ torux 0.4.0
 
 Known limits
 
-- LIMITS
+- There are no certificates that a surface cannot exist outside Γ: their theorems are about tori with no current inside.
+- A boundary that is not a flux surface of its coils and sheet has no surfaces next to it, and torux says so with the measure of how far it is. The bundled VMEX boundaries are 4.8 × 10⁻³ and 4.0 × 10⁻³ of |B| from one.
+- Sheets of many modes are slow: the independent check of the 3,870-mode QUASR case takes about an hour, and the start of a 19,333-mode quasi-helical case did not finish in two.
+- `gradients=True`, `answer.vjp`, `trace_lines`, `widths_s`, `answer.render` and `torux render` refuse such a source, each in one sentence.

@@ -48,7 +48,7 @@ A verified surface keeps at least 10⁻⁵ of Γ's minor radius from Γ, the dis
 
 ## What works, and what refuses
 
-WORKS
+Work as in vacuum, each tried on the exact ring case (`tests/test_sheet_ring.py`): a flux; `largest=True` (5.76 Wb verified within a 40 minute budget, the family from Γ still going); `minor_radius` and `volume`, searched from Γ's own size SIZES; `torux.many` (a table row per source); `torux.check` (the full flux of the ring's contour to 1.7 × 10⁻¹⁵, its theta either way round); `answer.plot` (it says that the picture leaves out the sheet), `answer.boozer()`, `answer.system`, `answer.save`; `torux.poincare` with `starts=`; and on the command line `torux solve`, `torux check`, `torux many` and `torux poincare --start`. The chains a request meets are listed as in vacuum, without the lines that come near Γ: the 4 kA VMEX case lists ι = 4/9 near 0.062 Wb.
 
 Refused, each in one sentence: a source with several `SurfaceCurrent`s, one without `flux`, a flux not more than the flux inside Γ, a size not larger than Γ's, a source without stellarator symmetry, `gradients=True` and `answer.vjp` (the field is not differentiated in the sheet), `trace_lines` (the reference tracer does not take a sheet), `widths_s` (island widths are closed in on from the axis), `answer.render` and `torux render` (they light the surfaces inside the answer's by field lines, through Γ), and `torux.poincare` without `starts=`.
 
@@ -58,7 +58,16 @@ Refused, each in one sentence: a source with several `SurfaceCurrent`s, one with
 
 ## The public VMEX case
 
-VMEXRESULTS
+Neither bundled boundary is a flux surface of its coils and sheet: the field crosses Γ by up to 4.8 × 10⁻³ of |B| (median 6.4 × 10⁻⁴) in `current.json` and 4.0 × 10⁻³ (6.0 × 10⁻⁴) in `beta1.json`, where the coils alone cross it by 1.6 and 1.2 × 10⁻². That is the free-boundary equilibrium as converged and converted, not the sheet's quadrature, which holds 3 × 10⁻¹⁶ of |B| there. So no surface hugs Γ. Field lines started on the outboard midplane 0.1 % and 0.3 % of the minor radius outside Γ reach it within half a turn in both; in the 4 kA case a line started 5 % out reaches it after 14 turns, while lines from 7.5 % to 20 % out stay outside for the 100 turns followed (`torux.poincare(src, starts=[(R, 0)], turns=100)`).
+
+What torux answers, with the wall time on shared cores:
+
+| request | `current.json` (4 kA) | `beta1.json` (no plasma current) |
+|---|---|---|
+| 0.026 Wb | `undetermined` in 458 s: no start torus converged 0.3 to 1.2 % of the minor radius out, and the leak above | `undetermined` in 596 s, the same |
+| 0.030 Wb | `undetermined` in 622 s: none converged 1 to 6 % out | BETA12 |
+| 0.045 Wb | a surface in 1,640 s, 10 % of the minor radius outside Γ at its nearest; the coils' own vacuum surface at that flux lies up to 4.5 cm from it, ι 0.054 lower | BETA18 |
+| `largest=True` | LARGESTC | LARGESTB |
 
 The bundled JSON inputs come from fresh solves of the [public Landreman-Paul QA example](https://github.com/uwplasma/VMEX/blob/757fe28348d959d5d4a50653d25fcca67c8fb941/docs/_static/figures/sources/make_extender_islands_figure.py), with ESSOS 0.22.0 and virtual-casing-jax 0.0.17: `current.json` with 4 kA of toroidal plasma current and `beta1.json` with none, both at about 1 % volume-averaged beta, 0.025 Wb inside the boundary. `examples/vmex_surface_current/prepare.py` converts a VMEX `wout` and its ESSOS coils (it needs that VMEX revision and ESSOS):
 
