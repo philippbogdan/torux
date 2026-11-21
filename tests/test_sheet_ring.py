@@ -119,3 +119,26 @@ def test_solve_returns_the_ring_contour(ring):
 
 RING_POSITION_M = 1e-13     # measured 1.0e-14 m (the truth's own elliptic integrals read 5.6e-15 m), 21 Nov
 RING_IOTA = 1e-13           # measured 1.2e-15
+
+
+@pytest.mark.parametrize("orientation", [1, pytest.param(-1, marks=pytest.mark.slow)])
+def test_check_measures_the_full_flux_of_the_ring_contour(ring, tmp_path, orientation):
+    """torux.check's measurement on the truth contour at 1.3 times the flux inside the boundary, its theta either way
+    round: the full flux (the part's flux inside the boundary and the flux between), and the field across it."""
+    import json
+    src, part = ring
+    F = 1.3 * part.flux
+    L = truth_level(F)
+    R, Z = contour(L, 512)
+    fR, fZ = np.fft.rfft(R) / len(R), np.fft.rfft(Z) / len(Z)
+    Mc = 40
+    rc = np.concatenate([[fR[0].real], 2 * fR[1:Mc + 1].real])[:, None]
+    zs = orientation * np.concatenate([[0.0], -2 * fZ[1:Mc + 1].imag])[:, None]
+    p = tmp_path / "contour.json"
+    p.write_text(json.dumps(dict(surface=dict(nfp=1, M=Mc, N=0, rc=rc.tolist(), zs=zs.tolist()))))
+    # check's own measurement at 64 points and two sections (torux.check takes 4,096 and six: minutes here)
+    from torux.check import measure_at
+    rng = np.random.default_rng(0)
+    c = measure_at(src, str(p), 2 * np.pi * rng.random(64), 2 * np.pi * rng.random(64), [0.3, 2.1], flux=F)
+    assert abs(c.flux / F - 1) < 1e-13
+    assert c.leak < 1e-13
