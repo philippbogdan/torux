@@ -48,7 +48,9 @@ A verified surface keeps at least 10⁻⁵ of Γ's minor radius from Γ, the dis
 
 ## What works, and what refuses
 
-Work as in vacuum, each tried on the exact ring case (`tests/test_sheet_ring.py`): a flux; `largest=True` (5.76 Wb verified within a 40 minute budget, the family from Γ still going); `minor_radius` and `volume`, searched from Γ's own size SIZES; `torux.many` (a table row per source); `torux.check` (the full flux of the ring's contour to 1.7 × 10⁻¹⁵, its theta either way round); `answer.plot` (it says that the picture leaves out the sheet), `answer.boozer()`, `answer.system`, `answer.save`; `torux.poincare` with `starts=`; and on the command line `torux solve`, `torux check`, `torux many` and `torux poincare --start`. The chains a request meets are listed as in vacuum, without the lines that come near Γ: the 4 kA VMEX case lists ι = 4/9 near 0.062 Wb.
+Work as in vacuum, each tried on the exact ring case (`tests/test_sheet_ring.py`): a flux; `largest=True` (5.76 Wb verified within a 90 minute budget, nothing decided at twice that flux); `torux.many` (a table row per source); `torux.check` (the full flux of the ring's contour to 1.7 × 10⁻¹⁵, its theta either way round); `answer.plot` (it says that the picture leaves out the sheet), `answer.boozer()`, `answer.system`, `answer.save`; `torux.poincare` with `starts=`; and on the command line `torux solve`, `torux check`, `torux many` and `torux poincare --start`. The chains a request meets are listed as in vacuum, without the lines that come near Γ: the 4 kA VMEX case lists ι = 4/9 near 0.062 Wb.
+
+`minor_radius` and `volume` are searched as in vacuum, from Γ's own size, and are slow: each request there takes 20 to 30 minutes with its independent check on shared cores, and on the ring a 90 minute budget left both one request short (`undetermined`, after verifying surfaces of minor radius 0.1205 m and volume 0.285 m³ on the way to 0.12 m and 0.28 m³). Give them hours.
 
 Refused, each in one sentence: a source with several `SurfaceCurrent`s, one without `flux`, a flux not more than the flux inside Γ, a size not larger than Γ's, a source without stellarator symmetry, `gradients=True` and `answer.vjp` (the field is not differentiated in the sheet), `trace_lines` (the reference tracer does not take a sheet), `widths_s` (island widths are closed in on from the axis), `answer.render` and `torux render` (they light the surfaces inside the answer's by field lines, through Γ), and `torux.poincare` without `starts=`.
 
@@ -64,8 +66,8 @@ What torux answers, with the wall time on shared cores:
 
 | request | `current.json` (4 kA) | `beta1.json` (no plasma current) |
 |---|---|---|
-| 0.026 Wb | `undetermined` in 458 s: no start torus converged 0.3 to 1.2 % of the minor radius out, and the leak above | `undetermined` in 596 s, the same |
-| 0.030 Wb | `undetermined` in 622 s: none converged 1 to 6 % out | BETA12 |
+| 0.026 Wb | `undetermined` in 490 s: no start torus converged 0.3 to 1.4 % of the minor radius out, and the leak above | `undetermined` in 421 s, the same |
+| 0.030 Wb | `undetermined` in 457 s: none converged 1 to 7 % out | BETA12 |
 | 0.045 Wb | a surface in 1,640 s, 10 % of the minor radius outside Γ at its nearest; the coils' own vacuum surface at that flux lies up to 4.5 cm from it, ι 0.054 lower | BETA18 |
 | `largest=True` | LARGESTC | LARGESTB |
 
