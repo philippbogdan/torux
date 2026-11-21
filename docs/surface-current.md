@@ -69,7 +69,8 @@ What torux answers, with the wall time on shared cores:
 | 0.026 Wb | `undetermined` in 490 s: no start torus converged 0.3 to 1.4 % of the minor radius out, and the leak above | `undetermined` in 421 s, the same |
 | 0.030 Wb | `undetermined` in 457 s: none converged 1 to 7 % out | no answer in the 3 hours given: a torus refined to 1.5 × 10⁻¹⁵ by the solver's own check in 778 s (M, N = 192, 56), its independent check not finished |
 | 0.045 Wb | a surface in 1,640 s, 10 % of the minor radius outside Γ at its nearest; the coils' own vacuum surface at that flux lies up to 4.5 cm from it, ι 0.054 lower | a surface in 10,623 s (found in 563 s; the independent check's double precision read 1.3 × 10⁻¹¹ where it climbed and its double-double tier 8.5 × 10⁻¹⁶, which decides); the coils' vacuum surface at that flux lies up to 3.5 cm from it, ι within 5 × 10⁻⁵ |
-| `largest=True` | LARGESTC | LARGESTB |
+
+With `largest=True` and a 9,000 s budget, `beta1.json` gives a verified surface at 0.0874 Wb, 3.5 times the flux inside Γ and 4.6 cm outside it at its nearest, in 8,566 s; at 0.0880 Wb a surface was found and its refinement did not end within its request's budget.
 
 The bundled JSON inputs come from fresh solves of the [public Landreman-Paul QA example](https://github.com/uwplasma/VMEX/blob/757fe28348d959d5d4a50653d25fcca67c8fb941/docs/_static/figures/sources/make_extender_islands_figure.py), with ESSOS 0.22.0 and virtual-casing-jax 0.0.17: `current.json` with 4 kA of toroidal plasma current and `beta1.json` with none, both at about 1 % volume-averaged beta, 0.025 Wb inside the boundary. `examples/vmex_surface_current/prepare.py` converts a VMEX `wout` and its ESSOS coils (it needs that VMEX revision and ESSOS):
 
