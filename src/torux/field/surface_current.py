@@ -48,6 +48,7 @@ MAX_DEPTH = 26         # levels of subdivision below the root panels
 CACHE = 2              # kept levels below the root (as far as CACHE_BYTES allows)
 CACHE_BYTES = 96 * 1024 ** 2
 RESOLVE = 1e-17        # each mode resolved by the root panels' rule to this fraction of its quantity's scale
+ASPECT = 4.0           # root panels at most this many times longer one way than the other
 
 
 class SurfaceCurrentDomainError(ValueError):
@@ -961,7 +962,7 @@ def _foot(points, th0, ph0, C2, mv, nv, iters, res):
 def _panel_counts(C, M, N, nfp, order, lengths):
     """Root panels (ntheta, nphi) per field period: each mode's share of the series resolved by the order-p Gauss rule
     to RESOLVE of its scale (the rule's error on exp(i w x) over [-1, 1] is ~ w^2p 2^(2p+1) (p!)^4 / ((2p+1) (2p)!^3)),
-    and panels no more than twice as long one way as the other."""
+    and panels no more than ASPECT times as long one way as the other."""
     scale = np.array([max(np.abs(C[q]).sum(), 1e-300) for q in range(4)])
     rel = (np.abs(C) / scale[:, None, None]).max(axis=0)       # each mode's share of its quantity, the largest of four
     p = order
@@ -983,9 +984,9 @@ def _panel_counts(C, M, N, nfp, order, lengths):
     while nphi < 4096 and np.max(rel * worst(nfreq, nphi)) > RESOLVE:
         nphi += 1
     Lt, Lp = lengths
-    while Lt / ntheta > 2 * Lp / nphi:
+    while Lt / ntheta > ASPECT * Lp / nphi:
         ntheta += 1
-    while Lp / nphi > 2 * Lt / ntheta:
+    while Lp / nphi > ASPECT * Lt / ntheta:
         nphi += 1
     return int(ntheta), int(nphi)
 
@@ -1560,7 +1561,8 @@ def boundary_flux(engine_eval, S, nsec=2, ntheta=None, widths=ANNULUS, order=10)
     a = S.size["minor_radius"]
     ntheta = ntheta or 4 * (S.M + 1) + 64
     th = TAU * np.arange(ntheta) / ntheta
-    phis = (np.arange(nsec) + 0.5) * TAU / (S.nfp * nsec)
+    # (k + 1/4) of a field period over nsec: no two sections are stellarator images of each other
+    phis = (np.arange(nsec) + 0.25) * TAU / (S.nfp * nsec)
     x, wg = np.polynomial.legendre.leggauss(order)
     sg, wg = 0.5 * (x + 1), 0.5 * wg
     # the narrowest convex radius of curvature of any section: the annulus may not fold

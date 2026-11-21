@@ -413,17 +413,20 @@ def apply_verified_symmetry(src, nfp_candidates, stellsym_claim=True, tol=1e-9, 
     cands = [int(c) for c in nfp_candidates if c]
     if src.has_surface_current:
         from math import gcd
-        sheet_periods = gcd(*(p.nfp for p in src.parts if p.kind == "surface_current"))
+        sheets = [p for p in src.parts if p.kind == "surface_current"]
+        sheet_periods = gcd(*(p.nfp for p in sheets))
         cands = [gcd(c, sheet_periods) for c in cands] or [1]
-        # The sheet periods follow from their Fourier representation. Only the
-        # remaining parts need probing, so these probes can lie inside a sheet.
+        # A sheet's periods and its stellarator symmetry follow from its Fourier coefficients (SurfaceCurrent.symmetric);
+        # only the other parts are probed, so these probes may lie inside a sheet
+        sheet_sym = all(p.symmetric(tol) for p in sheets)
         coils = [p for p in src.parts if p.kind not in ("surface_current", "toroidal", "axipoly")]
-        if coils and max(cands) > 1:
-            nfp, _, rec = verify_symmetry(coils, cands, False, tol=tol)
+        if coils:
+            nfp, ss, rec = verify_symmetry(coils, cands, bool(stellsym_claim and sheet_sym), tol=tol)
         else:
-            nfp, rec = max(cands), {}
-        src.nfp, src.stellsym = int(nfp), False
-        src.meta["symmetry_check"] = dict(rec, nfp=src.nfp, stellsym=False, sheet_periods=sheet_periods)
+            nfp, ss, rec = max(cands), bool(stellsym_claim), {}
+        src.nfp, src.stellsym = int(nfp), bool(ss and sheet_sym)
+        src.meta["symmetry_check"] = dict(rec, nfp=src.nfp, stellsym=src.stellsym, sheet_periods=sheet_periods,
+                                          sheet_coefficients_symmetric=sheet_sym)
         return src
     if fast and len(src.parts) == 1 and src.parts[0].kind == "fourier" and cands:
         c = max(cands)

@@ -1,9 +1,11 @@
-# Torux 0.4.0
+torux 0.4.0
 
-- `SurfaceCurrent` adds the exterior field of a supplied Fourier current sheet to the coils. It accepts a periodic current potential with secular terms or the covariant tangential boundary field. It supports field evaluation, vector potential, Cartesian field derivatives and explicitly seeded Poincaré sections.
-- Exterior sections report why a line stopped, including the boundary cutoff or loss of toroidal direction. The Fourier sheet uses adaptive Biot-Savart quadrature with a 32 MiB panel cache per sheet.
-- The public VMEX Landreman-Paul example includes the coils, sheet and reference vectors. The replay recovers the outboard `iota = 1/2` elliptic orbit at about 4.98 mm outside the supplied boundary in the 4 kA case. A separate script compares your plasma-only reference vectors under quadrature refinement.
+- A plasma's boundary and its current, with the coils, is a source torux solves. `torux.SurfaceCurrent` holds the boundary Γ as an R, Z Fourier series, the current on it as a potential or as the tangential field (K = n × B / μ₀ for a virtual casing), and the toroidal flux inside Γ. `torux.solve` returns the flux surface of the field outside Γ at a full toroidal flux, by size, or the largest it can verify, with the same acceptance as a vacuum surface and the independent evaluator's check of it, or `undetermined` with the reason. The family of surfaces starts next to Γ, from Γ itself, not at an axis. No surface comes within 10⁻⁵ of Γ's minor radius of Γ, none that does not go round Γ, and no closed field line of a chain is listed that comes as near; there are no certificates of absence for such a source. `torux.check` measures a surface against it. [Outside a plasma](surface-current.md).
+- The sheet's field is new: the series summed exactly at every quadrature node, every separation formed relative to a panel corner kept in double-double. RESULT_LINE
+- `torux.reference` evaluates the sheet with a quadrature of its own and measures the flux inside Γ itself.
+- E2E_LINE
+- The public VMEX Landreman-Paul example carries the flux inside its boundary, 0.025 Wb. VMEX_LINE
 
-The equilibrium and sheet are inputs. Torux's flux-surface solver and independent flux-surface verifier support vacuum sources.
+Known limits
 
-[Try the VMEX case and compare your own probes](https://github.com/philippbogdan/torux/blob/v0.4.0/docs/surface-current.md).
+- LIMITS

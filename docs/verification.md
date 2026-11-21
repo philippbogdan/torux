@@ -1,6 +1,6 @@
 # What is checked, and by what
 
-torux says `surface` only when two field codes that share nothing agree, and `no_surface` only with a certificate. Both words are about the vacuum field of the source: no plasma is modelled. This page is what stands behind each.
+torux says `surface` only when two field codes that share nothing agree, and `no_surface` only with a certificate. Both words are about the vacuum field of the source: no plasma is modelled, except as a current sheet on a plasma's boundary given with the coils ([below](#a-source-with-a-current-sheet)), outside which the field is a vacuum field too. This page is what stands behind each.
 
 ## A surface
 
@@ -31,6 +31,14 @@ On the 300 designs of the comparison, none is a surface in one table and a certi
 ## Undetermined
 
 Everything else. A torus that does not pass the acceptance, a certificate with one failed check, a solve that ran out of time: none of these is an answer, and torux does not present one as an answer. Nor is it a verdict that no answer exists: most of QUASR's undetermined designs were given seconds, and an hour settles more ([`results/compare300.csv`](../results/compare300.csv)).
+
+## A source with a current sheet
+
+A source with a `SurfaceCurrent` ([outside a plasma](surface-current.md)) is held to the same three measurements and the same acceptance, about the field outside the sheet's boundary Γ: coils and sheet. The independent evaluator takes the sheet with a quadrature of its own (graded rules about the boundary's nearest points, positions near the target formed as offsets from the nearest one, `torux.reference.sheet` and `sheet_dd`), sharing no code with the solver's panels (`tests/test_independence.py` checks that no run of three significant lines repeats between them), and measures the flux inside Γ itself, from its own field and its own geometry of Γ. Inside Γ the source's field is not the plasma's, so nothing there is used: the solver accepts no torus that comes within 10⁻⁵ of Γ's minor radius of Γ, or whose sections do not go once round Γ's, or where the sheet's field moves by more than 2 × 10⁻¹⁵ of |B| under a refined quadrature. There are no certificates for such a source: their theorems are about tori with no current inside, and a plasma's boundary has current inside.
+
+SHEETRESULTS
+
+What the measurements say is about the field of the coils and the sheet as given. Whether the sheet is the plasma's current, and Γ a flux surface of the field outside it, is the equilibrium's: the flux of the source's own field through Γ's sections, zero for an exact virtual-casing current, says how far it is, and every answer reports it.
 
 ## What the interface adds
 

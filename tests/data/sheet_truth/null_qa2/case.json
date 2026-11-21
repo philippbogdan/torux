@@ -1,0 +1,225 @@
+{
+ "case": "null_qa2",
+ "nfp": 2,
+ "filament_current_A": 0.0,
+ "sheet": {
+  "G_A": 5207073.938886411,
+  "I_A": -6.729458466706137e-13,
+  "floors": {
+   "sheet_M": 35,
+   "sheet_N": 54,
+   "n_modes": 3870,
+   "coefficient_tail": 2.7614364719165155e-16,
+   "K_covariant_vs_direct": 1.3875953145962817e-15,
+   "K_potential_vs_direct": 1.2676611796271273e-15,
+   "covariant_curl_mismatch": 1.1107759169014206e-15,
+   "gamma_series_vs_truth_m": 1.1102230246251565e-15,
+   "filament_nodes": [
+    3072
+   ],
+   "filament_nodes_rel_change": [
+    3.957861151920717e-16
+   ]
+  }
+ },
+ "truth": {
+  "psi0": {
+   "flux_A_Wb": 0.010000000000000002,
+   "flux_B_Wb": 0.0,
+   "iota": -0.10194096296495916,
+   "M": 20,
+   "N": 32
+  },
+  "psi1": {
+   "flux_A_Wb": 0.03,
+   "flux_B_Wb": 0.019999999999999997,
+   "iota": -0.10044122961069402,
+   "M": 32,
+   "N": 32
+  },
+  "psi2": {
+   "flux_A_Wb": 0.049999999999999996,
+   "flux_B_Wb": 0.039999999999999994,
+   "iota": -0.09894451365486756,
+   "M": 32,
+   "N": 32
+  }
+ },
+ "judge": {
+  "nodes": [
+   3072
+  ]
+ },
+ "floors": {
+  "covariant": {
+   "on psi1 truth surface": {
+    "max": 1.787689311551355e-15,
+    "median": 1.1393824435571083e-16,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "on psi2 truth surface": {
+    "max": 5.326739962175453e-16,
+    "median": 2.3701521653738064e-17,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": 1.7754283949703836e-16,
+    "npts": 48
+   },
+   "1 cm outside Gamma": {
+    "max": 1.073012004569964e-12,
+    "median": 1.8845321100142534e-15,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "3 mm outside Gamma": {
+    "max": 0.00025157412909917863,
+    "median": 4.579888029798591e-05,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "far: R = 0.5 m and 3 m, Z = +-1 m": {
+    "max": 0.0,
+    "median": 0.0,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     222,
+     660
+    ],
+    "last_grid_change": 3.986096559169143e-18,
+    "npts": 4
+   },
+   "inside Gamma, 2 cm in": {
+    "max": 2.9397969020221826e-12,
+    "median": 8.377668358176583e-16,
+    "measure": "|B_coils + B_sheet| / |B_coils|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "inside Gamma, on the magnetic axis (the filament)": {
+    "max": 2.0036899278775288e-15,
+    "median": 3.2963707978378033e-16,
+    "measure": "|B_coils + B_sheet| / |B_coils|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "flux of field B inside psi1 (phi = 0)": {
+    "value_Wb": 0.020000000000000028,
+    "expected_Wb": 0.019999999999999997,
+    "rel_err": 1.5612511283791266e-15
+   }
+  },
+  "potential": {
+   "on psi1 truth surface": {
+    "max": 1.8513875846394274e-15,
+    "median": 1.144668810776318e-16,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "on psi2 truth surface": {
+    "max": 5.311536786821652e-16,
+    "median": 2.5636268514940367e-17,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": 1.6709914305603608e-16,
+    "npts": 48
+   },
+   "1 cm outside Gamma": {
+    "max": 1.0731389783080724e-12,
+    "median": 1.760221350588589e-15,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "3 mm outside Gamma": {
+    "max": 0.00025157412909910235,
+    "median": 4.579888029797889e-05,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "far: R = 0.5 m and 3 m, Z = +-1 m": {
+    "max": 0.0,
+    "median": 0.0,
+    "measure": "|B_coils + B_sheet - B_A| / |B_A|",
+    "grid": [
+     222,
+     660
+    ],
+    "last_grid_change": 2.491310349480715e-18,
+    "npts": 4
+   },
+   "inside Gamma, 2 cm in": {
+    "max": 2.939831130053258e-12,
+    "median": 8.892383582134948e-16,
+    "measure": "|B_coils + B_sheet| / |B_coils|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "inside Gamma, on the magnetic axis (the filament)": {
+    "max": 2.0567024304945985e-15,
+    "median": 3.350730597103825e-16,
+    "measure": "|B_coils + B_sheet| / |B_coils|",
+    "grid": [
+     1118,
+     3338
+    ],
+    "last_grid_change": NaN,
+    "npts": 48
+   },
+   "flux of field B inside psi1 (phi = 0)": {
+    "value_Wb": 0.020000000000000035,
+    "expected_Wb": 0.019999999999999997,
+    "rel_err": 1.9081958235744882e-15
+   }
+  },
+  "gamma_bn_in_A": 1.259428375897241e-15,
+  "wall_s": 38.27650785446167
+ }
+}

@@ -452,7 +452,7 @@ def sheet_flux_offset(source, F=None):
     xg, wg = np.polynomial.legendre.leggauss(10)
     sg, wg = 0.5 * (xg + 1), 0.5 * wg
     w0 = min(SHEET_ANNULUS[0] * a, 0.4 / kmax)
-    phis = (np.arange(2) + 0.5) * 2 * np.pi / (2 * nfp)
+    phis = (np.arange(2) + 0.25) * 2 * np.pi / (2 * nfp)      # no two of them stellarator images
     res, bphi_signs = {}, []
     for wk in SHEET_ANNULUS:
         w = w0 * wk / SHEET_ANNULUS[0]

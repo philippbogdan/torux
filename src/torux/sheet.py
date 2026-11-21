@@ -117,6 +117,11 @@ class OffsetBoundary:
         return r.reshape(shp + (3,)), rp.reshape(shp + (3,)), rt.reshape(shp + (3,))
 
 
+def _budget_gone():
+    from . import budget as _budget
+    return _budget.expired()
+
+
 def geometry_resolution(part):
     """The largest m and |n| of the boundary's own series (coefficients above 1e-14 of its scale)."""
     amp = np.abs(part.rmnc) + np.abs(part.zmns)
@@ -130,21 +135,33 @@ def geometry_resolution(part):
 
 def start_torus(cont, eng, S, part, delta, M, N, verbose=False):
     """A torus of the field next to the boundary: the boundary moved out by delta, in the field's straight-field-line
-    angles, solved by Newton at its own flux and raised until its off-grid B.n is below the family's bar.
+    angles, solved by Newton at its own flux and raised until its off-grid B.n is below the family's bar.  Where
+    Newton levels off above its tolerance (the series in straight-field-line angles needs more modes than the
+    boundary's own: VMEC's angle is not one), the guess is made again a ladder step finer, up to three times.
     Returns (torus or None, record)."""
     from .design import sfl_guess_from_surface
-    rec = dict(delta_m=float(delta), M=int(M), N=int(N))
+    from .family import ladder_up
+    rec = dict(delta_m=float(delta), M=int(M), N=int(N), tries=[])
     surf = OffsetBoundary(S, delta)
-    g = sfl_guess_from_surface(surf, eng, M, N, Ml=min(M, 16), Nl=min(N, 16))
+    R00 = float(S.size["R0"])
+    sol = None
+    for step in range(4):
+        g = sfl_guess_from_surface(surf, eng, M, N, Ml=min(M, max(16, M - 4)), Nl=min(N, max(16, N - 4)))
+        f0 = cont.problem(M, N).flux_of(g.rc, g.zs)
+        if not np.isfinite(f0):
+            rec["failed"] = "the moved boundary's flux is not finite (a point inside the sheet)"
+            return None, rec
+        g.flux = f0
+        sol = cont.solve(g, f0, M, N, maxit=25)
+        rec["tries"].append(dict(M=int(M), N=int(N), converged=bool(sol.converged), res=float(sol.res),
+                                 its=int(sol.its), lambda_fit_res=g.info.get("lambda_fit_res"),
+                                 iota=float(sol.iota)))
+        if sol.converged or not (np.isfinite(sol.res) and sol.res < 1e-4 * R00) or _budget_gone():
+            break
+        M, N = ladder_up(M, cap=cont.Mmax), ladder_up(N, cap=cont.Nmax)
+    rec.update(flux_guess=float(f0), converged=bool(sol.converged), res=float(sol.res), its=int(sol.its), M=int(M),
+               N=int(N))
     rec["guess"] = {k: g.info.get(k) for k in ("lambda_fit_res", "lambda_fit_iota", "boundary_bn_max", "flipped")}
-    f0 = cont.problem(M, N).flux_of(g.rc, g.zs)
-    rec["flux_guess"] = float(f0)
-    if not np.isfinite(f0):
-        rec["failed"] = "the moved boundary's flux is not finite (a point inside the sheet)"
-        return None, rec
-    g.flux = f0
-    sol = cont.solve(g, f0, M, N, maxit=25)
-    rec.update(converged=bool(sol.converged), res=float(sol.res), its=int(sol.its))
     if not sol.converged:
         rec["failed"] = "Newton from the moved boundary did not converge"
         return None, rec
@@ -282,8 +299,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     est = (target - abs(psi_in)) / max(abs(float(Bs[1])) * S.size["Lt"], 1e-300)    # rough distance of the request
     tries = []
     T0 = None
-    for frac in (START, 0.5 * START, 2 * START, 4 * START):
-        delta = min(frac * a, 0.4 * est) if flux is not None else frac * a
+    for frac in (START, 0.5 * START, 2 * START, 0.25 * START):
+        delta = min(frac * a, 0.4 * est * frac / START) if flux is not None else frac * a
         if flux is not None and delta < CLEARANCE * a:
             out["status"] = "undetermined"
             out["why"] = (f"the surface asked for lies about {est:.3g} m from the SurfaceCurrent's boundary, nearer than "
