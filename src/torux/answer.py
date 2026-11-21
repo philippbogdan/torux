@@ -951,7 +951,12 @@ def _surface_rows(a, ev, rec):
     if sol.get("bn_off") is not None:
         rows.append(("field across it", f"{_e(sol['bn_off'])} of |B| (the solver's own check)"))
     chk = ind.get("bn_sup", ind.get("bn_max"))
-    if chk is not None:
+    if chk is not None and ev.get("sheet") is not None and ind.get("bn_sup_dd") is not None:
+        # (a source with a current sheet) the double-double tier decided: its reading, and what double read
+        rows.append(("independent check", f"{_e(ind['bn_sup_dd'])} of |B| across it in double-double (double "
+                                          f"precision read {_e(chk)}), and the same flux to within "
+                                          f"{_e(ind.get('flux_rel_err'), 0)}"))
+    elif chk is not None:
         rows.append(("independent check", f"{_e(chk)} of |B| across it, and the same flux to within "
                                           f"{_e(ind.get('flux_rel_err'), 0)}"))
     if ind.get("trace_turns"):
