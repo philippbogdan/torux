@@ -6,7 +6,7 @@ A finite-beta equilibrium's field outside its plasma is the coils' field plus th
 import torux
 
 src = torux.load("examples/vmex_surface_current/current.json")   # coils, and Γ with its current: 0.025 Wb inside
-s = torux.solve(src, flux=0.026)          # the full toroidal flux: 0.025 Wb inside Γ and 0.001 Wb between Γ and the surface
+s = torux.solve(src, flux=0.045)          # the full toroidal flux: 0.025 Wb inside Γ and 0.02 Wb between Γ and the surface
 s = torux.solve(src, largest=True)        # the largest surface torux can verify outside Γ
 print(torux.check(src, "surface.json"))   # a surface from another code, against the same source
 ```

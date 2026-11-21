@@ -425,7 +425,7 @@ Parts: `FourierCurves`, `PolylineCurves`, `Segments`, `Dipoles`, `Rings`, `Axisy
 
 ```python
 src = torux.load("examples/vmex_surface_current/current.json")   # coils, and a plasma's boundary with its current
-s = torux.solve(src, flux=0.026)                                 # the full toroidal flux: 0.025 Wb is inside the boundary
+s = torux.solve(src, flux=0.045)                                 # the full toroidal flux: 0.025 Wb is inside the boundary
 ```
 
 Outside a finite-beta plasma the field is the coils' and that of a current sheet on the plasma's boundary (K = n × B / μ₀, B the total field there): `torux.SurfaceCurrent` holds the boundary, the current and the toroidal flux inside the boundary, and with the coils it is a source whose surfaces outside the boundary torux solves for and verifies as it does in vacuum. A request is the full toroidal flux, more than the flux inside the boundary. The family of surfaces starts next to the boundary, not at an axis, no surface comes nearer the boundary than 10⁻⁵ of its minor radius, and there are no certificates of absence: where torux finds no surface it says why. [The conventions, what is measured near the boundary, and what refuses](surface-current.md).
