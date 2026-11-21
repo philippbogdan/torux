@@ -1,14 +1,15 @@
 [build-system]
-requires = ["setuptools>=68"]
+requires = ["setuptools>=77"]
 build-backend = "setuptools.build_meta"
 
 [project]
 name = "torux"
-version = "0.3.0"
-description = "Vacuum magnetic field and flux surfaces of coils and magnets for toroidal confinement, at the limit of double-precision arithmetic."
+version = "0.4.0"
+description = "Verified vacuum flux surfaces and exterior magnetic fields from coils and supplied plasma currents."
 readme = "README.md"
 requires-python = ">=3.12"
-license = { text = "CC0-1.0" }
+license = "CC0-1.0"
+license-files = ["LICENSE", "NOTICE.md"]
 authors = [{ name = "Philipp Bogdan" }]
 keywords = ["stellarator", "plasma physics", "magnetic confinement", "flux surfaces", "fusion"]
 dependencies = [

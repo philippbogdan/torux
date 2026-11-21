@@ -133,7 +133,7 @@ def opts(names):
 def _host_plain(engine):
     """True for a FieldEngine on the host CPU path whose B evaluate sums numba kernels only (no card, no JAX kinds)."""
     from .field.engine import FieldEngine
-    if type(engine) is not FieldEngine or not getattr(engine, "cpu_kernels", False):
+    if type(engine) is not FieldEngine or not getattr(engine, "cpu_kernels", False) or engine.sheets:
         return False
     from . import fast_family as _so2
     if _so2.on("cudafil"):

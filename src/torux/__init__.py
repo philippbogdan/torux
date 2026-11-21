@@ -1,4 +1,4 @@
-"""torux: the vacuum magnetic field and flux surfaces of any external source for toroidal confinement.
+"""torux: vacuum flux surfaces and exterior fields from supplied plasma currents.
 
     import torux
 
@@ -33,7 +33,7 @@ Environment:
 """
 import os as _os
 
-__version__ = "0.3.0"
+__version__ = "0.4.0"
 
 
 def _threads():
@@ -102,7 +102,7 @@ except Exception:  # noqa: BLE001
     pass
 
 from .source import (AxisymPolygons, Dipoles, FourierCurves, PolylineCurves, Rings, Segments,  # noqa: E402
-                     Source, ToroidalField)
+                     Source, SurfaceCurrent, ToroidalField)
 from .sources import load  # noqa: E402
 from .api import Request, Result  # noqa: E402
 from .answer import Answer, solve  # noqa: E402
@@ -112,6 +112,7 @@ from .poincare_section import Poincare, poincare  # noqa: E402
 
 __all__ = ["solve", "load", "check", "many", "poincare", "Answer", "Check", "Poincare", "Request", "Result", "Source",
            "FourierCurves", "PolylineCurves", "Segments", "Dipoles", "Rings", "AxisymPolygons", "ToroidalField",
+           "SurfaceCurrent",
            "__version__"]
 
 

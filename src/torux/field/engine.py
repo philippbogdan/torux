@@ -519,7 +519,8 @@ class FieldEngine:
 
     def __init__(self, source: Source, dmin: float = 0.05, eps: float = 1e-17, node_multiple=None,
                  axipoly_order: int = 8, target_chunk: int = 4096, region_pts=None, region_margin=0.5, strip=0.8,
-                 region_h=0.0, axipoly_kappa=0.5, nodes_per_coil=None, nodes_np=False):
+                 region_h=0.0, axipoly_kappa=0.5, nodes_per_coil=None, nodes_np=False, sheet_order=10,
+                 sheet_samples=256):
         """region_pts: optional points (k, 3) of the region where the field will be needed (e.g. a design
         surface); each Fourier coil then gets the nodes its own distance to that region needs (times
         region_margin, the share of that distance targets may approach), never fewer than for dmin.
@@ -528,7 +529,8 @@ class FieldEngine:
         nodes_per_coil: optional node counts of the Fourier coils (those with nonzero current, in source
         order) replacing the strip model's (measured_nodes; still >= 4 order + 8, rounded to node_multiple).
         nodes_np: those coils' nodes built by fourier_nodes_np (numpy; JAX's op-by-op fourier_nodes compiles
-        once per new node count, seconds for a coil set whose counts are all new)."""
+        once per new node count, seconds for a coil set whose counts are all new).
+        sheet_order and sheet_samples refine the Gaussian rule and the spectral source grid for SurfaceCurrent."""
         self.source = source
         self.dmin = float(dmin)
         from .. import fast_design as _so
@@ -539,6 +541,7 @@ class FieldEngine:
             node_multiple = 8 if cpu_kernels_wanted() else 64
         self.region_pts = None if region_pts is None else np.asarray(region_pts, float)
         self.target_chunk = target_chunk
+        self.sheets = []
         rs, ws, whs, Ns = [], [], [], []
         seg_a, seg_b, seg_w = [], [], []
         dip_p, dip_m = [], []
@@ -610,6 +613,9 @@ class FieldEngine:
                     ring_w.append(MU0_4PI * p.current[i] * wts / area)
             elif p.kind == "toroidal":
                 self.RB += p.RB
+            elif p.kind == "surface_current":
+                from .surface_current import SheetField
+                self.sheets.append(SheetField(p, sheet_order, sheet_samples))
             else:
                 raise ValueError(f"unknown part kind {p.kind}")
         cat = lambda L, shape: np.concatenate(L) if L else np.zeros(shape)
@@ -665,7 +671,35 @@ class FieldEngine:
 
         Targets are processed in chunks of ``target_chunk`` points (the last chunk padded), so
         the compiled program depends on the chunk size only.  Concrete points on a CPU go to the
-        numba kernels (torux.field.cpu); traced points (inside jit / autodiff) to the JAX kernels."""
+        numba kernels (torux.field.cpu); traced points (inside jit / autodiff) to the JAX kernels.
+        SurfaceCurrent works with concrete exterior points. Refine sheet_order and sheet_samples
+        to assess its error; the filament err_half rule does not measure sheet convergence."""
+        if getattr(self, "sheets", None):
+            if params is not None or err or isinstance(x, jax.core.Tracer):
+                raise ValueError("SurfaceCurrent requires concrete points, fixed source parameters and err=False")
+            points = np.asarray(x, dtype=np.float64)
+            if points.shape == (3,):
+                points = points[None, :]
+            if points.ndim != 2 or points.shape[1] != 3:
+                raise ValueError("SurfaceCurrent targets must be Cartesian points of shape (3,) or (n, 3)")
+            points = np.ascontiguousarray(points)
+            if not np.isfinite(points).all():
+                raise ValueError("SurfaceCurrent targets must be finite")
+            if not len(points):
+                return dict(B=jnp.empty((0, 3)), A=jnp.empty((0, 3)), G=jnp.empty((0, 3, 3)))
+            sheet = np.zeros((len(points), 15))
+            for part in self.sheets:
+                sheet += part.evaluate(points, grad, A)
+            res = self._evaluate_regular(points, grad, A, False, chunk, None)
+            res["B"] += jnp.asarray(sheet[:, :3])
+            if A:
+                res["A"] += jnp.asarray(sheet[:, 3:6])
+            if grad:
+                res["G"] += jnp.asarray(sheet[:, 6:15].reshape(-1, 3, 3))
+            return res
+        return self._evaluate_regular(x, grad, A, err, chunk, params)
+
+    def _evaluate_regular(self, x, grad, A, err, chunk, params):
         if getattr(self, "cpu_kernels", False) and params is None:
             try:
                 xn = np.asarray(x, dtype=np.float64)

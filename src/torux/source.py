@@ -27,6 +27,8 @@ A Source is the superposition of its parts.  Part kinds:
                    carrying total toroidal current I[j] (along +phi) uniformly
                    distributed over the cross-section area.
   ToroidalField    analytic 1/R toroidal field B_phi = RB / R (RB in T m).
+  SurfaceCurrent  equivalent current on a closed toroidal RZ Fourier boundary,
+                  evaluated on its exterior side.
 
 Symmetry: ``nfp`` (discrete rotation by 2 pi / nfp about z) and ``stellsym``
 (rotation by pi about the x axis) are *claims checked by the loader* on the
@@ -187,7 +189,66 @@ class ToroidalField:
         return 1
 
 
-PART_TYPES = {c.kind: c for c in (FourierCurves, PolylineCurves, Segments, Dipoles, Rings, AxisymPolygons)}
+@dataclass
+class SurfaceCurrent:
+    """A toroidal boundary with equivalent surface current, in SI units.
+
+    All Fourier coefficients share (m, n) modes with phase m*theta - n*nfp*phi.
+    A fixed-phi cut must be simple and counterclockwise in (R, Z) as theta
+    increases. The outward normal is proportional to r_phi × r_theta.
+
+    K = n × grad_s kappa, with kappa in amperes and secular terms
+    I*theta/(2*pi) + G*phi/(2*pi). Alternatively, give `covariant` with
+    shape (2, 2, len(modes)): [theta, phi] components, each [cos, sin].
+    To represent n × B_total / mu0, these coefficients are those of
+    (B_total · r_theta, B_total · r_phi) / mu0, using angles in radians.
+    This preserves both components, including any non-gradient contribution.
+    """
+
+    nfp: int
+    modes: np.ndarray
+    rmnc: np.ndarray
+    zmns: np.ndarray
+    kappac: Optional[np.ndarray] = None
+    kappas: Optional[np.ndarray] = None
+    G: float = 0.0
+    I: float = 0.0
+    rmns: Optional[np.ndarray] = None
+    zmnc: Optional[np.ndarray] = None
+    covariant: Optional[np.ndarray] = None
+    kind: str = "surface_current"
+
+    def __post_init__(self):
+        if not np.isfinite(self.nfp) or int(self.nfp) != self.nfp or self.nfp < 1:
+            raise ValueError("SurfaceCurrent nfp must be a positive integer")
+        self.nfp = int(self.nfp)
+        modes = np.asarray(self.modes, dtype=np.float64)
+        if (modes.ndim != 2 or modes.shape[1] != 2 or not len(modes)
+                or not np.all(np.isfinite(modes)) or np.any(modes != np.rint(modes))):
+            raise ValueError("SurfaceCurrent modes must be a nonempty array of integer (m, n) pairs")
+        self.modes = np.ascontiguousarray(modes, dtype=np.int64)
+        self.G, self.I = float(self.G), float(self.I)
+        if not np.isfinite([self.G, self.I]).all():
+            raise ValueError("SurfaceCurrent G and I must be finite")
+        if self.covariant is not None and (self.kappac is not None or self.kappas is not None or self.G or self.I):
+            raise ValueError("give covariant current or a current potential with G and I")
+        for key in ("rmnc", "rmns", "zmnc", "zmns", "kappac", "kappas", "covariant"):
+            value = getattr(self, key)
+            if value is None and key not in ("rmnc", "zmns"):
+                continue
+            coef = np.ascontiguousarray(value, dtype=np.float64)
+            shape = (2, 2, len(modes)) if key == "covariant" else (len(modes),)
+            if coef.shape != shape or not np.isfinite(coef).all():
+                raise ValueError(f"SurfaceCurrent {key} must have shape {shape} and finite coefficients")
+            setattr(self, key, coef)
+
+    @property
+    def n(self):
+        return 1
+
+
+PART_TYPES = {c.kind: c for c in (FourierCurves, PolylineCurves, Segments, Dipoles, Rings, AxisymPolygons,
+                                SurfaceCurrent)}
 PART_TYPES["toroidal"] = ToroidalField
 
 
@@ -249,6 +310,10 @@ class Source:
         return {"id": self.id, "nfp": self.nfp, "stellsym": self.stellsym, "family": self.family,
                 "parts": [(p.kind, p.n) for p in self.parts],
                 "request": self.request}
+
+    @property
+    def has_surface_current(self):
+        return any(p.kind == "surface_current" for p in self.parts)
 
     # ---------------------------------------------------------------- symmetry
     def sample_points(self):

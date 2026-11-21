@@ -94,6 +94,8 @@ class Poincare:
     left     (L,) bool: the line left the machine before it was followed the whole way
     left_at  (L, 3): R, phi, Z where it left, phi counted on along the line from the first plane, so that
              phi / (2 pi) is the turns it made first.  NaN for a line that stayed
+    stop_reason  SurfaceCurrent traces carry a tuple of reasons for stopping early, with None on completion.
+                 For these traces, left_at is the last accepted exterior state.
     iota     (L,): the line's rotational transform about the magnetic axis, torux's sign, rounded to the decimals it
              has settled to. NaN where it has none
     axis     (P, 2): R, Z of the magnetic axis in each plane, or None where torux found none
@@ -136,6 +138,7 @@ class Poincare:
     def __str__(self):
         L = len(self.start)
         ok = np.isfinite(self.iota)
+        exterior = hasattr(self, "stop_reason")
         rows = [("Poincaré section", f"{L} field line{'s' if L != 1 else ''} of {self.source_id} through "
                                      f"{len(self.planes)} plane{'s' if len(self.planes) != 1 else ''} at phi = "
                                      + ", ".join(_deg(p) for p in self.planes)),
@@ -146,7 +149,7 @@ class Poincare:
                                 if (more := int(np.sum(self.followed > self.periods))) else "")),
                 ("with an iota", f"{int(ok.sum())}, from {np.nanmin(self.iota):.6g} to {np.nanmax(self.iota):.6g}"
                                  if ok.any() else "none"),
-                ("left the machine", f"{int(self.left.sum())}")]
+                ("stopped early" if exterior else "left the machine", f"{int(self.left.sum())}")]
         n_open = int(np.sum(getattr(self, "open", ())))
         if n_open:
             rows.append(("curves not closed", f"{n_open}, drawn in grey: their crossings still leave gaps along their "
@@ -160,12 +163,28 @@ class Poincare:
 
     def lines_table(self):
         """One row a line: where it starts, its rotational transform, or when it left."""
-        head = f"{'line':>4}  {'R (m)':>12}  {'Z (m)':>12}  rotational transform"
+        reasons = getattr(self, "stop_reason", None)
+        last = "trace" if reasons is not None else "rotational transform"
+        head = f"{'line':>4}  {'R (m)':>12}  {'Z (m)':>12}  {last}"
         rows = [head]
         period = 2 * np.pi / self.nfp
         is_open = getattr(self, "open", np.zeros(len(self.start), bool))
         for i, (st, io) in enumerate(zip(self.start, self.iota)):
-            if self.left[i]:
+            if reasons is not None:
+                if reasons[i] is None:
+                    what = f"completed {self.followed[i]} field periods"
+                else:
+                    advance = self.left_at[i, 1] / (2 * np.pi)
+                    reason = {
+                        "boundary": "exterior boundary cutoff",
+                        "quadrature_limit": "sheet quadrature limit",
+                        "toroidal_direction": "toroidal direction lost",
+                        "coordinates": "invalid cylindrical coordinates",
+                        "undefined_field": "undefined field",
+                        "integration_limit": "integration step limit",
+                    }[reasons[i]]
+                    what = f"stopped after {advance:.4g} turns ({reason})"
+            elif self.left[i]:
                 what = f"left after {self.left_at[i, 1] / (2 * np.pi):.4g} turns"
             elif np.isfinite(io):
                 what = f"{io:.{_decimals(self._spread[i], period)}f}"
@@ -188,6 +207,9 @@ def poincare(source, *, planes=None, lines=None, turns=None, starts=None):
              the island chains it finds and two beyond the edge
     turns    toroidal turns each line is followed (default: 600 field periods)
     starts   (n, 2): R, Z in m where lines start in the first plane, instead of torux's choice
+
+    A SurfaceCurrent source requires explicit starts. Its lines stop at the
+    limit of the exterior field, and no axis-based transform is estimated.
     """
     from .api import Result
     from .source import Source
@@ -230,6 +252,13 @@ def _poincare(src, answer, planes, lines, turns, starts):
         starts = np.asarray(starts, float).reshape(-1, 2) if np.size(starts) else np.zeros((0, 2))
         if not len(starts) or not np.all(np.isfinite(starts)) or np.any(starts[:, 0] <= 0):
             raise ValueError("starts= takes (R, Z) pairs in metres with R > 0, at least one")
+    if src.has_surface_current:
+        if starts is None:
+            raise ValueError("poincare with SurfaceCurrent requires exterior starts=(R, Z) pairs")
+        if any(p.nfp % nfp for p in src.parts if p.kind == "surface_current"):
+            raise ValueError("the source field period must be a period of every SurfaceCurrent")
+        from .surface_trace import exterior_section
+        return exterior_section(_engine(src, None), planes, starts, nper, nfp, t_start)
     phi0 = planes[0]
     rel = np.mod(planes - phi0, period)
     order = np.argsort(rel)

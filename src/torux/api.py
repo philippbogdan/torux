@@ -141,6 +141,8 @@ def solve(source, flux=None, *, budget_s=None, tol=3e-15, verify=True, trace_lin
                                                              gradients)
     t0 = time.time()
     src, surfs = _resolve_source(req.source)
+    if getattr(src, "has_surface_current", False):
+        raise ValueError("SurfaceCurrent supports exterior field evaluation and poincare(starts=...), not solve")
     flux = req.flux
     if flux is None and src.request:
         flux = src.request.get("flux_Wb")

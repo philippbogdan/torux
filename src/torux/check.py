@@ -116,6 +116,8 @@ def check(source, surface, flux=None, *, which=None, surface_currents=None, mism
                          f"when the file was saved) or 'dofs' (the value SIMSOPT reads back from its degrees of "
                          f"freedom)")
     src = _source(source)
+    if getattr(src, "has_surface_current", False):
+        raise ValueError("the independent vacuum verifier requires a source without SurfaceCurrent")
     S = read_surface(surface, which)
     rng = np.random.default_rng(SEED)
     theta = 2 * np.pi * rng.random(NPTS)

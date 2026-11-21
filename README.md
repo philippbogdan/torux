@@ -14,7 +14,7 @@
 
 <h1 align="center">Arithmetic limit, extremely fast. Any coil works.</h1>
 
-<p align="center"><sub>(The aspiration. torux is in development, and vacuum only for now: no finite pressure.)</sub></p>
+<p align="center"><sub>Vacuum flux-surface verification and exterior tracing from supplied plasma currents.</sub></p>
 
 <p align="center"><a href="method/README.md"><b>The method</b></a> · <a href="docs/usage.md">Usage</a> · <a href="docs/verification.md">What is checked</a> · <a href="results/README.md">Results</a></p>
 
@@ -133,6 +133,8 @@ torux.many(files, table="answers.csv")        # a folder of designs, one row eac
 </p>
 
 Nothing to tune: torux asks for no resolution, no tolerance and no starting guess. More time (`budget_s`) can settle more. The coils are a file (SIMSOPT and QUASR JSON, MAKEGRID, FOCUS, permanent magnets, wireframes, a tokamak's coils), a QUASR design by its number, or a SIMSOPT or DESC object you already hold. [Usage](docs/usage.md) and [formats](docs/formats.md). [The method](method/README.md) and [what is checked, and by what](docs/verification.md).
+
+For a supplied finite-beta equilibrium, `SurfaceCurrent` adds its virtual-casing field to the coils for exterior field evaluation and explicitly seeded Poincaré sections. [Try the public VMEX case and compare your own field probes](https://github.com/philippbogdan/torux/blob/main/docs/surface-current.md). [Release notes](docs/release-notes-0.4.0.md).
 
 ## Credit
 

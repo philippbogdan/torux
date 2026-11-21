@@ -1,0 +1,4 @@
+include NOTICE.md
+include docs/release-notes-0.4.0.md docs/surface-current.md
+include examples/surface_current/compare.py
+recursive-include examples/vmex_surface_current *.json *.py LICENSE-VMEX

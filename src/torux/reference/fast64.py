@@ -677,6 +677,8 @@ class Field:
 
     def __init__(self, source, Lc=5):
         parts = _parts_of(source)
+        if any(p.kind == "surface_current" for p in parts):
+            raise ValueError("the independent vacuum verifier does not support SurfaceCurrent")
         fc = [p for p in parts if p.kind == "fourier"]
         seg = [p for p in parts if p.kind == "segments"] + [p.as_segments() for p in parts if p.kind == "polyline"]
         dip = [p for p in parts if p.kind == "dipoles"]

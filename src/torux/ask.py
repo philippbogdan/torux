@@ -91,8 +91,8 @@ def solve(source, flux=None, *, minor_radius=None, volume=None, largest=False, b
         return _request(source, flux, budget_s, opts)
     for k, v in (("minor_radius", minor_radius), ("volume", volume)):
         if v is not None:
-            return _size_search(_source(source), k, float(v), budget_s, opts)
-    src = _source(source)
+            return _size_search(_vacuum_source(source), k, float(v), budget_s, opts)
+    src = _vacuum_source(source)
     own = (src.request or {}).get("flux_Wb")
     if largest or not own:
         return _largest(src, budget_s, opts, widths)
@@ -145,6 +145,13 @@ def _source(source):
         from .sources import load
         return load(source)
     return source
+
+
+def _vacuum_source(source):
+    src = _source(source)
+    if getattr(src, "has_surface_current", False):
+        raise ValueError("SurfaceCurrent supports exterior field evaluation and poincare(starts=...), not solve")
+    return src
 
 
 # --------------------------------------------------------------------------- what a search says as it goes

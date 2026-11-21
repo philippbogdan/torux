@@ -484,6 +484,8 @@ def _plain(engine):
     from . import fast_family
     if type(engine) is not FieldEngine or not getattr(engine, "cpu_kernels", False) or fast_family.on("cudafil"):
         return False
+    if engine.sheets:
+        return False
     rest = tuple(getattr(engine, "_rest_kinds", ()) or ())
     if any(rest[:4]) or getattr(engine, "analytic", None) or getattr(engine, "_np", None) is None:
         return False

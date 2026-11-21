@@ -330,7 +330,7 @@ def _poincare_args(sub):
                        description="Field lines of the source's own field, traced through planes of constant toroidal "
                                    "angle: where each line starts, its rotational transform and whether it left the "
                                    "machine. With FILE, the picture. torux chooses where lines start, how many and "
-                                   "how far they go, unless told.")
+                                   "how far they go, unless told. A SurfaceCurrent source requires --start.")
     s.add_argument("files", nargs="+", metavar="SOURCE",
                    help="a coil or magnet file, or quasr:NUMBER (several files whose parts add up are one source), "
                         "then optionally FILE: the picture, .png, .pdf or .svg")

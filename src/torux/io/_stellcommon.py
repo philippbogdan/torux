@@ -411,6 +411,20 @@ def coefficient_symmetry(part, nfp, stellsym, tol=1e-12):
 def apply_verified_symmetry(src, nfp_candidates, stellsym_claim=True, tol=1e-9, fast=True):
     """Set src.nfp / src.stellsym to the verified values and record the evidence in meta."""
     cands = [int(c) for c in nfp_candidates if c]
+    if src.has_surface_current:
+        from math import gcd
+        sheet_periods = gcd(*(p.nfp for p in src.parts if p.kind == "surface_current"))
+        cands = [gcd(c, sheet_periods) for c in cands] or [1]
+        # The sheet periods follow from their Fourier representation. Only the
+        # remaining parts need probing, so these probes can lie inside a sheet.
+        coils = [p for p in src.parts if p.kind not in ("surface_current", "toroidal", "axipoly")]
+        if coils and max(cands) > 1:
+            nfp, _, rec = verify_symmetry(coils, cands, False, tol=tol)
+        else:
+            nfp, rec = max(cands), {}
+        src.nfp, src.stellsym = int(nfp), False
+        src.meta["symmetry_check"] = dict(rec, nfp=src.nfp, stellsym=False, sheet_periods=sheet_periods)
+        return src
     if fast and len(src.parts) == 1 and src.parts[0].kind == "fourier" and cands:
         c = max(cands)
         if coefficient_symmetry(src.parts[0], c, stellsym_claim):
