@@ -48,7 +48,7 @@ MAX_DEPTH = 26         # levels of subdivision below the root panels
 CACHE = 2              # kept levels below the root (as far as CACHE_BYTES allows)
 CACHE_BYTES = 96 * 1024 ** 2
 RESOLVE = 1e-17        # each mode resolved by the root panels' rule to this fraction of its quantity's scale
-ASPECT = 4.0           # root panels at most this many times longer one way than the other
+ASPECT = 2.0           # root panels at most this many times longer one way than the other (4 loses a decade)
 
 
 class SurfaceCurrentDomainError(ValueError):
