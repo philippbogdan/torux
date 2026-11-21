@@ -125,11 +125,19 @@ def _resolve_source(src):
 
 def estimate_budget(source, flux=None):
     """A stated budget (s) from the source's size: the field-evaluation work of the refinement at a typical
-    final resolution times a safety factor; a minimum of 300 s and, without a request (the range), twice that."""
+    final resolution times a safety factor; a minimum of 300 s and, without a request (the range), twice that.
+    A source with a SurfaceCurrent: 900 s and a quarter of a second per mode of the sheet (its start tori next to
+    the boundary take minutes each on the public VMEX case), twice that for the range."""
     n_el = 0
+    modes = 0
     for p in source.parts:
+        if p.kind == "surface_current":
+            modes += len(p.modes)
+            continue
         n_el += getattr(p, "n", 1) * (2 * getattr(p, "order", 0) + 1 if p.kind == "fourier" else 1)
     base = 300.0 + 0.05 * n_el
+    if modes:
+        base = max(base, 900.0 + 0.25 * modes)
     return float(base if flux is not None else 2 * base)
 
 

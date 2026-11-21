@@ -36,9 +36,14 @@ Everything else. A torus that does not pass the acceptance, a certificate with o
 
 A source with a `SurfaceCurrent` ([outside a plasma](surface-current.md)) is held to the same three measurements and the same acceptance, about the field outside the sheet's boundary Γ: coils and sheet. The independent evaluator takes the sheet with a quadrature of its own (graded rules about the boundary's nearest points, positions near the target formed as offsets from the nearest one, `torux.reference.sheet` and `sheet_dd`), sharing no code with the solver's panels (`tests/test_independence.py` checks that no run of three significant lines repeats between them), and measures the flux inside Γ itself, from its own field and its own geometry of Γ. Inside Γ the source's field is not the plasma's, so nothing there is used: the solver accepts no torus that comes within 10⁻⁵ of Γ's minor radius of Γ, or whose sections do not go once round Γ's, or where the sheet's field moves by more than 2 × 10⁻¹⁵ of |B| under a refined quadrature. There are no certificates for such a source: their theorems are about tori with no current inside, and a plasma's boundary has current inside.
 
-SHEETRESULTS
+Held to exact cases, in which the field outside Γ is known without torux:
 
-What the measurements say is about the field of the coils and the sheet as given. Whether the sheet is the plasma's current, and Γ a flux surface of the field outside it, is the equilibrium's: the flux of the source's own field through Γ's sections, zero for an exact virtual-casing current, says how far it is, and every answer reports it.
+- QUASR 954's coils, Γ one of their verified surfaces (0.01 Wb) and on it the sheet that cancels their field outside it: `torux.solve` at 0.03 and 0.05 Wb returns the coils' own verified surfaces there to 6.7 and 7.6 × 10⁻¹⁵ m, their rotational transform to 1.5 and 1.8 × 10⁻¹⁶; the solver's check reads 1.0 and 1.3 × 10⁻¹⁵, the independent evaluator 1.0 and 1.1 × 10⁻¹⁵, the flux agrees to 8 × 10⁻¹⁵. The sheet written as a potential instead gives the 0.03 Wb surface to 6.9 × 10⁻¹⁵ m (`tests/test_sheet_truth.py`, slow).
+RINGRESULT
+
+Next to Γ the solver's field is within 4.6 × 10⁻¹⁶ of |B| of the independent evaluator's double-double tier down to 10⁻⁵ of Γ's minor radius ([how close to Γ](surface-current.md#how-close-to-γ)).
+
+What the measurements say is about the field of the coils and the sheet as given. Whether the sheet is the plasma's current, and Γ a flux surface of the field outside it, is the equilibrium's: every answer reports how far the field crosses Γ (`evidence['sheet']['boundary_bn_max']`), and the flux of the source's own field through Γ's sections, zero for an exact virtual-casing current.
 
 ## What the interface adds
 
