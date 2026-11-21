@@ -142,10 +142,10 @@ def one_question(flux=None, minor_radius=None, volume=None, largest=False):
                              f"{'metres' if k == 'minor_radius' else 'cubic metres'}")
 
 
-def _from(src):
-    """Where a family of surfaces starts: the magnetic axis, or for a source with a current sheet its boundary."""
-    return "from the SurfaceCurrent's boundary" if getattr(src, "has_surface_current", False) else \
-        "from the magnetic axis"
+def _from(src, axis="from the axis"):
+    """Where a family of surfaces starts: the magnetic axis (in each sentence's own words, as before sheets), or
+    for a source with a current sheet its boundary."""
+    return "from the SurfaceCurrent's boundary" if getattr(src, "has_surface_current", False) else axis
 
 
 def _source(source):
@@ -758,8 +758,9 @@ def _without_request(src):
 def _size_from_axis(S, src):
     """For a size with no surface verified at four fluxes: the no-flux request (the family from the magnetic axis)
     and its verified lower bound asked directly. The last Result (a terminal one ends the search), or None."""
-    rng = S.ask(None, f"no flux: the family of surfaces {_from(src)} outward, after four fluxes with no surface "
-                      f"verified", budget=min(S.default_budget(None), 0.4 * S.left()), src=_without_request(src))
+    rng = S.ask(None, f"no flux: the family of surfaces {_from(src, 'from the magnetic axis')} outward, after four "
+                      f"fluxes with no surface verified", budget=min(S.default_budget(None), 0.4 * S.left()),
+                src=_without_request(src))
     if rng is None or _terminal(rng):
         return rng
     f_r = ((rng.record or {}).get("range") or {}).get("verified_lower_bound")
@@ -964,7 +965,7 @@ def _largest(src, budget_s, opts, widths=None):
     try:
         if own:
             probe(abs(float(own)), "the source's own request")
-        rng = S.ask(None, f"no flux: the family of surfaces {_from(src)} outward",
+        rng = S.ask(None, f"no flux: the family of surfaces {_from(src, 'from the magnetic axis')} outward",
                     budget=min(S.default_budget(None), 0.4 * S.left()), src=free)
         if rng is None:
             raise _OutOfTime

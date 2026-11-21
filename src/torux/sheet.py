@@ -122,6 +122,34 @@ def _budget_gone():
     return _budget.expired()
 
 
+def boundary_leak(eng, S, part, nth=48, nph=16):
+    """|B.n| / |B| just outside the boundary (1e-5 of its minor radius out, along its normals), on a grid of one field
+    period: how far the boundary is from a flux surface of the field outside it (zero for an exact equilibrium
+    boundary whose sheet and coils match it).  Returns (max, median)."""
+    th = 2 * np.pi * np.arange(nth) / nth
+    ph = 2 * np.pi * (np.arange(nph) + 0.5) / (nph * part.nfp)
+    TH, PH = (v.ravel() for v in np.meshgrid(th, ph, indexing="ij"))
+    m, n = part.modes[:, 0].astype(float), part.modes[:, 1].astype(float) * part.nfp
+    ang = np.outer(TH, m) - np.outer(PH, n)
+    c, s = np.cos(ang), np.sin(ang)
+    z0 = np.zeros(len(m))
+    rs = z0 if part.rmns is None else part.rmns
+    zc = z0 if part.zmnc is None else part.zmnc
+    R, Z = c @ part.rmnc + s @ rs, s @ part.zmns + c @ zc
+    Rt, Zt = (-s * m) @ part.rmnc + (c * m) @ rs, (c * m) @ part.zmns + (-s * m) @ zc
+    Rp, Zp = (s * n) @ part.rmnc - (c * n) @ rs, (-c * n) @ part.zmns + (s * n) @ zc
+    cp, sp = np.cos(PH), np.sin(PH)
+    rt = np.stack([Rt * cp, Rt * sp, Zt], -1)
+    rp = np.stack([Rp * cp - R * sp, Rp * sp + R * cp, Zp], -1)
+    nn = np.cross(rp, rt)
+    nn /= np.linalg.norm(nn, axis=1)[:, None]
+    x = np.stack([R * cp, R * sp, Z], -1) + 1e-5 * S.size["minor_radius"] * nn
+    B = np.asarray(eng.evaluate(x, grad=False, A=False)["B"])
+    bn = np.abs(np.sum(B * nn, -1)) / np.linalg.norm(B, axis=-1)
+    bn = bn[np.isfinite(bn)]
+    return (float(np.max(bn)), float(np.median(bn))) if len(bn) else (np.nan, np.nan)
+
+
 def geometry_resolution(part):
     """The largest m and |n| of the boundary's own series (coefficients above 1e-14 of its scale)."""
     amp = np.abs(part.rmnc) + np.abs(part.zmns)
@@ -274,6 +302,8 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     out["sheet"] = dict(flux_inside_Wb=psi_in, own_flux_Wb=bf["flux"], own_flux_spread_Wb=bf["spread"],
                         own_flux_check_Wb=bf["check"], minor_radius_m=a, clearance_m=CLEARANCE * a,
                         panels=[int(S.ntheta), int(S.nphi)], modes=[int(S.M), int(S.N)])
+    leak = boundary_leak(eng, S, part)
+    out["sheet"]["boundary_bn_max"], out["sheet"]["boundary_bn_median"] = leak
     out["timings"]["boundary"] = time.time() - t0
     nfp = int(source.nfp)
     Mg, Ng = geometry_resolution(part)
@@ -299,8 +329,10 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     est = (target - abs(psi_in)) / max(abs(float(Bs[1])) * S.size["Lt"], 1e-300)    # rough distance of the request
     tries = []
     T0 = None
-    for frac in (START, 0.5 * START, 2 * START, 0.25 * START):
+    for frac in (START, 0.5 * START, 2.5 * START, 5 * START, 10 * START):
         delta = min(frac * a, 0.4 * est * frac / START) if flux is not None else frac * a
+        if flux is not None and frac > START and delta >= 0.8 * est:
+            break                     # the request's own surface is no nearer the boundary than this
         if flux is not None and delta < CLEARANCE * a:
             out["status"] = "undetermined"
             out["why"] = (f"the surface asked for lies about {est:.3g} m from the SurfaceCurrent's boundary, nearer than "
@@ -320,7 +352,14 @@ def _analyse(source, flux, dmin, tol, verbose, max_jumps, Mmax, Nmax, budget_s, 
     out["timings"]["start"] = time.time() - t0
     if T0 is None:
         out["status"] = "undetermined"
-        out["why"] = "no torus next to the SurfaceCurrent's boundary converged, so no family could start from it"
+        reach = [r["delta_m"] / a for r in tries]
+        out["why"] = (f"no torus next to the SurfaceCurrent's boundary converged (started {min(reach):.3g} to "
+                      f"{max(reach):.3g} of its minor radius out), so no family could start from it" if reach else
+                      "no torus next to the SurfaceCurrent's boundary was tried within the budget")
+        if np.isfinite(leak[0]) and leak[0] > 1e-6:
+            out["why"] += (f": the field crosses the boundary by up to {leak[0]:.2g} of |B| just outside it (median "
+                           f"{leak[1]:.2g}), so the boundary is not a flux surface of the coils and the sheet at that "
+                           f"level")
         return
     fam_deadline = deadline
     if flux is not None and deadline is not None:

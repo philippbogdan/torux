@@ -1508,26 +1508,61 @@ ANNULUS = (0.1, 0.05)         # the boundary's own flux through annuli this wide
 
 
 def interior_curve(S, nphi=64):
-    """A closed curve inside every section of the boundary: the m = 0 part of the series, (R_c, Z_c)(phi) as complex
-    coefficients (cR, cZ) of exp(-i n nfp phi), or None where it leaves a section.  The flux tube of the source's
-    vector potential (FieldEngine) lies on it."""
+    """A closed curve inside every section of the boundary: (R_c, Z_c)(phi) as complex coefficients (cR, cZ) of
+    exp(-i n nfp phi), or None where none is found.  First the m = 0 part of the series; where that leaves a section,
+    the sections' area centroids, then their innermost points (farthest from the section), each fitted in phi and
+    checked inside every section at four times the samples.  The flux tube of the source's vector potential
+    (FieldEngine.flux_tube) lies on it."""
     N = S.N
-    cR = S.CN[0, 0].copy()
-    cZ = S.CN[2, 0].copy()
-    ph = TAU * np.arange(nphi) / (nphi * S.nfp)
-    E = np.exp(1j * np.outer(ph, S.nv))
-    Rc, Zc = (E @ cR).real, (E @ cZ).real
     nt = max(8 * (S.M + 1), 256)
     th = TAU * np.arange(nt) / nt
+
+    def inside(cR, cZ, k):
+        ph = TAU * np.arange(k) / (k * S.nfp)
+        E = np.exp(1j * np.outer(ph, S.nv))
+        Rc, Zc = (E @ cR).real, (E @ cZ).real
+        V = grid_values(S.CN, S.mv, S.nv, th, ph)
+        a = np.arctan2(V[3] - Zc[None, :], V[0] - Rc[None, :])
+        ang = np.unwrap(np.concatenate([a, a[:1]]), axis=0)
+        return bool(np.all(np.abs((ang[-1] - ang[0]) / TAU - 1) < 1e-6))
+
+    cR, cZ = S.CN[0, 0].copy(), S.CN[2, 0].copy()
+    if inside(cR, cZ, nphi):
+        return cR, cZ
+    ph = TAU * np.arange(nphi) / (nphi * S.nfp)
     V = grid_values(S.CN, S.mv, S.nv, th, ph)
     R, Z = V[0], V[3]
-    # winding number of each section about the curve's point
-    a = np.arctan2(Z - Zc[None, :], R - Rc[None, :])
-    ang = np.unwrap(np.concatenate([a, a[:1]]), axis=0)
-    turns = (ang[-1] - ang[0]) / TAU
-    if np.any(np.abs(turns - 1) > 1e-6):
-        return None
-    return cR, cZ
+    # area centroids of the sections (Green's theorem on the polygon)
+    Rn, Zn = np.roll(R, -1, axis=0), np.roll(Z, -1, axis=0)
+    cross = R * Zn - Rn * Z
+    A = 0.5 * cross.sum(axis=0)
+    cand = [((R + Rn) * cross).sum(axis=0) / (6 * A), ((Z + Zn) * cross).sum(axis=0) / (6 * A)]
+    # innermost points: the farthest from the section of a grid of points inside it
+    poles_R, poles_Z = np.empty(nphi), np.empty(nphi)
+    for j in range(nphi):
+        g1, g2 = np.meshgrid(np.linspace(R[:, j].min(), R[:, j].max(), 41), np.linspace(Z[:, j].min(), Z[:, j].max(),
+                                                                                         41))
+        P = np.stack([g1.ravel(), g2.ravel()], -1)
+        poly = np.stack([R[:, j], Z[:, j]], -1)
+        d = np.min(np.linalg.norm(P[:, None, :] - poly[None, :, :], axis=-1), axis=1)
+        a_ = np.arctan2(poly[None, :, 1] - P[:, None, 1], poly[None, :, 0] - P[:, None, 0])
+        w = np.round((np.unwrap(np.concatenate([a_, a_[:, :1]], axis=1), axis=1)[:, -1] - a_[:, 0]) / TAU)
+        d[w != 1] = -1.0
+        k = int(np.argmax(d))
+        poles_R[j], poles_Z[j] = P[k]
+    for Rc, Zc in (cand, (poles_R, poles_Z)):
+        # their Fourier series in phi, in the series' convention exp(-i n nfp phi) (n = -N..N)
+        fR = np.fft.fft(Rc) / nphi
+        fZ = np.fft.fft(Zc) / nphi
+        cR = np.zeros(2 * N + 1, complex)
+        cZ = np.zeros(2 * N + 1, complex)
+        for n in range(-N, N + 1):
+            if abs(n) < nphi // 2:
+                cR[n + N] = fR[(-n) % nphi]
+                cZ[n + N] = fZ[(-n) % nphi]
+        if inside(cR, cZ, 4 * nphi):
+            return cR, cZ
+    return None
 
 
 def flux_tube_A(points, cR, cZ, nv, c):

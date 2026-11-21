@@ -821,11 +821,24 @@ class TorusProblem:
         timed_out = False
         predicted = None
         last_step = None
+        sheet = bool(getattr(self.engine, "sheets", None))
+        prev = None                  # (u, du, lam) of the last step, for a sheet engine's backtracking
         for it in range(maxit):
             if deadline is not None and time.time() > deadline:
                 timed_out = True
                 break
             F, J, flux, res = self.system(u, ft, flux_scale)
+            if sheet and prev is not None and not np.all(np.isfinite(np.asarray(F))):
+                # (a source with a current sheet) the step took the torus inside the sheet's boundary, where there is
+                # no field: half of it, from the last iterate, up to six times
+                halved = 0
+                while not np.all(np.isfinite(np.asarray(F))) and halved < 6:
+                    u0, du0, lam0 = prev
+                    lam0 *= 0.5
+                    prev = (u0, du0, lam0)
+                    u = u0 + lam0 * du0
+                    F, J, flux, res = self.system(u, ft, flux_scale)
+                    halved += 1
             if fixed_iota is not None:
                 if self.np_path:
                     F = np.array(F, copy=True); J = np.array(J, copy=True)
@@ -890,6 +903,8 @@ class TorusProblem:
                     best = (pr, u)
                     predicted = pr
                     break
+            if sheet:
+                prev = (u, du, lam)
             u = u + lam * du
         nF, u = best if best is not None else (np.inf, u)
         rc, zs, iota = b.unpack(u)
