@@ -1,4 +1,4 @@
-"""torux: vacuum flux surfaces and exterior fields from supplied plasma currents.
+"""torux: the vacuum magnetic field and flux surfaces of any external source for toroidal confinement.
 
     import torux
 
