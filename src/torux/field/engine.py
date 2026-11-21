@@ -519,8 +519,8 @@ class FieldEngine:
 
     def __init__(self, source: Source, dmin: float = 0.05, eps: float = 1e-17, node_multiple=None,
                  axipoly_order: int = 8, target_chunk: int = 4096, region_pts=None, region_margin=0.5, strip=0.8,
-                 region_h=0.0, axipoly_kappa=0.5, nodes_per_coil=None, nodes_np=False, sheet_order=10,
-                 sheet_samples=256):
+                 region_h=0.0, axipoly_kappa=0.5, nodes_per_coil=None, nodes_np=False, sheet_order=None,
+                 sheet_eta=None, sheet_nan=None):
         """region_pts: optional points (k, 3) of the region where the field will be needed (e.g. a design
         surface); each Fourier coil then gets the nodes its own distance to that region needs (times
         region_margin, the share of that distance targets may approach), never fewer than for dmin.
@@ -530,7 +530,11 @@ class FieldEngine:
         order) replacing the strip model's (measured_nodes; still >= 4 order + 8, rounded to node_multiple).
         nodes_np: those coils' nodes built by fourier_nodes_np (numpy; JAX's op-by-op fourier_nodes compiles
         once per new node count, seconds for a coil set whose counts are all new).
-        sheet_order and sheet_samples refine the Gaussian rule and the spectral source grid for SurfaceCurrent."""
+        sheet_order and sheet_eta: the Gauss-Legendre order of a SurfaceCurrent's panels and how many panel radii a
+        target must lie from a panel used for it (torux.field.surface_current: 12 and 2 by default; with both
+        higher, the field changes by the rule's error).  sheet_nan: points inside a sheet, or nearer it than its
+        quadrature resolves, get NaN instead of an error (default: the solver's mode,
+        torux.field.surface_current.solver_mode)."""
         self.source = source
         self.dmin = float(dmin)
         from .. import fast_design as _so
@@ -542,6 +546,10 @@ class FieldEngine:
         self.region_pts = None if region_pts is None else np.asarray(region_pts, float)
         self.target_chunk = target_chunk
         self.sheets = []
+        if sheet_nan is None:
+            from .surface_current import _SOLVER_MODE
+            sheet_nan = _SOLVER_MODE[0]
+        self.sheet_nan = bool(sheet_nan)
         rs, ws, whs, Ns = [], [], [], []
         seg_a, seg_b, seg_w = [], [], []
         dip_p, dip_m = [], []
@@ -614,8 +622,8 @@ class FieldEngine:
             elif p.kind == "toroidal":
                 self.RB += p.RB
             elif p.kind == "surface_current":
-                from .surface_current import SheetField
-                self.sheets.append(SheetField(p, sheet_order, sheet_samples))
+                from .surface_current import sheet_field
+                self.sheets.append(sheet_field(p, sheet_order, sheet_eta))
             else:
                 raise ValueError(f"unknown part kind {p.kind}")
         cat = lambda L, shape: np.concatenate(L) if L else np.zeros(shape)
@@ -672,32 +680,97 @@ class FieldEngine:
         Targets are processed in chunks of ``target_chunk`` points (the last chunk padded), so
         the compiled program depends on the chunk size only.  Concrete points on a CPU go to the
         numba kernels (torux.field.cpu); traced points (inside jit / autodiff) to the JAX kernels.
-        SurfaceCurrent works with concrete exterior points. Refine sheet_order and sheet_samples
-        to assess its error; the filament err_half rule does not measure sheet convergence."""
+        A SurfaceCurrent takes concrete exterior points and fixed source parameters (no tracing, no derivative in
+        the source); it has no half rule of its own, so err_half is the coils' (NaN where the sheet's field is)."""
         if getattr(self, "sheets", None):
-            if params is not None or err or isinstance(x, jax.core.Tracer):
-                raise ValueError("SurfaceCurrent requires concrete points, fixed source parameters and err=False")
+            if params is not None or isinstance(x, jax.core.Tracer):
+                raise ValueError("a source with a SurfaceCurrent takes concrete points and fixed source parameters")
             points = np.asarray(x, dtype=np.float64)
             if points.shape == (3,):
                 points = points[None, :]
             if points.ndim != 2 or points.shape[1] != 3:
                 raise ValueError("SurfaceCurrent targets must be Cartesian points of shape (3,) or (n, 3)")
             points = np.ascontiguousarray(points)
-            if not np.isfinite(points).all():
+            ok = np.isfinite(points).all(axis=1)
+            if not ok.all() and not self.sheet_nan:
                 raise ValueError("SurfaceCurrent targets must be finite")
             if not len(points):
-                return dict(B=jnp.empty((0, 3)), A=jnp.empty((0, 3)), G=jnp.empty((0, 3, 3)))
+                out = dict(B=jnp.empty((0, 3)), A=jnp.empty((0, 3)), G=jnp.empty((0, 3, 3)))
+                if err:
+                    out["err_half"] = jnp.empty(0)
+                return out
+            safe = points if ok.all() else np.ascontiguousarray(np.where(ok[:, None], points, 0.0))
             sheet = np.zeros((len(points), 15))
             for part in self.sheets:
-                sheet += part.evaluate(points, grad, A)
-            res = self._evaluate_regular(points, grad, A, False, chunk, None)
-            res["B"] += jnp.asarray(sheet[:, :3])
+                sheet[ok] += part.evaluate(safe[ok], grad, A, nan_outside=self.sheet_nan)
+            sheet[~ok] = np.nan
+            res = self._evaluate_regular(safe, grad, A, err, chunk, None)
+            coil_B = np.asarray(res["B"])
+            res["B"] = jnp.asarray(coil_B + sheet[:, :3])
             if A:
-                res["A"] += jnp.asarray(sheet[:, 3:6])
+                Av = np.asarray(res["A"]) + sheet[:, 3:6]
+                tube = None if getattr(self, "_raw_A", False) else self.flux_tube()
+                if tube is not None:
+                    from .surface_current import flux_tube_A
+                    Av[ok] += flux_tube_A(safe[ok], tube["cR"], tube["cZ"], tube["nv"], tube["c"])
+                res["A"] = jnp.asarray(Av)
             if grad:
-                res["G"] += jnp.asarray(sheet[:, 6:15].reshape(-1, 3, 3))
+                res["G"] = res["G"] + jnp.asarray(sheet[:, 6:15].reshape(-1, 3, 3))
+            if err:
+                # the coils' half-rule error, relative to the whole field (no coils: none)
+                bc = np.linalg.norm(coil_B, axis=1)
+                e = np.where(bc > 0, np.nan_to_num(np.asarray(res["err_half"])) * bc, 0.0)
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    e = e / np.linalg.norm(np.asarray(res["B"]), axis=1)
+                res["err_half"] = jnp.asarray(np.where(np.isfinite(sheet[:, 0]), e, np.nan))
             return res
         return self._evaluate_regular(x, grad, A, err, chunk, params)
+
+    def flux_tube(self):
+        """For a source with one SurfaceCurrent that carries its flux: the flux tube its vector potential carries
+        (torux.field.surface_current.flux_tube_A), so that -oint A . dl round a loop outside the boundary is the full
+        toroidal flux: the part's flux plus the flux of the field between the boundary and the loop.  None for
+        other sources.  Computed once per source (kept with it) from the boundary's own flux in the field of the
+        coils and the sheet (torux.field.surface_current.boundary_flux)."""
+        sheets = getattr(self, "sheets", None) or []
+        parts = [p for p in self.source.parts if p.kind == "surface_current"]
+        if len(sheets) != 1 or len(parts) != 1 or parts[0].flux is None:
+            return None
+        from .surface_current import boundary_flux, interior_curve, source_fingerprint
+        key = source_fingerprint(self.source)
+        kept = self.source.__dict__.get("_flux_tube")
+        if kept is not None and kept[0] == key:
+            return kept[1]
+        S = sheets[0]
+        curve = interior_curve(S)
+        if curve is None:
+            raise ValueError("the boundary's m = 0 curve leaves one of its sections: torux cannot carry the flux "
+                             "inside it")
+        self._raw_A = True
+        try:
+            bf = boundary_flux(lambda x, want_A: self.evaluate(x, grad=False, A=want_A), S)
+            probe = S.size["minor_radius"]
+            th = np.linspace(0, 2 * np.pi, 16, endpoint=False)
+            ph = np.full(16, 0.5 * np.pi / S.nfp)
+            from .surface_current import grid_values
+            V = grid_values(S.CN, S.mv, S.nv, th, ph[:1])[:, :, 0]
+            R, Rt, Z, Zt = V[0], V[1], V[3], V[4]
+            nR, nZ = Zt / np.hypot(Rt, Zt), -Rt / np.hypot(Rt, Zt)
+            x = np.stack([(R + 0.01 * probe * nR) * np.cos(ph), (R + 0.01 * probe * nR) * np.sin(ph),
+                          Z + 0.01 * probe * nZ], -1)
+            Bx = np.asarray(self.evaluate(x, grad=False, A=False)["B"])
+            bphi = -Bx[:, 0] * np.sin(ph) + Bx[:, 1] * np.cos(ph)
+        finally:
+            self._raw_A = False
+        if not (np.all(bphi > 0) or np.all(bphi < 0)):
+            raise ValueError("the field's toroidal component changes sign just outside the boundary: no toroidal flux "
+                             "label")
+        sign = 1.0 if bphi[0] > 0 else -1.0
+        full = sign * abs(parts[0].flux)
+        tube = dict(cR=curve[0], cZ=curve[1], nv=S.nv, c=bf["flux"] - full, boundary=bf, sign=sign,
+                    flux_inside=full)
+        self.source.__dict__["_flux_tube"] = (key, tube)
+        return tube
 
     def _evaluate_regular(self, x, grad, A, err, chunk, params):
         if getattr(self, "cpu_kernels", False) and params is None:

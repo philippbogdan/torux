@@ -191,18 +191,22 @@ class ToroidalField:
 
 @dataclass
 class SurfaceCurrent:
-    """A toroidal boundary with equivalent surface current, in SI units.
+    """A toroidal boundary with a current sheet on it, in SI units: a plasma's boundary and its equivalent current.
 
-    All Fourier coefficients share (m, n) modes with phase m*theta - n*nfp*phi.
-    A fixed-phi cut must be simple and counterclockwise in (R, Z) as theta
-    increases. The outward normal is proportional to r_phi × r_theta.
+    All Fourier coefficients share the (m, n) modes, with phase m*theta - n*nfp*phi, both angles in radians and phi
+    the cylindrical angle.  Each constant-phi section runs counterclockwise in (R, Z) as theta increases, and n is
+    the outward unit normal, along r_phi x r_theta.  A mode appears once; (0, n) and (0, -n) may both appear.
 
-    K = n × grad_s kappa, with kappa in amperes and secular terms
-    I*theta/(2*pi) + G*phi/(2*pi). Alternatively, give `covariant` with
-    shape (2, 2, len(modes)): [theta, phi] components, each [cos, sin].
-    To represent n × B_total / mu0, these coefficients are those of
-    (B_total · r_theta, B_total · r_phi) / mu0, using angles in radians.
-    This preserves both components, including any non-gradient contribution.
+    K = n x grad_s kappa, kappa in amperes with the secular terms I*theta/(2*pi) + G*phi/(2*pi): G is the current
+    through the hole along +z linked by a loop along +phi on the boundary, and I is minus the net toroidal current
+    along +phi inside it.  Alternatively `covariant`, shape (2, 2, len(modes)): the cos and sin coefficients of
+    B.r_theta / mu0 and of B.r_phi / mu0, B the total field on the boundary (coils and plasma); K = n x B / mu0.
+    Outside the boundary the coils and this sheet make the total field; inside, a sheet of K = n x B / mu0 cancels
+    the coils' field (to zero for an exact equilibrium boundary), and makes no plasma field there.
+
+    flux: the toroidal flux inside the boundary in Wb, the equilibrium's own (its magnitude; the sign is the
+    field's).  torux.solve asks for the full toroidal flux: this plus the flux between the boundary and the surface.
+    Field evaluation and Poincare sections need no flux.
     """
 
     nfp: int
@@ -216,6 +220,7 @@ class SurfaceCurrent:
     rmns: Optional[np.ndarray] = None
     zmnc: Optional[np.ndarray] = None
     covariant: Optional[np.ndarray] = None
+    flux: Optional[float] = None
     kind: str = "surface_current"
 
     def __post_init__(self):
@@ -227,11 +232,18 @@ class SurfaceCurrent:
                 or not np.all(np.isfinite(modes)) or np.any(modes != np.rint(modes))):
             raise ValueError("SurfaceCurrent modes must be a nonempty array of integer (m, n) pairs")
         self.modes = np.ascontiguousarray(modes, dtype=np.int64)
+        key = np.where(self.modes[:, :1] < 0, -1, 1) * self.modes
+        if len({(int(a), int(b)) for a, b in key}) != len(key):
+            raise ValueError("SurfaceCurrent modes must not repeat a mode ((m, n) and (-m, -n) are one)")
         self.G, self.I = float(self.G), float(self.I)
         if not np.isfinite([self.G, self.I]).all():
             raise ValueError("SurfaceCurrent G and I must be finite")
         if self.covariant is not None and (self.kappac is not None or self.kappas is not None or self.G or self.I):
             raise ValueError("give covariant current or a current potential with G and I")
+        if self.flux is not None:
+            self.flux = float(self.flux)
+            if not np.isfinite(self.flux) or self.flux == 0.0:
+                raise ValueError("SurfaceCurrent flux must be a finite, nonzero toroidal flux in Wb")
         for key in ("rmnc", "rmns", "zmnc", "zmns", "kappac", "kappas", "covariant"):
             value = getattr(self, key)
             if value is None and key not in ("rmnc", "zmns"):
@@ -241,6 +253,21 @@ class SurfaceCurrent:
             if coef.shape != shape or not np.isfinite(coef).all():
                 raise ValueError(f"SurfaceCurrent {key} must have shape {shape} and finite coefficients")
             setattr(self, key, coef)
+
+    def symmetric(self, tol=1e-9):
+        """Stellarator symmetric by its coefficients: the sine parts of R, the cosine parts of Z and of kappa (or the
+        sine parts of the covariant field) at most tol of the parts that remain."""
+        def ratio(odd, even):
+            o = 0.0 if odd is None else float(np.max(np.abs(odd)))
+            e = float(np.max(np.abs(even))) if even is not None and np.size(even) else 0.0
+            return o / max(e, 1e-300) if o else 0.0
+        geo = max(ratio(self.rmns, self.rmnc), ratio(self.zmnc, self.zmns))
+        if self.covariant is None:
+            even = np.r_[np.abs(self.kappas) if self.kappas is not None else [], abs(self.G), abs(self.I)]
+            cur = ratio(self.kappac, even)
+        else:
+            cur = ratio(self.covariant[:, 1], self.covariant[:, 0])
+        return bool(geo <= tol and cur <= tol)
 
     @property
     def n(self):

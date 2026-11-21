@@ -141,11 +141,19 @@ def solve(source, flux=None, *, budget_s=None, tol=3e-15, verify=True, trace_lin
                                                              gradients)
     t0 = time.time()
     src, surfs = _resolve_source(req.source)
-    if getattr(src, "has_surface_current", False):
-        raise ValueError("SurfaceCurrent supports exterior field evaluation and poincare(starts=...), not solve")
     flux = req.flux
     if flux is None and src.request:
         flux = src.request.get("flux_Wb")
+    if getattr(src, "has_surface_current", False):
+        from .sheet import refusal
+        said = refusal(src, flux)
+        if said is None and req.gradients:
+            said = "gradients=True is not offered for a source with a SurfaceCurrent: its field is not differentiated"
+        if said is None and req.trace_lines:
+            said = "trace_lines is not offered for a source with a SurfaceCurrent"
+        if said is not None:
+            raise ValueError(said)
+        surfs = None
     budget = float(req.budget_s) if req.budget_s else estimate_budget(src, flux)
     deadline = t0 + budget
     with B.scope(deadline):
@@ -197,7 +205,7 @@ def _solve(req, src, surfs, budget, t0, deadline):
     # the structure and its proofs (torux.nonstell); an elliptic period-one line there goes on to the torus pipeline
     try:
         from . import nonstell as NS
-        in_scope = bool(NS.scope(src)[0])
+        in_scope = bool(NS.scope(src)[0]) and not getattr(src, "has_surface_current", False)
     except Exception:  # noqa: BLE001
         in_scope = False
     ns = None
@@ -218,7 +226,15 @@ def _solve(req, src, surfs, budget, t0, deadline):
     reserve = (0.12 * budget if req.verify else 0.0) + (0.15 * budget if req.gradients else 0.0)
     a_budget = max(0.25 * budget, deadline - time.time() - reserve)
     try:
-        if surfs is not None:
+        if getattr(src, "has_surface_current", False):
+            # a source with a current sheet: from its boundary outward (torux.sheet)
+            from .sheet import analyse_sheet, symmetric
+            if not symmetric(src):
+                return Result("error", budget, time.time() - t0, evidence=dict(error=(
+                    "a source with a SurfaceCurrent is solved with stellarator symmetry, and this one has none (its "
+                    "claim, or its sheet's coefficients)")))
+            rec = analyse_sheet(src, flux=flux, budget_s=a_budget, tol=req.tol)
+        elif surfs is not None:
             no_req = flux is None
             rec = analyse_design(src, surfs, flux=flux, budget_s=(0.7 if no_req else 1.0) * a_budget, tol=req.tol,
                                  range_budget_s=0.3 * a_budget if no_req else 0.0)
@@ -253,6 +269,8 @@ def _solve(req, src, surfs, budget, t0, deadline):
         out.evidence["solver"] = {k: rec.get(k) for k in ("guard", "refine_hist", "axes", "profile", "path")}
         out.evidence["solver"]["bn_off"] = s.get("bn_off")
         out.evidence["solver"]["quad_err_half"] = s.get("quad_err_half")
+        if s.get("sheet") is not None:
+            out.evidence["solver"]["sheet"] = s["sheet"]
         g_res = 0.15 * budget if req.gradients else 0.0
         if req.verify:
             v_deadline = deadline - g_res
@@ -265,8 +283,13 @@ def _solve(req, src, surfs, budget, t0, deadline):
                     out.evidence["independent"] = v
                 else:
                     from .verify import verify_torus, acceptance
-                    v = verify_torus(src, T, nlines=int(req.trace_lines), nperiods=100, deadline=v_deadline)
-                    v["ok"] = acceptance(v)
+                    try:
+                        v = verify_torus(src, T, nlines=int(req.trace_lines), nperiods=100, deadline=v_deadline)
+                        v["ok"] = acceptance(v)
+                    except Exception as e:  # noqa: BLE001
+                        if not getattr(src, "has_surface_current", False):
+                            raise
+                        v = dict(skipped=f"the independent evaluator could not measure it ({e})", ok=False)
                     out.evidence["independent"] = v
             else:
                 out.evidence["independent"] = dict(skipped="no time left in the budget")
@@ -294,4 +317,9 @@ def _solve(req, src, surfs, budget, t0, deadline):
                     out.gradients = dict(error=repr(e))
     if rec.get("certificate"):
         out.evidence["certificate"] = rec["certificate"]
+    if rec.get("sheet") is not None:
+        # a source with a current sheet: its boundary's flux, and why an answer is undetermined where it is
+        out.evidence["sheet"] = rec["sheet"]
+        if rec.get("why"):
+            out.evidence["why"] = rec["why"]
     return out
