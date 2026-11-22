@@ -32,7 +32,7 @@ def compare(source, probes):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("source", type=Path, help="a Torux JSON source containing a sheet, optionally with coils")
+    parser.add_argument("source", type=Path, help="a torux JSON source containing a sheet, optionally with coils")
     parser.add_argument("probes", type=Path, help="JSON arrays points (Cartesian m) and B (Cartesian T)")
     parser.add_argument("--case", help="key to select inside a file containing multiple probe sets")
     args = parser.parse_args()

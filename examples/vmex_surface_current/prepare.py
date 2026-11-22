@@ -1,4 +1,4 @@
-"""Convert a VMEX wout and its ESSOS coils to a Torux source."""
+"""Convert a VMEX wout and its ESSOS coils to a torux source."""
 
 import argparse
 from pathlib import Path

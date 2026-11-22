@@ -1,4 +1,4 @@
-"""Compare Torux to VMEX on a fixed public equilibrium and locate the edge island."""
+"""Compare torux to VMEX on a fixed public equilibrium and locate the edge island."""
 
 import argparse
 import json
@@ -120,7 +120,7 @@ def plot_island(result, stem):
     cut = section[mask][np.argsort(section[mask, 1])]
     fig, ax = plt.subplots(figsize=(4.5, 3.5), layout="constrained")
     ax.plot(1e3*(cut[:, 0] - edge), 1e3*cut[:, 1], color="#72818b", lw=1.15, label="VMEX boundary")
-    ax.scatter(1e3*(island[:, 0] - edge), 1e3*island[:, 1], s=21, color="#086a72", label="Torux, every 2 turns")
+    ax.scatter(1e3*(island[:, 0] - edge), 1e3*island[:, 1], s=21, color="#086a72", label="torux, every 2 turns")
     ax.scatter(1e3*(axis-edge), 0, marker="+", s=64, color="#934320", label="Island centre")
     span = np.max(abs(island[:, 1]))*1e3
     ax.set(xlabel=r"$R - R_{\rm boundary}$ (mm)", ylabel="$Z$ (mm)", xlim=(-.45, 7.25),
