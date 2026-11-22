@@ -4,7 +4,7 @@ torux 0.4.0
 - Exact. QUASR 954's coils with a sheet that cancels their field outside a truth surface: `torux.solve` returns the coils' own verified surfaces at 0.03 and 0.05 Wb to 7.6 × 10⁻¹⁵ m, their rotational transform to 2 × 10⁻¹⁶. A current ring inside a toroidal field, replaced by its sheet: the closed-form flux surface to 1.0 × 10⁻¹⁴ m.
 - The sheet's field holds rounding next to Γ: within 4.6 × 10⁻¹⁶ of |B| of the independent evaluator's double-double tier, from 10⁻¹ down to 10⁻⁵ of Γ's minor radius. `torux.reference` evaluates the sheet with a quadrature of its own and measures the flux inside Γ itself.
 - The public VMEX example carries the flux inside its boundary, 0.025 Wb. Its boundaries are 4.8 × 10⁻³ and 4.0 × 10⁻³ of |B| from flux surfaces of their coils and sheets, so a request next to them is `undetermined` with that reason; at 0.045 Wb the 4 kA case gives a verified surface in 27 minutes.
-- Vacuum sources: unchanged, the same answers bit for bit.
+- Vacuum sources: unchanged. QUASR 954, W7-X, HSX and QUASR 1100073 give the same answers bit for bit.
 
 Known limits
 
