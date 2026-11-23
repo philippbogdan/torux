@@ -2,7 +2,7 @@
 
 `torux.SurfaceCurrent`, added in 0.4.0, holds the plasma boundary Γ, its surface current and the toroidal flux inside it. The exterior field is the sum of the coil and sheet fields. For virtual casing, K = n × B / μ₀, where n is the outward unit normal and B is the total field on Γ.
 
-On exact test cases, the field and the surfaces returned by `torux.solve` agree with independent calculations to rounding level. It is not yet a practical tool. One surface takes tens of minutes to hours. And where Γ is not itself a flux surface of coils plus sheet, as in the public VMEX equilibrium as converged, torux verifies no surface close to it.
+On exact test cases, the field and the surfaces returned by `torux.solve` agree with independent calculations to rounding level. It is not yet a practical tool. One surface takes from tens of minutes to more than a day. And where Γ is not itself a flux surface of coils plus sheet, as in the public VMEX equilibrium as converged, torux verifies no surface close to it.
 
 ```python
 import torux
@@ -45,4 +45,4 @@ Against calculations sharing no code with torux, the QUASR 954 null case returns
 
 In the public VMEX cases, the maximum |B·n|/|B| on Γ is 4.8 × 10⁻³ for `current.json` and 4.0 × 10⁻³ for `beta1.json`. The first requests that verify are at 0.045 Wb, 1.8 times the flux inside Γ. They took 1,640 s and 10,623 s respectively on shared cores. Both inputs come from fresh solves of the [public Landreman-Paul QA example](https://github.com/uwplasma/VMEX/blob/757fe28348d959d5d4a50653d25fcca67c8fb941/docs/_static/figures/sources/make_extender_islands_figure.py) at about 1 % volume-averaged beta; `examples/vmex_surface_current/prepare.py` converts a VMEX `wout` and its ESSOS coils.
 
-Sheets above about 10⁴ modes are out of reach today. A W7-X case with about 8,800 modes and a QUASR quasi-helical case with 19,333 modes did not finish within their budgets.
+Cost grows with the sheet, and the independent check takes most of it. A W7-X case with 8,127 modes, on a Γ that is a flux surface to 9 × 10⁻¹⁴, verified at 1.1 times the flux inside Γ in 14 hours, 10.5 of them in the independent check. Two exact cases with larger sheets, one of 21,263 modes and one on an HSX-shaped Γ with m ≤ 92 and |n| ≤ 129, took 23 and 27 hours a surface. A QUASR quasi-helical case with 19,333 modes did not finish within its budget.
